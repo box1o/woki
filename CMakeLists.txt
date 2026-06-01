@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.25)
+
+project(woki VERSION 0.0.1 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(GNUInstallDirs)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+set(namespace "woki" CACHE STRING "Project namespace")
+
+include(Options)
+include(Dependencies)
+include(Module)
+include(CTest)
+
+message(STATUS "Version:        ${PROJECT_VERSION}")
+message(STATUS "Build type:     ${CMAKE_BUILD_TYPE}")
+message(STATUS "Compiler:       ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "C++ standard:   C++${CMAKE_CXX_STANDARD}")
+message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
+
+add_subdirectory(3rdparty)
+
+set(modules_dir "${CMAKE_SOURCE_DIR}/modules")
+file(GLOB module_entries RELATIVE "${modules_dir}" "${modules_dir}/*")
+
+foreach(module_entry IN LISTS module_entries)
+    if(IS_DIRECTORY "${modules_dir}/${module_entry}")
+        message(STATUS "Module: ${module_entry}")
+        add_subdirectory("${modules_dir}/${module_entry}")
+    endif()
+endforeach()
+add_subdirectory(studio)
