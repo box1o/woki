@@ -1,9 +1,6 @@
-#include "woki/core.hpp"
+#include "entry.hpp"
 
 int main(int argc, char* argv[]) {
     slog::Configure();
-    slog::Info("Starting application");
-    slog::Critical("Critical error occurred");
-
-    return 0;
+    return studio::RunApplication(studio::CreateApplication(argc, argv));
 }
