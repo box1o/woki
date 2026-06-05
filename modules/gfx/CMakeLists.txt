@@ -26,8 +26,6 @@ if(EMSCRIPTEN)
     else()
         set(_WGPU_PORT "${EMDAWNWEBGPU_PORT}")
     endif()
-
-    list(APPEND BASE_DEPS emdawnwebgpu)
 else()
     find_package(Threads REQUIRED)
     find_package(Dawn CONFIG QUIET)
