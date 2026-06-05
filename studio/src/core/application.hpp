@@ -1,7 +1,7 @@
 #pragma once
 
 #include <woki/core.hpp>
-#include <woki/gui.hpp>
+#include <woki/gfx.hpp>
 
 namespace woki {
 
@@ -37,6 +37,7 @@ private:
 
     ApplicationSettings settings_{};
     scope<Window> window_;
+    scope<api::Instance> instance_;
     bool is_running_{false};
 };
 

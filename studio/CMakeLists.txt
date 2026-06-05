@@ -35,7 +35,7 @@ target_include_directories(${_EXECUTABLE_NAME}
 
 set(_DEPS
     woki::core
-    woki::gui
+    woki::gfx
 )
 
 set(_OUTPUT_DIR_NATIVE "${CMAKE_BINARY_DIR}/bin")

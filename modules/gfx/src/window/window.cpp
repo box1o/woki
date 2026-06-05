@@ -1,12 +1,11 @@
-#include <woki/window/window.hpp>
-
-#include <vector>
-
+#include "../../include/woki/window/window.hpp"
 #include <GLFW/glfw3.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/html5.h>
 #endif
+
+#include <vector>
 
 namespace woki {
 
@@ -96,12 +95,8 @@ bool Window::CreateGlfwWindow(const WindowOptions& options) noexcept {
     glfwWindowHint(GLFW_DECORATED, options.decorated ? GLFW_TRUE : GLFW_FALSE);
 
     GLFWmonitor* monitor = options.fullscreen ? glfwGetPrimaryMonitor() : nullptr;
-    impl_->window = glfwCreateWindow(
-        static_cast<int>(options.width),
-        static_cast<int>(options.height),
-        options.title.c_str(),
-        monitor,
-        nullptr);
+    impl_->window = glfwCreateWindow(static_cast<int>(options.width),
+        static_cast<int>(options.height), options.title.c_str(), monitor, nullptr);
 
     if (impl_->window == nullptr) {
         slog::Critical("Failed to create GLFW window");
@@ -145,15 +140,16 @@ void Window::SetupCallbacks() noexcept {
         self->HandleResize(static_cast<u32>(width), static_cast<u32>(height));
     });
 
-    glfwSetWindowContentScaleCallback(impl_->window, [](GLFWwindow* window, float xscale, float yscale) {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
-        if (self == nullptr) {
-            return;
-        }
+    glfwSetWindowContentScaleCallback(
+        impl_->window, [](GLFWwindow* window, float xscale, float yscale) {
+            auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (self == nullptr) {
+                return;
+            }
 
-        self->content_scale_x_ = xscale;
-        self->content_scale_y_ = yscale;
-    });
+            self->content_scale_x_ = xscale;
+            self->content_scale_y_ = yscale;
+        });
 }
 
 void Window::UpdateWindowMetrics() noexcept {

@@ -1,5 +1,6 @@
 #pragma once
 
 // IWYU pragma: begin_exports
-#include <woki/window/window.hpp>
+#include "window/window.hpp"
+#include "api/instance.hpp"
 // IWYU pragma: end_exports

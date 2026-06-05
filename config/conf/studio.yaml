@@ -6,6 +6,6 @@ window:
   width: 1280
   height: 720
   fullscreen: false
-  floating: false
+  floating: true
   resizable: true
   decorated: true

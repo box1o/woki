@@ -1,9 +1,10 @@
 #include "application.hpp"
+#include "woki/api/instance.hpp"
+#include "woki/core.hpp"
 
 namespace woki {
 
-Application::Application(ApplicationSettings settings)
-    : settings_(std::move(settings)) {
+Application::Application(ApplicationSettings settings) : settings_(std::move(settings)) {
     Initialize();
 }
 
@@ -25,11 +26,23 @@ void Application::Initialize() {
         return;
     }
 
-    slog::Info(
-        "Created window '{}' ({}x{})",
-        window_->GetTitle(),
-        window_->GetWidth(),
+    slog::Info("Created window '{}' ({}x{})", window_->GetTitle(), window_->GetWidth(),
         window_->GetHeight());
+
+    // NOTE: Instance
+    instance_ = api::Instance::Create({
+        .backend = api::Backend::kAuto,
+        .enable_validation = true,
+        .enable_debug_labels = true,
+    });
+
+    if (instance_ == nullptr) {
+        WOKI_PANIC("Failed to create graphics instance");
+        return;
+    }
+
+
+
 }
 
 void Application::Shutdown() noexcept {
@@ -69,11 +82,9 @@ bool Application::Tick() {
         return false;
     }
 
-#ifdef __EMSCRIPTEN__
     window_->PollEvents();
-#else
-    window_->WaitEvents();
-#endif
+
+    // NOTE: Drawing and update logic would go here
 
     if (window_->ShouldClose()) {
         Stop();
@@ -83,9 +94,6 @@ bool Application::Tick() {
     return true;
 }
 
-void Application::Run() {
-    while (Tick()) {
-    }
-}
+void Application::Run() { while (Tick()); }
 
 } // namespace woki
