@@ -21,8 +21,17 @@ set(BASE_DEPS
 )
 
 if(EMSCRIPTEN)
+    if(NOT DEFINED EMDAWNWEBGPU_PORT OR EMDAWNWEBGPU_PORT STREQUAL "")
+        set(_WGPU_PORT emdawnwebgpu)
+    else()
+        set(_WGPU_PORT "${EMDAWNWEBGPU_PORT}")
+    endif()
+
     list(APPEND BASE_DEPS emdawnwebgpu)
 else()
+    find_package(Threads REQUIRED)
+    find_package(Dawn CONFIG QUIET)
+
     list(APPEND BASE_DEPS glfw)
 
     if(TARGET dawn::webgpu_dawn)
@@ -38,6 +47,10 @@ add_module(gfx
     DEPENDENCIES ${BASE_DEPS}
 )
 
-if(NOT EMSCRIPTEN)
+if(EMSCRIPTEN)
+    target_compile_options(woki_gfx PUBLIC
+        "--use-port=${_WGPU_PORT}"
+    )
+else()
     target_compile_definitions(woki_gfx PUBLIC GLFW_INCLUDE_NONE)
 endif()
