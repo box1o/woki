@@ -17,6 +17,10 @@ include(Dependencies)
 include(Module)
 include(CTest)
 
+if(BUILD_TESTING)
+    add_custom_target(woki_tests)
+endif()
+
 message(STATUS "Version:        ${PROJECT_VERSION}")
 message(STATUS "Build type:     ${CMAKE_BUILD_TYPE}")
 message(STATUS "Compiler:       ${CMAKE_CXX_COMPILER_ID}")

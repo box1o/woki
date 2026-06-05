@@ -42,3 +42,32 @@ function(add_module name)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 endfunction()
+
+function(add_module_test name)
+    set(multi_value_args SOURCES LIBRARIES)
+    cmake_parse_arguments(ARG "" "" "${multi_value_args}" ${ARGN})
+
+    if(NOT ARG_SOURCES)
+        message(FATAL_ERROR "Test '${name}' must define SOURCES")
+    endif()
+
+    add_executable(${name}
+        ${ARG_SOURCES}
+    )
+
+    target_compile_features(${name} PRIVATE cxx_std_23)
+    apply_compiler_options(${name})
+
+    if(ARG_LIBRARIES)
+        target_link_libraries(${name}
+            PRIVATE
+                ${ARG_LIBRARIES}
+        )
+    endif()
+
+    add_test(NAME ${name} COMMAND ${name})
+
+    if(TARGET woki_tests)
+        add_dependencies(woki_tests ${name})
+    endif()
+endfunction()
