@@ -2,6 +2,7 @@ set(_EXECUTABLE_NAME studio)
 
 set(_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(_RES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+set(_CFG_DIR "${CMAKE_SOURCE_DIR}/config")
 
 file(GLOB_RECURSE _HEADERS
     CONFIGURE_DEPENDS
@@ -34,7 +35,7 @@ target_include_directories(${_EXECUTABLE_NAME}
 
 set(_DEPS
     woki::core
-    woki::gui
+    woki::gfx
 )
 
 set(_OUTPUT_DIR_NATIVE "${CMAKE_BINARY_DIR}/bin")
@@ -45,6 +46,7 @@ if(EMSCRIPTEN)
 
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     set(_WEB_RES_MOUNT "/resources")
+    set(_WEB_CFG_MOUNT "/config")
 
     target_compile_definitions(${_EXECUTABLE_NAME}
         PRIVATE
@@ -52,6 +54,7 @@ if(EMSCRIPTEN)
             __WEBGPU_TEST
             WOKI_HAS_DAWN
             WEBGPU_BACKEND_EMSCRIPTEN
+            __CFG_ROOT="${_WEB_CFG_MOUNT}"
     )
 
     if(NOT DEFINED EMDAWNWEBGPU_PORT OR EMDAWNWEBGPU_PORT STREQUAL "")
@@ -75,12 +78,19 @@ if(EMSCRIPTEN)
         )
     endif()
 
+    if(EXISTS "${_CFG_DIR}")
+        target_link_options(${_EXECUTABLE_NAME} PRIVATE
+            "--preload-file" "${_CFG_DIR}@${_WEB_CFG_MOUNT}"
+        )
+    endif()
+
     target_link_options(${_EXECUTABLE_NAME} PRIVATE
         "--use-port=${_WGPU_PORT}"
         "-sUSE_GLFW=3"
         "-sASYNCIFY"
         "-sALLOW_MEMORY_GROWTH=1"
         "-sASSERTIONS=1"
+        "-sNO_DISABLE_EXCEPTION_CATCHING"
         "--shell-file" "${CMAKE_SOURCE_DIR}/web/index.html"
     )
 
@@ -99,7 +109,7 @@ if(EMSCRIPTEN)
 else()
     message(STATUS "Building studio for native")
 
-    list(APPEND _DEPS glfw)
+    target_compile_definitions(${_EXECUTABLE_NAME} PRIVATE __CFG_ROOT="config")
 
     find_package(Threads REQUIRED)
 
@@ -151,5 +161,15 @@ if(EXISTS "${_RES_DIR}" AND NOT EMSCRIPTEN)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${_RES_DIR}"
             "${_OUTPUT_DIR_NATIVE}/resources"
+    )
+endif()
+
+if(EXISTS "${_CFG_DIR}" AND NOT EMSCRIPTEN)
+    add_custom_command(
+        TARGET ${_EXECUTABLE_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${_CFG_DIR}"
+            "${_OUTPUT_DIR_NATIVE}/config"
     )
 endif()

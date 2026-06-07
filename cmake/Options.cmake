@@ -21,6 +21,9 @@ function(apply_compiler_options target)
             -Wno-unused-parameter
             -Wno-deprecated-declarations
         )
+        if(EMSCRIPTEN)
+            target_compile_options(${target} PRIVATE -fexceptions)
+        endif()
         if(WARNINGS_AS_ERRORS)
             target_compile_options(${target} PRIVATE -Werror)
         endif()

@@ -6,6 +6,13 @@ BUILD_TYPE     := Release
 WEB_PORT       ?= 8080
 WEB_TARGET     := studio
 NUM_JOBS       := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+CONFIG         ?= config/conf/studio.yaml
+WIDTH          ?=
+HEIGHT         ?=
+TITLE          ?=
+FULLSCREEN     ?=
+FLOATING       ?=
+BORDERLESS     ?=
 
 # Use Clang with libc++ to match the Dawn dependency
 CXX            := $(shell which clang++ 2>/dev/null || which c++ 2>/dev/null || echo c++)
@@ -19,7 +26,16 @@ endif
 	configure-web build-web web
 
 # ARGS for native executable
-# ARGS :=
+ARGS           ?=
+
+RUN_ARGS       := $(if $(CONFIG),--config $(CONFIG),)
+RUN_ARGS       += $(if $(WIDTH),--width $(WIDTH),)
+RUN_ARGS       += $(if $(HEIGHT),--height $(HEIGHT),)
+RUN_ARGS       += $(if $(TITLE),--title "$(TITLE)",)
+RUN_ARGS       += $(if $(FULLSCREEN),--fullscreen,)
+RUN_ARGS       += $(if $(FLOATING),--floating,)
+RUN_ARGS       += $(if $(BORDERLESS),--borderless,)
+RUN_ARGS       += $(ARGS)
 
 configure:
 	@echo "→ Configuring native ($(BUILD_TYPE))..."
@@ -37,7 +53,7 @@ build: configure
 
 run: build
 	@echo "→ Running studio (native)..."
-	@cd $(BUILD_DIR)/bin && ./studio 
+	@cd $(BUILD_DIR)/bin && ./studio $(RUN_ARGS)
 
 test: build
 	@echo "→ Running tests..."

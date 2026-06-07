@@ -6,15 +6,15 @@ project(core
     LANGUAGES CXX
 )
 
-file(GLOB_RECURSE HEADERS
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS
     include/*.hpp
 )
 
-file(GLOB_RECURSE SOURCES
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     src/*.cpp
 )
 
-set(BASE_DEPS )
+set(BASE_DEPS cxxopts::cxxopts yaml-cpp::yaml-cpp)
 
 if (NOT EMSCRIPTEN)
     list(APPEND BASE_DEPS fmt spdlog)
