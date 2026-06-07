@@ -25,8 +25,6 @@ env:
   EM_CACHE_FOLDER: emsdk-cache
   CCACHE_DIR: ${{ github.workspace }}/.ccache
   DAWN_RELEASE_REPO: google/dawn
-  VCPKG_ROOT: ${{ github.workspace }}\\.cache\\vcpkg
-  VCPKG_BINARY_CACHE: ${{ github.workspace }}\\.cache\\vcpkg-bincache
 
 jobs:
   native:
@@ -73,28 +71,17 @@ jobs:
         timeout-minutes: 5
         run: brew install ccache
 
-      - name: Cache vcpkg artifacts (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/cache@v5
-        with:
-          path: |
-            ${{ env.VCPKG_ROOT }}
-            ${{ env.VCPKG_BINARY_CACHE }}
-          key: vcpkg-x64-windows-${{ hashFiles('.github/workflows/ci.yml') }}
-          restore-keys: |
-            vcpkg-x64-windows-
-
       - name: Install deps (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 10
         shell: pwsh
         run: |
-          $vcpkgRoot = $env:VCPKG_ROOT
-          if (-not (Test-Path $vcpkgRoot)) {
-            New-Item -ItemType Directory -Force -Path $vcpkgRoot | Out-Null
-          }
-
-          if (-not (Test-Path (Join-Path $vcpkgRoot '.git'))) {
+          if ($env:VCPKG_INSTALLATION_ROOT) {
+            $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          } elseif (Test-Path 'C:\vcpkg\vcpkg.exe') {
+            $vcpkgRoot = 'C:\vcpkg'
+          } else {
+            $vcpkgRoot = Join-Path $env:RUNNER_TEMP 'vcpkg'
             git clone https://github.com/microsoft/vcpkg $vcpkgRoot
           }
 
@@ -102,15 +89,9 @@ jobs:
             & (Join-Path $vcpkgRoot 'bootstrap-vcpkg.bat') -disableMetrics
           }
 
-          if (-not (Test-Path $env:VCPKG_BINARY_CACHE)) {
-            New-Item -ItemType Directory -Force -Path $env:VCPKG_BINARY_CACHE | Out-Null
-          }
-
-          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "VCPKG_DEFAULT_BINARY_CACHE=$env:VCPKG_BINARY_CACHE" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "VCPKG_BINARY_SOURCES=clear;files,$env:VCPKG_BINARY_CACHE,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
           & (Join-Path $vcpkgRoot 'vcpkg.exe') install freetype:x64-windows
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Cache ccache
         if: matrix.use_ccache == 'ON'
         uses: actions/cache@v5
@@ -147,13 +128,6 @@ jobs:
           echo "DAWN_PREFIX=$DAWN_PREFIX" >> "$GITHUB_ENV"
           echo "Dawn_DIR=$(dirname "$DAWN_CONFIG")" >> "$GITHUB_ENV"
 
-      - name: Cache prebuilt Dawn (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/cache@v5
-        with:
-          path: 3rdparty/.deps/dawn-install
-          key: dawn-prebuilt-windows-${{ matrix.dawn_asset_suffix }}
-
       - name: Download prebuilt Dawn (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 5
@@ -163,14 +137,12 @@ jobs:
         run: |
           $dawnPrefix = Join-Path (Get-Location) '3rdparty/.deps/dawn-install'
           $dawnArchive = Join-Path $env:RUNNER_TEMP 'dawn-prebuilt.tar.gz'
-          if (-not (Test-Path (Join-Path $dawnPrefix 'lib/cmake/Dawn/DawnConfig.cmake'))) {
-            if (Test-Path $dawnPrefix) {
-              Remove-Item -Recurse -Force $dawnPrefix
-            }
-            New-Item -ItemType Directory -Force -Path $dawnPrefix | Out-Null
-            gh release download -R $env:DAWN_RELEASE_REPO --pattern "*${{ matrix.dawn_asset_suffix }}" --output $dawnArchive
-            tar -xzf $dawnArchive -C $dawnPrefix --strip-components=1
+          if (Test-Path $dawnPrefix) {
+            Remove-Item -Recurse -Force $dawnPrefix
           }
+          New-Item -ItemType Directory -Force -Path $dawnPrefix | Out-Null
+          gh release download -R $env:DAWN_RELEASE_REPO --pattern "*${{ matrix.dawn_asset_suffix }}" --output $dawnArchive
+          tar -xzf $dawnArchive -C $dawnPrefix --strip-components=1
           $dawnConfig = Get-ChildItem -Path $dawnPrefix -Recurse -Filter DawnConfig.cmake | Select-Object -First 1
           if ($null -eq $dawnConfig) {
             Write-Error 'Downloaded Dawn archive does not contain DawnConfig.cmake'
