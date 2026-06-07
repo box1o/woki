@@ -21,6 +21,10 @@ scope<Instance> Instance::Create(const InstanceDesc& desc) {
     //     return nullptr;
     // }
 
+    if (!instance->IsValid()) {
+        return nullptr;
+    }
+
     return instance;
 }
 

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <unordered_map>
+
 #include <woki/core.hpp>
 #include <woki/gfx.hpp>
 
@@ -17,6 +20,8 @@ struct ApplicationSettings {
 
 class Application {
 public:
+    using EventCallback = std::function<void(events::Event&)>;
+
     explicit Application(ApplicationSettings settings = {});
     ~Application();
 
@@ -28,16 +33,39 @@ public:
     void Run();
     [[nodiscard]] bool Tick();
 
+    CallbackId AddEventCallback(EventCallback callback);
+    void RemoveEventCallback(CallbackId id);
+
 private:
     void Initialize();
     void Shutdown() noexcept;
     [[nodiscard]] bool IsReady() const noexcept;
+    [[nodiscard]] bool IsGraphicsReady() const noexcept;
+    void BeginGraphicsInitialization();
+    void FinalizeGraphicsInitialization();
     void Start();
     void Stop() noexcept;
+    void EmitEvent(events::Event& event);
+
+    template <typename T, typename... Args> void EmitEvent(Args&&... args) {
+        T event(std::forward<Args>(args)...);
+        EmitEvent(event);
+    }
 
     ApplicationSettings settings_{};
     scope<Window> window_;
     scope<api::Instance> instance_;
+    scope<api::Surface> surface_;
+    scope<api::Adapter> adapter_;
+    scope<api::Device> device_;
+    scope<api::Swapchain> swapchain_;
+    std::unordered_map<CallbackId, EventCallback> event_callbacks_;
+    CallbackId next_callback_id_{1};
+    CallbackId window_event_callback_id_{0};
+    CallbackId window_resize_callback_id_{0};
+    FrameTimer frame_timer_{};
+    bool graphics_initialization_started_{false};
+    bool graphics_initialization_failed_{false};
     bool is_running_{false};
 };
 

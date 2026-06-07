@@ -1,10 +1,12 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <string>
 #include <unordered_map>
 
 #include <woki/core.hpp>
+#include <woki/events/events.hpp>
 
 namespace woki {
 
@@ -25,6 +27,7 @@ struct WindowOptions {
 
 class Window final {
 public:
+    using EventCallback = std::function<void(events::Event&)>;
     using ResizeCallback = std::function<void(u32 width, u32 height)>;
 
     ~Window();
@@ -58,6 +61,9 @@ public:
     void WaitEvents() const noexcept;
     void Close() noexcept;
 
+    CallbackId AddEventCallback(EventCallback callback);
+    void RemoveEventCallback(CallbackId id);
+
     CallbackId AddResizeCallback(ResizeCallback callback);
     void RemoveResizeCallback(CallbackId id);
 
@@ -72,6 +78,16 @@ private:
     void SetupCallbacks() noexcept;
     void UpdateWindowMetrics() noexcept;
     void HandleResize(u32 width, u32 height) noexcept;
+    void HandleContentScaleChanged(f32 xscale, f32 yscale) noexcept;
+    void HandleCursorMoved(f32 x, f32 y) noexcept;
+    void HandleMouseButton(i32 button, i32 action) noexcept;
+    void HandleWindowCloseRequested() noexcept;
+    void EmitEvent(events::Event& event);
+
+    template <typename T, typename... Args> void EmitEvent(Args&&... args) {
+        T event(std::forward<Args>(args)...);
+        EmitEvent(event);
+    }
 
 #ifdef __EMSCRIPTEN__
     void SetupEmscriptenResize() noexcept;
@@ -80,6 +96,7 @@ private:
     struct Impl;
     scope<Impl> impl_;
 
+    std::unordered_map<CallbackId, EventCallback> event_callbacks_;
     std::unordered_map<CallbackId, ResizeCallback> resize_callbacks_;
     CallbackId next_callback_id_{1};
 
@@ -94,6 +111,12 @@ private:
 
     f32 content_scale_x_{1.0f};
     f32 content_scale_y_{1.0f};
+
+    f32 cursor_x_{0.0f};
+    f32 cursor_y_{0.0f};
+    bool has_cursor_position_{false};
+    bool close_event_emitted_{false};
+    std::array<bool, 8> mouse_buttons_down_{};
 
     static inline u32 glfw_window_count_ = 0;
     static inline bool glfw_initialized_ = false;
