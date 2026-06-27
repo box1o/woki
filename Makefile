@@ -78,6 +78,7 @@ build-web: configure-web
 	@cp config/icons/apple-touch-icon.png $(WEB_BUILD_DIR)/apple-touch-icon.png 2>/dev/null || true
 	@cp config/icons/woki-32.png $(WEB_BUILD_DIR)/woki-32.png 2>/dev/null || true
 	@cp config/icons/woki-64.png $(WEB_BUILD_DIR)/woki-64.png 2>/dev/null || true
+	@cp web/woki-sad.svg $(WEB_BUILD_DIR)/woki-sad.svg 2>/dev/null || true
 	@cp $(WEB_BUILD_DIR)/$(WEB_TARGET).html $(WEB_BUILD_DIR)/index.html
 	@echo "✓ Web build complete"
 

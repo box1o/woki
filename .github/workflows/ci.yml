@@ -302,6 +302,7 @@ jobs:
           cp build-web/apple-touch-icon.png build-web-publish/ 2>/dev/null || cp config/icons/apple-touch-icon.png build-web-publish/
           cp build-web/woki-32.png build-web-publish/ 2>/dev/null || cp config/icons/woki-32.png build-web-publish/
           cp build-web/woki-64.png build-web-publish/ 2>/dev/null || cp config/icons/woki-64.png build-web-publish/
+          cp build-web/woki-sad.svg build-web-publish/ 2>/dev/null || cp web/woki-sad.svg build-web-publish/
 
       - name: Upload web artifact
         uses: actions/upload-artifact@v7
