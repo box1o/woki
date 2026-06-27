@@ -10,9 +10,9 @@ namespace woki {
 
 namespace {
 
-constexpr double kLogoClearRed = 0x23 / 255.0;
-constexpr double kLogoClearGreen = 0xF2 / 255.0;
-constexpr double kLogoClearBlue = 0xA1 / 255.0;
+constexpr double kLogoClearRed = 0x18 / 255.0;
+constexpr double kLogoClearGreen = 0x18 / 255.0;
+constexpr double kLogoClearBlue = 0x18 / 255.0;
 
 void RenderClearPass(api::Device& device, api::Swapchain& swapchain) {
     auto frame = swapchain.AcquireNextFrame();
