@@ -1,0 +1,11 @@
+app:
+  name: studio
+
+window:
+  title: woki studio
+  width: 1280
+  height: 720
+  fullscreen: false
+  floating: true
+  resizable: true
+  decorated: true
