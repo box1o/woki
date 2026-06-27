@@ -113,6 +113,9 @@ if(EMSCRIPTEN)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${_ICONS_DIR}/woki-64.png"
             "${CMAKE_BINARY_DIR}/woki-64.png"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/woki-sad.svg"
+            "${CMAKE_BINARY_DIR}/woki-sad.svg"
     )
 else()
     message(STATUS "Building studio for native")

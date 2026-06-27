@@ -10,37 +10,102 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="shortcut icon" href="favicon.ico" />
     <style>
-      html, body { margin: 0; height: 100%; background: #181818; }
-      canvas { width: 100%; height: 100%; display: block; }
-      #status { position: fixed; bottom: 8px; right: 8px; color: #ddd; font: 10px monospace; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #181818;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      #status {
+        position: fixed;
+        right: 8px;
+        bottom: 8px;
+        color: #888;
+        font: 10px monospace;
+      }
+
       #support {
         position: fixed;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         padding: 24px;
+      }
+
+      #support[hidden] {
+        display: none;
+      }
+
+      .support-box {
+        width: min(32rem, 100%);
         color: #eee;
         font: 16px/1.5 system-ui, sans-serif;
         text-align: center;
       }
-      #support[hidden] { display: none; }
-      #support strong { display: block; margin-bottom: 8px; }
-      #support a { color: #8ec5ff; }
+
+      .support-icon {
+        display: block;
+        width: min(220px, 36vw);
+        height: auto;
+        margin: 0 auto 24px;
+      }
+
+      .support-box h1 {
+        margin: 0 0 16px;
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+
+      .support-box p {
+        margin: 0 0 10px;
+        color: #bbb;
+      }
+
+      .support-box p:last-of-type {
+        margin-bottom: 0;
+      }
+
+      .support-box a {
+        color: #8ec5ff;
+      }
     </style>
   </head>
   <body>
     <div id="status">Loading…</div>
+
     <div id="support" hidden>
-      <strong>WebGPU is not available in this browser.</strong>
-      <div id="support-message"></div>
+      <div class="support-box">
+        <img class="support-icon" src="woki-sad.svg" alt="" />
+        <h1 id="support-title"></h1>
+        <p id="support-line-1"></p>
+        <p id="support-line-2"></p>
+        <p id="support-line-3"></p>
+        <p>
+          <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank" rel="noreferrer">
+            MDN WebGPU documentation
+          </a>
+        </p>
+      </div>
     </div>
+
     <canvas id="canvas"></canvas>
+
     <script>
       const canvas = document.getElementById('canvas');
       const status = document.getElementById('status');
       const support = document.getElementById('support');
-      const supportMessage = document.getElementById('support-message');
+      const supportTitle = document.getElementById('support-title');
+      const supportLines = [
+        document.getElementById('support-line-1'),
+        document.getElementById('support-line-2'),
+        document.getElementById('support-line-3'),
+      ];
 
       function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
@@ -48,37 +113,42 @@
         canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));
       }
 
-      function showSupport(message) {
-        supportMessage.innerHTML = message;
+      function showSupport(title, lines) {
+        supportTitle.textContent = title;
+
+        supportLines.forEach((element, index) => {
+          const text = lines[index] || '';
+          element.textContent = text;
+          element.hidden = text.length === 0;
+        });
+
         support.hidden = false;
         status.textContent = 'WebGPU unavailable';
       }
 
+      function showWebGpuUnavailable() {
+        showSupport('WebGPU is not available in this browser.', [
+          'The studio could not start.',
+          'Use a browser with WebGPU support, or enable it in about:config.',
+        ]);
+      }
+
       async function detectWebGpuSupport() {
         if (!('gpu' in navigator)) {
-          showSupport(
-            'Enable a browser with WebGPU support, then review ' +
-            '<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank" rel="noreferrer">MDN WebGPU docs</a> ' +
-            'and Firefox setup notes in <code>about:config</code> such as <code>dom.webgpu.enabled</code>.'
-          );
+          showWebGpuUnavailable();
           return;
         }
 
         try {
           const adapter = await navigator.gpu.requestAdapter();
           if (!adapter) {
-            showSupport(
-              'This browser exposes WebGPU, but no GPU adapter is available. ' +
-              'Check browser flags, drivers, and secure-context requirements, then see the ' +
-              '<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank" rel="noreferrer">MDN troubleshooting docs</a>.'
-            );
+            showSupport('No GPU adapter found.', [
+              'This browser exposes WebGPU, but no adapter is available.',
+              'Check browser flags, drivers, and secure-context requirements.',
+            ]);
           }
         } catch (error) {
-          showSupport(
-            'WebGPU initialization failed: <code>' + String(error) + '</code>. ' +
-            'See the <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank" rel="noreferrer">MDN WebGPU docs</a> ' +
-            'for browser support and setup details.'
-          );
+          showWebGpuUnavailable();
         }
       }
 
@@ -88,17 +158,14 @@
 
       var Module = {
         canvas: canvas,
-        onAbort: function (reason) {
-          showSupport(
-            'The Web build aborted: <code>' + String(reason) + '</code>. ' +
-            'Review the <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API" target="_blank" rel="noreferrer">MDN WebGPU docs</a> ' +
-            'and verify WebGPU is enabled in your browser.'
-          );
+        onAbort: function () {
+          showWebGpuUnavailable();
         },
         onRuntimeInitialized: function () {
           resizeCanvas();
-          status.textContent = "Running";
-        }
+          support.hidden = true;
+          status.textContent = 'Running';
+        },
       };
     </script>
 
