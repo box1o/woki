@@ -18,11 +18,15 @@ void WriteBytes(const fs::path& path, std::initializer_list<unsigned char> bytes
     }
 }
 
+#if defined(WOKI_EXTENSION_WITH_WASMTIME)
+
 void WriteFile(const fs::path& path, std::string_view contents) {
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     REQUIRE(output.good());
     output << contents;
 }
+
+#endif
 
 } // namespace
 

@@ -16,6 +16,8 @@ namespace {
 
 namespace fs = std::filesystem;
 
+#if defined(WOKI_EXTENSION_WITH_WASMTIME)
+
 [[nodiscard]] Result<std::vector<u8>> ReadWasmBytes(const fs::path& path) {
     std::ifstream input(path, std::ios::binary);
     if (!input.good()) {
@@ -49,6 +51,8 @@ void MarkExport(GuestModuleInfo& info, std::string_view name) {
         info.ext_free = true;
     }
 }
+
+#endif // WOKI_EXTENSION_WITH_WASMTIME
 
 } // namespace
 
