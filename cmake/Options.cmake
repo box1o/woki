@@ -1,5 +1,12 @@
 set(WARNINGS_AS_ERRORS ON CACHE BOOL "Treat compiler warnings as errors")
 
+if(NOT EMSCRIPTEN)
+    option(WOKI_EXTENSION_WITH_WASMTIME
+        "Enable Wasmtime wasm runtime in woki::extension (downloads or builds Wasmtime C API)"
+        ON
+    )
+endif()
+
 function(apply_compiler_options target)
     if(MSVC)
         target_compile_options(${target} PRIVATE

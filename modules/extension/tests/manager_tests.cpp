@@ -1,0 +1,160 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <woki/ext/ext.hpp>
+
+#include <filesystem>
+#include <fstream>
+#include <string_view>
+
+namespace {
+
+namespace fs = std::filesystem;
+
+class FakeBackend final : public woki::ext::RuntimeBackend {
+public:
+    [[nodiscard]] woki::Result<void> Load(woki::ext::Record& record) override {
+        record.tier = woki::ext::RuntimeTier::Wasm;
+        ++loads;
+        return woki::Ok();
+    }
+
+    [[nodiscard]] woki::Result<void> Initialize(woki::ext::Record&) override {
+        ++initializes;
+        return woki::Ok();
+    }
+
+    void Tick(woki::ext::Record&, woki::f64) override { ++ticks; }
+
+    void DispatchEvent(
+        woki::ext::Record&, woki::u32 event_type, std::span<const woki::u8>) override {
+        last_event = event_type;
+    }
+
+    void Unload(woki::ext::Record&) override { ++unloads; }
+
+    int loads{0};
+    int initializes{0};
+    int ticks{0};
+    int unloads{0};
+    woki::u32 last_event{0};
+};
+
+[[nodiscard]] fs::path MakeTempDir(std::string_view name) {
+    const fs::path root = fs::temp_directory_path() / "woki_extension_manager_tests" / name;
+    fs::remove_all(root);
+    fs::create_directories(root);
+    return root;
+}
+
+void WriteFile(const fs::path& path, std::string_view contents) {
+    std::ofstream output(path);
+    REQUIRE(output.good());
+    output << contents;
+}
+
+void WritePackage(const fs::path& package) {
+    fs::create_directories(package);
+    WriteFile(package / "manifest.yaml", R"(
+id: woki.hello
+name: Hello
+version: 0.1.0
+apiVersion: 1
+runtime:
+  wasm: extension.wasm
+permissions:
+  - log
+  - events
+)");
+    WriteFile(package / "extension.wasm", "");
+}
+
+} // namespace
+
+TEST_CASE("Extension manager scans loads ticks and unloads records") {
+    const fs::path root = MakeTempDir("flow");
+    WritePackage(root / "extensions" / "woki.hello");
+
+    FakeBackend backend;
+    woki::ext::Manager manager(&backend);
+    manager.SetRoots({
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    });
+
+    auto scanned = manager.Scan();
+    REQUIRE(scanned.has_value());
+    REQUIRE(manager.Records().size() == 1);
+
+    auto loaded = manager.Load("woki.hello");
+    REQUIRE(loaded.has_value());
+    REQUIRE(backend.loads == 1);
+    REQUIRE(backend.initializes == 1);
+    REQUIRE(manager.Find("woki.hello")->state == woki::ext::State::Active);
+
+    manager.Tick(16.0);
+    REQUIRE(backend.ticks == 1);
+
+    manager.DispatchEvent(9, {});
+    REQUIRE(backend.last_event == 9);
+
+    manager.UnloadAll();
+    REQUIRE(backend.unloads == 1);
+    REQUIRE(manager.Find("woki.hello")->state == woki::ext::State::Unloaded);
+}
+
+TEST_CASE("Extension manager reports missing extension ids") {
+    FakeBackend backend;
+    woki::ext::Manager manager(&backend);
+
+    auto loaded = manager.Load("woki.missing");
+    REQUIRE_FALSE(loaded.has_value());
+    REQUIRE(loaded.error().Code() == woki::ErrorCode::FileNotFound);
+    REQUIRE(loaded.error().Message().contains("woki.missing"));
+}
+
+TEST_CASE("Extension manager installs unpacked packages and refreshes records") {
+    const fs::path root = MakeTempDir("install");
+    const fs::path source = root / "source";
+    WritePackage(source);
+
+    FakeBackend backend;
+    woki::ext::Manager manager(&backend);
+    manager.SetRoots({
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    });
+
+    auto installed = manager.InstallUnpacked(source);
+    REQUIRE(installed.has_value());
+    REQUIRE(manager.Records().size() == 1);
+    REQUIRE(manager.Find("woki.hello") != nullptr);
+    REQUIRE(manager.Find("woki.hello")->state == woki::ext::State::PermissionChecked);
+}
+
+TEST_CASE("Extension manager can own and swap runtime backends") {
+    auto owned = woki::createScope<FakeBackend>();
+    FakeBackend* owned_ptr = owned.get();
+    woki::ext::Manager manager(std::move(owned));
+
+    const fs::path root = MakeTempDir("owned_backend");
+    WritePackage(root / "extensions" / "woki.hello");
+    manager.SetRoots({
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    });
+
+    REQUIRE(manager.Scan().has_value());
+    REQUIRE(manager.Load("woki.hello").has_value());
+    REQUIRE(owned_ptr->loads == 1);
+
+    auto replacement = woki::createScope<FakeBackend>();
+    FakeBackend* replacement_ptr = replacement.get();
+    manager.SetBackend(std::move(replacement));
+
+    manager.Find("woki.hello")->state = woki::ext::State::PermissionChecked;
+    REQUIRE(manager.Load("woki.hello").has_value());
+    REQUIRE(replacement_ptr->loads == 1);
+}

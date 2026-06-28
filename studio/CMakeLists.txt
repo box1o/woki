@@ -121,6 +121,7 @@ else()
     message(STATUS "Building studio for native")
 
     target_compile_definitions(studio PRIVATE
+        WOKI_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
         WOKI_SYSTEM_CONFIG_DIR="${CMAKE_INSTALL_FULL_SYSCONFDIR}/woki"
     )
 
@@ -129,6 +130,7 @@ else()
     list(APPEND _DEPS
         Threads::Threads
         msdfgen::msdfgen
+        woki::extension
     )
 
     if(NOT TARGET dawn::webgpu_dawn)

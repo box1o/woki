@@ -1,0 +1,8 @@
+id: woki.hello
+name: Hello
+version: 0.1.0
+apiVersion: 1
+runtime:
+  wasm: extension.wasm
+permissions:
+  - log
