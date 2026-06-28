@@ -80,6 +80,8 @@ using LoggingCallback = std::function<void(LoggingType type, std::string_view me
 
 using Proc = void(*)();
 
+inline constexpr u64 kWholeSize = ~0ULL;
+
 [[nodiscard]] constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs) noexcept {
     return static_cast<TextureUsage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));
 }

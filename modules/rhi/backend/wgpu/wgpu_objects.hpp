@@ -36,14 +36,10 @@ private:
     detail::GpuHandle<Handle, ReleaseFn> handle_;
 };
 
+using WgpuBufferImpl = WgpuObjectImpl<Buffer, WGPUBuffer, wgpuBufferRelease, wgpuBufferSetLabel>;
 using WgpuBindGroupImpl = WgpuObjectImpl<BindGroup, WGPUBindGroup, wgpuBindGroupRelease, wgpuBindGroupSetLabel>;
 using WgpuBindGroupLayoutImpl =
     WgpuObjectImpl<BindGroupLayout, WGPUBindGroupLayout, wgpuBindGroupLayoutRelease, wgpuBindGroupLayoutSetLabel>;
-using WgpuBufferImpl = WgpuObjectImpl<Buffer, WGPUBuffer, wgpuBufferRelease, wgpuBufferSetLabel>;
-using WgpuCommandBufferImpl =
-    WgpuObjectImpl<CommandBuffer, WGPUCommandBuffer, wgpuCommandBufferRelease, wgpuCommandBufferSetLabel>;
-using WgpuCommandEncoderImpl =
-    WgpuObjectImpl<CommandEncoder, WGPUCommandEncoder, wgpuCommandEncoderRelease, wgpuCommandEncoderSetLabel>;
 using WgpuComputePipelineImpl =
     WgpuObjectImpl<ComputePipeline, WGPUComputePipeline, wgpuComputePipelineRelease, wgpuComputePipelineSetLabel>;
 using WgpuExternalTextureImpl = WgpuObjectImpl<ExternalTexture,

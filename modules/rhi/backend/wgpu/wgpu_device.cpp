@@ -8,6 +8,7 @@
 #include "wgpu_adapter.hpp"
 #include "wgpu_enums.hpp"
 #include "wgpu_instance.hpp"
+#include "wgpu_command_encoder.hpp"
 #include "wgpu_objects.hpp"
 
 #include <memory>

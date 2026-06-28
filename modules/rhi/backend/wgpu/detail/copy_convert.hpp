@@ -30,6 +30,13 @@ using namespace woki::rhi::wgpu::convert;
     return native;
 }
 
+[[nodiscard]] inline WGPUTexelCopyBufferInfo ToWgpu(const TexelCopyBufferInfo& info) noexcept {
+    WGPUTexelCopyBufferInfo native = WGPU_TEXEL_COPY_BUFFER_INFO_INIT;
+    native.layout = ToWgpu(info.layout);
+    native.buffer = static_cast<WGPUBuffer>(info.buffer);
+    return native;
+}
+
 [[nodiscard]] inline WGPUTexelCopyTextureInfo ToWgpu(const TexelCopyTextureInfo& info) noexcept {
     WGPUTexelCopyTextureInfo native = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
     native.texture = static_cast<WGPUTexture>(info.texture);

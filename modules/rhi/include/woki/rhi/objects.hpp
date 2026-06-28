@@ -20,12 +20,11 @@ namespace woki::rhi {
 WOKI_RHI_OBJECT(BindGroup);
 WOKI_RHI_OBJECT(BindGroupLayout);
 WOKI_RHI_OBJECT(Buffer);
-WOKI_RHI_OBJECT(CommandBuffer);
-WOKI_RHI_OBJECT(CommandEncoder);
 WOKI_RHI_OBJECT(ComputePipeline);
 WOKI_RHI_OBJECT(ExternalTexture);
 WOKI_RHI_OBJECT(PipelineLayout);
 WOKI_RHI_OBJECT(QuerySet);
+WOKI_RHI_OBJECT(RenderBundle);
 WOKI_RHI_OBJECT(RenderBundleEncoder);
 WOKI_RHI_OBJECT(RenderPipeline);
 WOKI_RHI_OBJECT(ResourceTable);

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "enums.hpp"
-#include "rhi/adapter.hpp"
+#include "rhi/command_buffer.hpp"
+#include "rhi/command_encoder.hpp"
+#include "rhi/compute_pass_encoder.hpp"
+#include "rhi/render_pass_encoder.hpp"
 #include "rhi/descriptors.hpp"
 #include "rhi/device.hpp"
 #include "rhi/forward.hpp"

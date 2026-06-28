@@ -157,6 +157,39 @@ struct TexelCopyBufferLayout final {
     u32 rows_per_image{0};
 };
 
+struct TexelCopyBufferInfo final {
+    TexelCopyBufferLayout layout{};
+    void* buffer{nullptr};
+};
+
+struct Color final {
+    f64 r{0.0};
+    f64 g{0.0};
+    f64 b{0.0};
+    f64 a{0.0};
+};
+
+struct CommandBufferDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"CommandBuffer"};
+};
+
+struct ComputePassDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"ComputePass"};
+    void* timestamp_writes{nullptr};
+};
+
+struct RenderPassDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"RenderPass"};
+    u32 color_attachment_count{0};
+    void* color_attachments{nullptr};
+    void* depth_stencil_attachment{nullptr};
+    void* occlusion_query_set{nullptr};
+    void* timestamp_writes{nullptr};
+};
+
 struct TexelCopyTextureInfo final {
     void* texture{nullptr};
     u32 mip_level{0};

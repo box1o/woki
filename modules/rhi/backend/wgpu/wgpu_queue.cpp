@@ -5,6 +5,7 @@
 #include "wgpu_device.hpp"
 #include "wgpu_enums.hpp"
 
+#include <woki/rhi/command_buffer.hpp>
 #include <woki/rhi/objects.hpp>
 
 namespace woki::rhi::wgpu {

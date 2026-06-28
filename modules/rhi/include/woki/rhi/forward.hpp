@@ -23,6 +23,9 @@ class ShaderModule;
 class SharedBufferMemory;
 class SharedFence;
 class SharedTextureMemory;
+class ComputePassEncoder;
+class RenderBundle;
+class RenderPassEncoder;
 class Surface;
 class Texture;
 
