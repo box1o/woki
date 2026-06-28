@@ -65,7 +65,7 @@ void CreateComputePipelineThunk(WGPUCreatePipelineAsyncStatus status,
 
     scope<ComputePipeline> pipeline_scope{};
     if (status == WGPUCreatePipelineAsyncStatus_Success && pipeline != nullptr) {
-        pipeline_scope = createScope<WgpuComputePipelineImpl>(pipeline);
+        pipeline_scope = CreateComputePipelineObject(pipeline);
     } else if (pipeline != nullptr) {
         wgpuComputePipelineRelease(pipeline);
     }
@@ -93,7 +93,7 @@ void CreateRenderPipelineThunk(WGPUCreatePipelineAsyncStatus status,
 
     scope<RenderPipeline> pipeline_scope{};
     if (status == WGPUCreatePipelineAsyncStatus_Success && pipeline != nullptr) {
-        pipeline_scope = createScope<WgpuRenderPipelineImpl>(pipeline);
+        pipeline_scope = CreateRenderPipelineObject(pipeline);
     } else if (pipeline != nullptr) {
         wgpuRenderPipelineRelease(pipeline);
     }
@@ -114,10 +114,11 @@ void LoggingCallbackThunk(
     (*callback)(FromWgpu(type), detail::StringFromView(message));
 }
 
-template <typename Impl, typename ResultType, typename CreateFn>
+template <typename ResultType, typename CreateFn, typename WrapFn>
 [[nodiscard]] Result<scope<ResultType>> CreateResource(
     WGPUDevice device,
     CreateFn create_fn,
+    WrapFn wrap_fn,
     std::string_view resource_name) {
     if (device == nullptr) {
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Device is invalid");
@@ -129,7 +130,7 @@ template <typename Impl, typename ResultType, typename CreateFn>
             std::string("Failed to create ") + std::string(resource_name));
     }
 
-    return Ok(createScope<Impl>(native_handle));
+    return Ok(wrap_fn(native_handle));
 }
 
 } // namespace
@@ -159,18 +160,20 @@ WgpuDeviceImpl::~WgpuDeviceImpl() {
 Result<scope<BindGroup>> WgpuDeviceImpl::CreateBindGroup(const BindGroupDesc& desc) {
     WGPUBindGroupDescriptor native = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuBindGroupImpl, BindGroup>(
+    return CreateResource<BindGroup>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateBindGroup(device, &native); },
+        CreateBindGroupObject,
         "bind group");
 }
 
 Result<scope<BindGroupLayout>> WgpuDeviceImpl::CreateBindGroupLayout(const BindGroupLayoutDesc& desc) {
     WGPUBindGroupLayoutDescriptor native = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuBindGroupLayoutImpl, BindGroupLayout>(
+    return CreateResource<BindGroupLayout>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateBindGroupLayout(device, &native); },
+        CreateBindGroupLayoutObject,
         "bind group layout");
 }
 
@@ -179,27 +182,30 @@ Result<scope<Buffer>> WgpuDeviceImpl::CreateBuffer(const BufferDesc& desc) {
     native.size = desc.size;
     native.usage = static_cast<WGPUBufferUsage>(static_cast<u64>(desc.usage));
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuBufferImpl, Buffer>(
+    return CreateResource<Buffer>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateBuffer(device, &native); },
+        CreateBufferObject,
         "buffer");
 }
 
 Result<scope<CommandEncoder>> WgpuDeviceImpl::CreateCommandEncoder(const CommandEncoderDesc& desc) {
     WGPUCommandEncoderDescriptor native = WGPU_COMMAND_ENCODER_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuCommandEncoderImpl, CommandEncoder>(
+    return CreateResource<CommandEncoder>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateCommandEncoder(device, &native); },
+        [](WGPUCommandEncoder handle) { return createScope<WgpuCommandEncoderImpl>(handle); },
         "command encoder");
 }
 
 Result<scope<ComputePipeline>> WgpuDeviceImpl::CreateComputePipeline(const ComputePipelineDesc& desc) {
     WGPUComputePipelineDescriptor native = WGPU_COMPUTE_PIPELINE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuComputePipelineImpl, ComputePipeline>(
+    return CreateResource<ComputePipeline>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateComputePipeline(device, &native); },
+        CreateComputePipelineObject,
         "compute pipeline");
 }
 
@@ -238,16 +244,18 @@ Result<scope<Buffer>> WgpuDeviceImpl::CreateErrorBuffer(const BufferDesc& desc) 
     native.size = desc.size;
     native.usage = static_cast<WGPUBufferUsage>(static_cast<u64>(desc.usage));
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuBufferImpl, Buffer>(
+    return CreateResource<Buffer>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateErrorBuffer(device, &native); },
+        CreateBufferObject,
         "error buffer");
 }
 
 Result<scope<ExternalTexture>> WgpuDeviceImpl::CreateErrorExternalTexture() {
-    return CreateResource<WgpuExternalTextureImpl, ExternalTexture>(
+    return CreateResource<ExternalTexture>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateErrorExternalTexture(device); },
+        CreateExternalTextureObject,
         "error external texture");
 }
 
@@ -256,21 +264,23 @@ Result<scope<ShaderModule>> WgpuDeviceImpl::CreateErrorShaderModule(
     const std::string_view error_message) {
     WGPUShaderModuleDescriptor native = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuShaderModuleImpl, ShaderModule>(
+    return CreateResource<ShaderModule>(
         device_.get(),
         [&](WGPUDevice device) {
             return wgpuDeviceCreateErrorShaderModule(
                 device, &native, detail::ToStringView(error_message));
         },
+        CreateShaderModuleObject,
         "error shader module");
 }
 
 Result<scope<Texture>> WgpuDeviceImpl::CreateErrorTexture(const TextureDesc& desc) {
     WGPUTextureDescriptor native = WGPU_TEXTURE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuTextureImpl, Texture>(
+    return CreateResource<Texture>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateErrorTexture(device, &native); },
+        CreateTextureObject,
         "error texture");
 }
 
@@ -278,27 +288,30 @@ Result<scope<ExternalTexture>> WgpuDeviceImpl::CreateExternalTexture(const Exter
     WGPUExternalTextureDescriptor native = WGPU_EXTERNAL_TEXTURE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
     native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    return CreateResource<WgpuExternalTextureImpl, ExternalTexture>(
+    return CreateResource<ExternalTexture>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateExternalTexture(device, &native); },
+        CreateExternalTextureObject,
         "external texture");
 }
 
 Result<scope<PipelineLayout>> WgpuDeviceImpl::CreatePipelineLayout(const PipelineLayoutDesc& desc) {
     WGPUPipelineLayoutDescriptor native = WGPU_PIPELINE_LAYOUT_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuPipelineLayoutImpl, PipelineLayout>(
+    return CreateResource<PipelineLayout>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreatePipelineLayout(device, &native); },
+        CreatePipelineLayoutObject,
         "pipeline layout");
 }
 
 Result<scope<QuerySet>> WgpuDeviceImpl::CreateQuerySet(const QuerySetDesc& desc) {
     WGPUQuerySetDescriptor native = WGPU_QUERY_SET_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuQuerySetImpl, QuerySet>(
+    return CreateResource<QuerySet>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateQuerySet(device, &native); },
+        CreateQuerySetObject,
         "query set");
 }
 
@@ -306,18 +319,20 @@ Result<scope<RenderBundleEncoder>> WgpuDeviceImpl::CreateRenderBundleEncoder(
     const RenderBundleEncoderDesc& desc) {
     WGPURenderBundleEncoderDescriptor native = WGPU_RENDER_BUNDLE_ENCODER_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuRenderBundleEncoderImpl, RenderBundleEncoder>(
+    return CreateResource<RenderBundleEncoder>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateRenderBundleEncoder(device, &native); },
+        CreateRenderBundleEncoderObject,
         "render bundle encoder");
 }
 
 Result<scope<RenderPipeline>> WgpuDeviceImpl::CreateRenderPipeline(const RenderPipelineDesc& desc) {
     WGPURenderPipelineDescriptor native = WGPU_RENDER_PIPELINE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuRenderPipelineImpl, RenderPipeline>(
+    return CreateResource<RenderPipeline>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateRenderPipeline(device, &native); },
+        CreateRenderPipelineObject,
         "render pipeline");
 }
 
@@ -354,36 +369,40 @@ Future WgpuDeviceImpl::CreateRenderPipelineAsync(
 Result<scope<ResourceTable>> WgpuDeviceImpl::CreateResourceTable(const ResourceTableDesc& desc) {
     WGPUResourceTableDescriptor native = WGPU_RESOURCE_TABLE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuResourceTableImpl, ResourceTable>(
+    return CreateResource<ResourceTable>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateResourceTable(device, &native); },
+        CreateResourceTableObject,
         "resource table");
 }
 
 Result<scope<Sampler>> WgpuDeviceImpl::CreateSampler(const SamplerDesc& desc) {
     WGPUSamplerDescriptor native = WGPU_SAMPLER_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuSamplerImpl, Sampler>(
+    return CreateResource<Sampler>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateSampler(device, &native); },
+        CreateSamplerObject,
         "sampler");
 }
 
 Result<scope<ShaderModule>> WgpuDeviceImpl::CreateShaderModule(const ShaderModuleDesc& desc) {
     WGPUShaderModuleDescriptor native = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuShaderModuleImpl, ShaderModule>(
+    return CreateResource<ShaderModule>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateShaderModule(device, &native); },
+        CreateShaderModuleObject,
         "shader module");
 }
 
 Result<scope<Texture>> WgpuDeviceImpl::CreateTexture(const TextureDesc& desc) {
     WGPUTextureDescriptor native = WGPU_TEXTURE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
-    return CreateResource<WgpuTextureImpl, Texture>(
+    return CreateResource<Texture>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceCreateTexture(device, &native); },
+        CreateTextureObject,
         "texture");
 }
 
@@ -496,9 +515,10 @@ Result<scope<SharedBufferMemory>> WgpuDeviceImpl::ImportSharedBufferMemory(
     WGPUSharedBufferMemoryDescriptor native = WGPU_SHARED_BUFFER_MEMORY_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
     native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    return CreateResource<WgpuSharedBufferMemoryImpl, SharedBufferMemory>(
+    return CreateResource<SharedBufferMemory>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceImportSharedBufferMemory(device, &native); },
+        CreateSharedBufferMemoryObject,
         "shared buffer memory");
 }
 
@@ -506,9 +526,10 @@ Result<scope<SharedFence>> WgpuDeviceImpl::ImportSharedFence(const SharedFenceDe
     WGPUSharedFenceDescriptor native = WGPU_SHARED_FENCE_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
     native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    return CreateResource<WgpuSharedFenceImpl, SharedFence>(
+    return CreateResource<SharedFence>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceImportSharedFence(device, &native); },
+        CreateSharedFenceObject,
         "shared fence");
 }
 
@@ -517,9 +538,10 @@ Result<scope<SharedTextureMemory>> WgpuDeviceImpl::ImportSharedTextureMemory(
     WGPUSharedTextureMemoryDescriptor native = WGPU_SHARED_TEXTURE_MEMORY_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
     native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    return CreateResource<WgpuSharedTextureMemoryImpl, SharedTextureMemory>(
+    return CreateResource<SharedTextureMemory>(
         device_.get(),
         [&](WGPUDevice device) { return wgpuDeviceImportSharedTextureMemory(device, &native); },
+        CreateSharedTextureMemoryObject,
         "shared texture memory");
 }
 

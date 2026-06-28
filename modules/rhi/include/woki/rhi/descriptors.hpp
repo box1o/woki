@@ -283,4 +283,51 @@ struct SharedTextureMemoryDesc final {
     std::string label{"SharedTextureMemory"};
 };
 
+struct TexelBufferViewDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"TexelBufferView"};
+};
+
+struct TextureViewDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"TextureView"};
+};
+
+struct RenderBundleDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"RenderBundle"};
+};
+
+struct BindingResourceDesc final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedBufferMemoryBeginAccessDesc final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedBufferMemoryEndAccessState final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedBufferMemoryProperties final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedTextureMemoryBeginAccessDesc final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedTextureMemoryEndAccessState final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedTextureMemoryProperties final {
+    void* next_in_chain{nullptr};
+};
+
+struct SharedFenceExportInfo final {
+    void* next_in_chain{nullptr};
+};
+
 } // namespace woki::rhi

@@ -57,6 +57,7 @@ using CommandBufferHandle = GpuHandle<WGPUCommandBuffer, wgpuCommandBufferReleas
 using CommandEncoderHandle = GpuHandle<WGPUCommandEncoder, wgpuCommandEncoderRelease>;
 using ComputePassEncoderHandle = GpuHandle<WGPUComputePassEncoder, wgpuComputePassEncoderRelease>;
 using RenderPassEncoderHandle = GpuHandle<WGPURenderPassEncoder, wgpuRenderPassEncoderRelease>;
+using TexelBufferViewHandle = GpuHandle<WGPUTexelBufferView, wgpuTexelBufferViewRelease>;
 using RenderBundleHandle = GpuHandle<WGPURenderBundle, wgpuRenderBundleRelease>;
 using BindGroupHandle = GpuHandle<WGPUBindGroup, wgpuBindGroupRelease>;
 using BindGroupLayoutHandle = GpuHandle<WGPUBindGroupLayout, wgpuBindGroupLayoutRelease>;

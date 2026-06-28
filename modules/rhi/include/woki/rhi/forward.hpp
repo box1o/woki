@@ -17,16 +17,18 @@ class QuerySet;
 class Queue;
 class RenderBundleEncoder;
 class RenderPipeline;
+class ComputePassEncoder;
+class RenderBundle;
+class RenderPassEncoder;
 class ResourceTable;
 class Sampler;
 class ShaderModule;
 class SharedBufferMemory;
 class SharedFence;
 class SharedTextureMemory;
-class ComputePassEncoder;
-class RenderBundle;
-class RenderPassEncoder;
 class Surface;
+class TexelBufferView;
 class Texture;
+class TextureView;
 
 } // namespace woki::rhi

@@ -78,9 +78,16 @@ using CreateRenderPipelineCallback = std::function<void(
 
 using LoggingCallback = std::function<void(LoggingType type, std::string_view message)>;
 
+using ShaderModuleCompilationInfoCallback = std::function<void(
+    CompilationInfoRequestStatus status, void* compilation_info, std::string_view message)>;
+
+using MapAsyncCallback =
+    std::function<void(MapAsyncStatus status, std::string_view message)>;
+
 using Proc = void(*)();
 
 inline constexpr u64 kWholeSize = ~0ULL;
+inline constexpr size_t kWholeMapSize = kWholeSize;
 
 [[nodiscard]] constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs) noexcept {
     return static_cast<TextureUsage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));
