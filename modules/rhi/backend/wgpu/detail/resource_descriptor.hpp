@@ -62,6 +62,18 @@ struct TextureDescriptorStorage final {
     }
 };
 
+struct BufferDescriptorStorage final {
+    WGPUBufferDescriptor native = WGPU_BUFFER_DESCRIPTOR_INIT;
+
+    explicit BufferDescriptorStorage(const BufferDesc& desc) {
+        native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
+        native.label = ToStringView(desc.label);
+        native.usage = static_cast<WGPUBufferUsage>(static_cast<u64>(desc.usage));
+        native.size = desc.size;
+        native.mappedAtCreation = desc.mapped_at_creation ? WGPU_TRUE : WGPU_FALSE;
+    }
+};
+
 struct TextureViewDescriptorStorage final {
     WGPUTextureViewDescriptor native = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
 
@@ -75,6 +87,7 @@ struct TextureViewDescriptorStorage final {
         native.baseArrayLayer = desc.base_array_layer;
         native.arrayLayerCount = desc.array_layer_count;
         native.aspect = ToWgpu(desc.aspect);
+        native.usage = static_cast<WGPUTextureUsage>(static_cast<u64>(desc.usage));
     }
 };
 
@@ -123,6 +136,7 @@ struct PipelineLayoutDescriptorStorage final {
         native.bindGroupLayoutCount = bind_group_layouts.size();
         native.bindGroupLayouts =
             bind_group_layouts.empty() ? nullptr : bind_group_layouts.data();
+        native.immediateSize = desc.immediate_size;
     }
 };
 
@@ -224,6 +238,7 @@ struct ResourceTableDescriptorStorage final {
     explicit ResourceTableDescriptorStorage(const ResourceTableDesc& desc) {
         native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
         native.label = ToStringView(desc.label);
+        native.size = desc.size;
     }
 };
 

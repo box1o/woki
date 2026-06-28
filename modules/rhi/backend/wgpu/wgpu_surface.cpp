@@ -203,6 +203,10 @@ WGPUSurface WgpuSurfaceImpl::GetNativeSurface() const noexcept {
     return surface_.get();
 }
 
+WGPUTextureView WgpuSurfaceImpl::TakeCurrentTextureView() noexcept {
+    return current_view_.release();
+}
+
 void WgpuSurfaceImpl::ReleaseCurrentTexture() noexcept {
     current_view_.reset();
     current_texture_.reset();

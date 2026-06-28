@@ -53,9 +53,15 @@ using namespace woki::rhi::wgpu::convert;
 [[nodiscard]] inline WGPUCopyTextureForBrowserOptions ToWgpu(
     const CopyTextureForBrowserOptions& options) noexcept {
     WGPUCopyTextureForBrowserOptions native = WGPU_COPY_TEXTURE_FOR_BROWSER_OPTIONS_INIT;
+    native.nextInChain = static_cast<WGPUChainedStruct*>(options.next_in_chain);
     native.flipY = options.flip_y;
     native.needsColorSpaceConversion = options.needs_color_space_conversion;
     native.srcAlphaMode = convert::ToWgpu(options.src_alpha_mode);
+    native.srcTransferFunctionParameters = options.src_transfer_function_parameters;
+    native.conversionMatrix = options.conversion_matrix;
+    native.dstTransferFunctionParameters = options.dst_transfer_function_parameters;
+    native.dstAlphaMode = convert::ToWgpu(options.dst_alpha_mode);
+    native.internalUsage = options.internal_usage;
     return native;
 }
 

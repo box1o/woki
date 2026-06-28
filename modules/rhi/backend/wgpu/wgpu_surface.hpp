@@ -27,6 +27,7 @@ public:
     void SetLabel(std::string_view label) override;
 
     [[nodiscard]] WGPUSurface GetNativeSurface() const noexcept;
+    [[nodiscard]] WGPUTextureView TakeCurrentTextureView() noexcept;
 
 private:
     void ReleaseCurrentTexture() noexcept;

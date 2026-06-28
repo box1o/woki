@@ -344,10 +344,13 @@ bool WgpuInstanceImpl::Initialize() noexcept {
 
 #ifndef __EMSCRIPTEN__
     dawn::native::DawnInstanceDescriptor dawn_desc{};
+    dawn_desc.nextInChain = reinterpret_cast<const ::wgpu::ChainedStruct*>(desc_.next_in_chain);
     dawn_desc.backendValidationLevel = desc_.enable_validation
         ? dawn::native::BackendValidationLevel::Full
         : dawn::native::BackendValidationLevel::Disabled;
     native_desc.nextInChain = reinterpret_cast<WGPUChainedStruct*>(&dawn_desc);
+#else
+    native_desc.nextInChain = static_cast<WGPUChainedStruct*>(desc_.next_in_chain);
 #endif
 
     handle_.reset(wgpuCreateInstance(&native_desc));

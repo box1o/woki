@@ -816,18 +816,18 @@ enum class WGSLLanguageFeatureName : u32 {
 };
 
 enum class BufferUsage : u64 {
-    None,
-    MapRead,
-    MapWrite,
-    CopySrc,
-    CopyDst,
-    Index,
-    Vertex,
-    Uniform,
-    Storage,
-    Indirect,
-    QueryResolve,
-    TexelBuffer,
+    None = 0,
+    MapRead = 1ull << 0,
+    MapWrite = 1ull << 1,
+    CopySrc = 1ull << 2,
+    CopyDst = 1ull << 3,
+    Index = 1ull << 4,
+    Vertex = 1ull << 5,
+    Uniform = 1ull << 6,
+    Storage = 1ull << 7,
+    Indirect = 1ull << 8,
+    QueryResolve = 1ull << 9,
+    TexelBuffer = 1ull << 10,
 };
 
 enum class ColorWriteMask : u64 {
@@ -855,21 +855,21 @@ enum class MapMode : u64 {
 };
 
 enum class ShaderStage : u64 {
-    None,
-    Vertex,
-    Fragment,
-    Compute,
+    None = 0,
+    Vertex = 1ull << 0,
+    Fragment = 1ull << 1,
+    Compute = 1ull << 2,
 };
 
 enum class TextureUsage : u64 {
-    None,
-    CopySrc,
-    CopyDst,
-    TextureBinding,
-    StorageBinding,
-    RenderAttachment,
-    TransientAttachment,
-    StorageAttachment,
+    None = 0,
+    CopySrc = 1ull << 0,
+    CopyDst = 1ull << 1,
+    TextureBinding = 1ull << 2,
+    StorageBinding = 1ull << 3,
+    RenderAttachment = 1ull << 4,
+    TransientAttachment = 1ull << 5,
+    StorageAttachment = 1ull << 6,
 };
 
 } // namespace woki::rhi

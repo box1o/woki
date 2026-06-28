@@ -99,7 +99,7 @@ public:
     virtual void SetLoggingCallback(LoggingCallback callback) = 0;
     virtual void Tick() const noexcept = 0;
 
-    [[nodiscard]] virtual Result<void> ValidateTextureDescriptor(const TextureDesc& desc) const = 0;
+    virtual void ValidateTextureDescriptor(const TextureDesc& desc) const = 0;
 
     [[nodiscard]] virtual NativeHandles GetNativeHandles() const noexcept = 0;
 

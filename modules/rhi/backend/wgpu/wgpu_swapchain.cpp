@@ -92,8 +92,7 @@ Result<Frame> WgpuSwapchainImpl::AcquireNextFrame() {
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Surface texture view is null");
     }
 
-    auto color_view = CreateTextureViewObject(
-        static_cast<WGPUTextureView>(surface_texture.handles.resource));
+    auto color_view = CreateTextureViewObject(surface_->TakeCurrentTextureView());
     if (!color_view) {
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Failed to wrap surface texture view");
     }

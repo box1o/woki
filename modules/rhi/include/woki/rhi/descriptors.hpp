@@ -11,6 +11,7 @@
 namespace woki::rhi {
 
 struct InstanceDesc final {
+    void* next_in_chain{nullptr};
     std::vector<InstanceFeatureName> required_features{};
     std::optional<InstanceLimits> required_limits{};
     bool enable_validation{true};
@@ -82,38 +83,39 @@ struct SupportedFeatures final {
 };
 
 struct Limits final {
-    u32 max_texture_dimension_1d{0};
-    u32 max_texture_dimension_2d{0};
-    u32 max_texture_dimension_3d{0};
-    u32 max_texture_array_layers{0};
-    u32 max_bind_groups{0};
-    u32 max_bind_groups_plus_vertex_buffers{0};
-    u32 max_bindings_per_bind_group{0};
-    u32 max_dynamic_uniform_buffers_per_pipeline_layout{0};
-    u32 max_dynamic_storage_buffers_per_pipeline_layout{0};
-    u32 max_sampled_textures_per_shader_stage{0};
-    u32 max_samplers_per_shader_stage{0};
-    u32 max_storage_buffers_per_shader_stage{0};
-    u32 max_storage_textures_per_shader_stage{0};
-    u32 max_uniform_buffers_per_shader_stage{0};
-    u64 max_uniform_buffer_binding_size{0};
-    u64 max_storage_buffer_binding_size{0};
-    u32 min_uniform_buffer_offset_alignment{0};
-    u32 min_storage_buffer_offset_alignment{0};
-    u32 max_vertex_buffers{0};
-    u64 max_buffer_size{0};
-    u32 max_vertex_attributes{0};
-    u32 max_vertex_buffer_array_stride{0};
-    u32 max_inter_stage_shader_variables{0};
-    u32 max_color_attachments{0};
-    u32 max_color_attachment_bytes_per_sample{0};
-    u32 max_compute_workgroup_storage_size{0};
-    u32 max_compute_invocations_per_workgroup{0};
-    u32 max_compute_workgroup_size_x{0};
-    u32 max_compute_workgroup_size_y{0};
-    u32 max_compute_workgroup_size_z{0};
-    u32 max_compute_workgroups_per_dimension{0};
-    u32 max_immediate_size{0};
+    void* next_in_chain{nullptr};
+    u32 max_texture_dimension_1d{kLimitU32Undefined};
+    u32 max_texture_dimension_2d{kLimitU32Undefined};
+    u32 max_texture_dimension_3d{kLimitU32Undefined};
+    u32 max_texture_array_layers{kLimitU32Undefined};
+    u32 max_bind_groups{kLimitU32Undefined};
+    u32 max_bind_groups_plus_vertex_buffers{kLimitU32Undefined};
+    u32 max_bindings_per_bind_group{kLimitU32Undefined};
+    u32 max_dynamic_uniform_buffers_per_pipeline_layout{kLimitU32Undefined};
+    u32 max_dynamic_storage_buffers_per_pipeline_layout{kLimitU32Undefined};
+    u32 max_sampled_textures_per_shader_stage{kLimitU32Undefined};
+    u32 max_samplers_per_shader_stage{kLimitU32Undefined};
+    u32 max_storage_buffers_per_shader_stage{kLimitU32Undefined};
+    u32 max_storage_textures_per_shader_stage{kLimitU32Undefined};
+    u32 max_uniform_buffers_per_shader_stage{kLimitU32Undefined};
+    u64 max_uniform_buffer_binding_size{kLimitU64Undefined};
+    u64 max_storage_buffer_binding_size{kLimitU64Undefined};
+    u32 min_uniform_buffer_offset_alignment{kLimitU32Undefined};
+    u32 min_storage_buffer_offset_alignment{kLimitU32Undefined};
+    u32 max_vertex_buffers{kLimitU32Undefined};
+    u64 max_buffer_size{kLimitU64Undefined};
+    u32 max_vertex_attributes{kLimitU32Undefined};
+    u32 max_vertex_buffer_array_stride{kLimitU32Undefined};
+    u32 max_inter_stage_shader_variables{kLimitU32Undefined};
+    u32 max_color_attachments{kLimitU32Undefined};
+    u32 max_color_attachment_bytes_per_sample{kLimitU32Undefined};
+    u32 max_compute_workgroup_storage_size{kLimitU32Undefined};
+    u32 max_compute_invocations_per_workgroup{kLimitU32Undefined};
+    u32 max_compute_workgroup_size_x{kLimitU32Undefined};
+    u32 max_compute_workgroup_size_y{kLimitU32Undefined};
+    u32 max_compute_workgroup_size_z{kLimitU32Undefined};
+    u32 max_compute_workgroups_per_dimension{kLimitU32Undefined};
+    u32 max_immediate_size{kLimitU32Undefined};
 };
 
 struct DawnFormatCapabilities final {
@@ -159,8 +161,8 @@ struct Extent2D final {
 
 struct TexelCopyBufferLayout final {
     u64 offset{0};
-    u32 bytes_per_row{0};
-    u32 rows_per_image{0};
+    u32 bytes_per_row{kCopyStrideUndefined};
+    u32 rows_per_image{kCopyStrideUndefined};
 };
 
 struct TexelCopyBufferInfo final {
@@ -239,13 +241,19 @@ struct TexelCopyTextureInfo final {
     void* texture{nullptr};
     u32 mip_level{0};
     Origin3D origin{};
-    TextureAspect aspect{TextureAspect::All};
+    TextureAspect aspect{TextureAspect::Undefined};
 };
 
 struct CopyTextureForBrowserOptions final {
+    void* next_in_chain{nullptr};
     bool flip_y{false};
     bool needs_color_space_conversion{false};
     AlphaMode src_alpha_mode{AlphaMode::Unpremultiplied};
+    const f32* src_transfer_function_parameters{nullptr};
+    const f32* conversion_matrix{nullptr};
+    const f32* dst_transfer_function_parameters{nullptr};
+    AlphaMode dst_alpha_mode{AlphaMode::Unpremultiplied};
+    bool internal_usage{false};
 };
 
 struct ImageCopyExternalTexture final {
@@ -287,26 +295,26 @@ struct BlendStateDesc final {
 
 struct BufferBindingLayoutDesc final {
     void* next_in_chain{nullptr};
-    BufferBindingType type{BufferBindingType::Undefined};
+    BufferBindingType type{BufferBindingType::BindingNotUsed};
     bool has_dynamic_offset{false};
     u64 min_binding_size{0};
 };
 
 struct SamplerBindingLayoutDesc final {
     void* next_in_chain{nullptr};
-    SamplerBindingType type{SamplerBindingType::Undefined};
+    SamplerBindingType type{SamplerBindingType::BindingNotUsed};
 };
 
 struct TextureBindingLayoutDesc final {
     void* next_in_chain{nullptr};
-    TextureSampleType sample_type{TextureSampleType::Undefined};
+    TextureSampleType sample_type{TextureSampleType::BindingNotUsed};
     TextureViewDimension view_dimension{TextureViewDimension::Undefined};
     bool multisampled{false};
 };
 
 struct StorageTextureBindingLayoutDesc final {
     void* next_in_chain{nullptr};
-    StorageTextureAccess access{StorageTextureAccess::Undefined};
+    StorageTextureAccess access{StorageTextureAccess::BindingNotUsed};
     TextureFormat format{TextureFormat::Undefined};
     TextureViewDimension view_dimension{TextureViewDimension::Undefined};
 };
@@ -366,8 +374,10 @@ struct BindGroupLayoutDesc final {
 };
 
 struct BufferDesc final {
+    void* next_in_chain{nullptr};
     u64 size{0};
     BufferUsage usage{};
+    bool mapped_at_creation{false};
     std::string label{"Buffer"};
 };
 
@@ -403,6 +413,7 @@ struct ExternalTextureDesc final {
 struct PipelineLayoutDesc final {
     void* next_in_chain{nullptr};
     std::span<BindGroupLayout* const> bind_group_layouts{};
+    u32 immediate_size{0};
     std::string label{"PipelineLayout"};
 };
 
@@ -509,6 +520,7 @@ struct RenderPipelineDescTyped final {
 
 struct ResourceTableDesc final {
     void* next_in_chain{nullptr};
+    u32 size{0};
     std::string label{"ResourceTable"};
 };
 
@@ -564,7 +576,8 @@ struct TextureViewDesc final {
     u32 mip_level_count{kMipLevelCountUndefined};
     u32 base_array_layer{0};
     u32 array_layer_count{kArrayLayerCountUndefined};
-    TextureAspect aspect{TextureAspect::All};
+    TextureAspect aspect{TextureAspect::Undefined};
+    TextureUsage usage{TextureUsage::None};
     std::string label{"TextureView"};
 };
 

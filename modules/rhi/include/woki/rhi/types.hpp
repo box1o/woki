@@ -4,6 +4,8 @@
 
 #include "../enums.hpp"
 
+#include <cmath>
+#include <cstddef>
 #include <functional>
 #include <span>
 #include <string>
@@ -95,9 +97,20 @@ inline constexpr u32 kMipLevelCountUndefined = 0xFFFFFFFFu;
 inline constexpr u32 kArrayLayerCountUndefined = 0xFFFFFFFFu;
 inline constexpr u32 kDepthSliceUndefined = 0xFFFFFFFFu;
 inline constexpr u32 kQuerySetIndexUndefined = 0xFFFFFFFFu;
+inline constexpr u32 kCopyStrideUndefined = 0xFFFFFFFFu;
+inline constexpr u32 kLimitU32Undefined = 0xFFFFFFFFu;
+inline constexpr u64 kLimitU64Undefined = ~0ULL;
+inline constexpr u32 kInvalidBinding = 0xFFFFFFFFu;
+inline constexpr f32 kDepthClearValueUndefined = NAN;
+inline constexpr size_t kStrlen = SIZE_MAX;
 
 [[nodiscard]] constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs) noexcept {
     return static_cast<TextureUsage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));
+}
+
+[[nodiscard]] constexpr TextureUsage& operator|=(TextureUsage& lhs, TextureUsage rhs) noexcept {
+    lhs = lhs | rhs;
+    return lhs;
 }
 
 [[nodiscard]] constexpr TextureUsage operator&(TextureUsage lhs, TextureUsage rhs) noexcept {
@@ -105,6 +118,40 @@ inline constexpr u32 kQuerySetIndexUndefined = 0xFFFFFFFFu;
 }
 
 [[nodiscard]] constexpr bool HasFlag(TextureUsage value, TextureUsage flag) noexcept {
+    return (static_cast<u64>(value) & static_cast<u64>(flag)) != 0;
+}
+
+[[nodiscard]] constexpr BufferUsage operator|(BufferUsage lhs, BufferUsage rhs) noexcept {
+    return static_cast<BufferUsage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));
+}
+
+[[nodiscard]] constexpr BufferUsage& operator|=(BufferUsage& lhs, BufferUsage rhs) noexcept {
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+[[nodiscard]] constexpr BufferUsage operator&(BufferUsage lhs, BufferUsage rhs) noexcept {
+    return static_cast<BufferUsage>(static_cast<u64>(lhs) & static_cast<u64>(rhs));
+}
+
+[[nodiscard]] constexpr bool HasFlag(BufferUsage value, BufferUsage flag) noexcept {
+    return (static_cast<u64>(value) & static_cast<u64>(flag)) != 0;
+}
+
+[[nodiscard]] constexpr ShaderStage operator|(ShaderStage lhs, ShaderStage rhs) noexcept {
+    return static_cast<ShaderStage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));
+}
+
+[[nodiscard]] constexpr ShaderStage& operator|=(ShaderStage& lhs, ShaderStage rhs) noexcept {
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+[[nodiscard]] constexpr ShaderStage operator&(ShaderStage lhs, ShaderStage rhs) noexcept {
+    return static_cast<ShaderStage>(static_cast<u64>(lhs) & static_cast<u64>(rhs));
+}
+
+[[nodiscard]] constexpr bool HasFlag(ShaderStage value, ShaderStage flag) noexcept {
     return (static_cast<u64>(value) & static_cast<u64>(flag)) != 0;
 }
 

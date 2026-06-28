@@ -17,13 +17,12 @@ void RenderLayer::OnDetach(Context& ctx) {
 
 void RenderLayer::OnUpdate(Context& ctx, f64 delta_ms) {
     (void)ctx;
-    (void)delta_ms;
 
     if (!renderer_.IsReady()) {
         return;
     }
 
-    if (!renderer_.RenderFrame()) {
+    if (!renderer_.RenderFrame(delta_ms)) {
         slog::Warn("Render frame failed");
     }
 }

@@ -94,7 +94,7 @@ public:
     void SetLabel(std::string_view label) override;
     void SetLoggingCallback(LoggingCallback callback) override;
     void Tick() const noexcept override;
-    [[nodiscard]] Result<void> ValidateTextureDescriptor(const TextureDesc& desc) const override;
+    void ValidateTextureDescriptor(const TextureDesc& desc) const override;
 
     [[nodiscard]] NativeHandles GetNativeHandles() const noexcept override;
     [[nodiscard]] WGPUDevice GetNativeDevice() const noexcept;

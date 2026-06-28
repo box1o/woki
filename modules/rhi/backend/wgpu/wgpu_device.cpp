@@ -184,13 +184,10 @@ Result<scope<BindGroupLayout>> WgpuDeviceImpl::CreateBindGroupLayout(const BindG
 }
 
 Result<scope<Buffer>> WgpuDeviceImpl::CreateBuffer(const BufferDesc& desc) {
-    WGPUBufferDescriptor native = WGPU_BUFFER_DESCRIPTOR_INIT;
-    native.size = desc.size;
-    native.usage = static_cast<WGPUBufferUsage>(static_cast<u64>(desc.usage));
-    native.label = detail::ToStringView(desc.label);
+    const detail::BufferDescriptorStorage storage(desc);
     return CreateResource<Buffer>(
         device_.get(),
-        [&](WGPUDevice device) { return wgpuDeviceCreateBuffer(device, &native); },
+        [&](WGPUDevice device) { return wgpuDeviceCreateBuffer(device, &storage.native); },
         CreateBufferObject,
         "buffer");
 }
@@ -249,13 +246,10 @@ Future WgpuDeviceImpl::CreateComputePipelineAsync(
 }
 
 Result<scope<Buffer>> WgpuDeviceImpl::CreateErrorBuffer(const BufferDesc& desc) {
-    WGPUBufferDescriptor native = WGPU_BUFFER_DESCRIPTOR_INIT;
-    native.size = desc.size;
-    native.usage = static_cast<WGPUBufferUsage>(static_cast<u64>(desc.usage));
-    native.label = detail::ToStringView(desc.label);
+    const detail::BufferDescriptorStorage storage(desc);
     return CreateResource<Buffer>(
         device_.get(),
-        [&](WGPUDevice device) { return wgpuDeviceCreateErrorBuffer(device, &native); },
+        [&](WGPUDevice device) { return wgpuDeviceCreateErrorBuffer(device, &storage.native); },
         CreateBufferObject,
         "error buffer");
 }
@@ -640,14 +634,13 @@ void WgpuDeviceImpl::Tick() const noexcept {
     }
 }
 
-Result<void> WgpuDeviceImpl::ValidateTextureDescriptor(const TextureDesc& desc) const {
+void WgpuDeviceImpl::ValidateTextureDescriptor(const TextureDesc& desc) const {
     if (!device_) {
-        return Err(ErrorCode::GraphicsResourceCreationFailed, "Device is invalid");
+        return;
     }
 
     const detail::TextureDescriptorStorage storage(desc);
     wgpuDeviceValidateTextureDescriptor(device_.get(), &storage.native);
-    return Ok();
 }
 
 NativeHandles WgpuDeviceImpl::GetNativeHandles() const noexcept {

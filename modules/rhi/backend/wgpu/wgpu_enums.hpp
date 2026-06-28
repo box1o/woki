@@ -6,6 +6,32 @@
 
 namespace woki::rhi::wgpu::convert {
 
+static_assert(static_cast<u64>(BufferUsage::None) == WGPUBufferUsage_None);
+static_assert(static_cast<u64>(BufferUsage::MapRead) == WGPUBufferUsage_MapRead);
+static_assert(static_cast<u64>(BufferUsage::MapWrite) == WGPUBufferUsage_MapWrite);
+static_assert(static_cast<u64>(BufferUsage::CopySrc) == WGPUBufferUsage_CopySrc);
+static_assert(static_cast<u64>(BufferUsage::CopyDst) == WGPUBufferUsage_CopyDst);
+static_assert(static_cast<u64>(BufferUsage::Index) == WGPUBufferUsage_Index);
+static_assert(static_cast<u64>(BufferUsage::Vertex) == WGPUBufferUsage_Vertex);
+static_assert(static_cast<u64>(BufferUsage::Uniform) == WGPUBufferUsage_Uniform);
+static_assert(static_cast<u64>(BufferUsage::Storage) == WGPUBufferUsage_Storage);
+static_assert(static_cast<u64>(BufferUsage::Indirect) == WGPUBufferUsage_Indirect);
+static_assert(static_cast<u64>(BufferUsage::QueryResolve) == WGPUBufferUsage_QueryResolve);
+static_assert(static_cast<u64>(BufferUsage::TexelBuffer) == WGPUBufferUsage_TexelBuffer);
+
+static_assert(static_cast<u64>(ShaderStage::None) == WGPUShaderStage_None);
+static_assert(static_cast<u64>(ShaderStage::Vertex) == WGPUShaderStage_Vertex);
+static_assert(static_cast<u64>(ShaderStage::Fragment) == WGPUShaderStage_Fragment);
+static_assert(static_cast<u64>(ShaderStage::Compute) == WGPUShaderStage_Compute);
+
+static_assert(static_cast<u64>(TextureUsage::None) == WGPUTextureUsage_None);
+static_assert(static_cast<u64>(TextureUsage::CopySrc) == WGPUTextureUsage_CopySrc);
+static_assert(static_cast<u64>(TextureUsage::CopyDst) == WGPUTextureUsage_CopyDst);
+static_assert(static_cast<u64>(TextureUsage::TextureBinding) == WGPUTextureUsage_TextureBinding);
+static_assert(static_cast<u64>(TextureUsage::StorageBinding) == WGPUTextureUsage_StorageBinding);
+static_assert(static_cast<u64>(TextureUsage::RenderAttachment) == WGPUTextureUsage_RenderAttachment);
+static_assert(static_cast<u64>(TextureUsage::TransientAttachment) == WGPUTextureUsage_TransientAttachment);
+static_assert(static_cast<u64>(TextureUsage::StorageAttachment) == WGPUTextureUsage_StorageAttachment);
 
 [[nodiscard]] inline WGPUAdapterType ToWgpu(AdapterType value) noexcept {
     switch (value) {
@@ -246,7 +272,8 @@ namespace woki::rhi::wgpu::convert {
 }
 
 [[nodiscard]] inline ColorSpacePrimariesDawn FromWgpu(WGPUColorSpacePrimariesDawn value) noexcept {
-    if (value == WGPUColorSpacePrimariesDawn_SRGB || value == WGPUColorSpacePrimariesDawn_Rec709) {
+    // SRGB and Rec709 share the same native enum value in webgpu.h.
+    if (value == WGPUColorSpacePrimariesDawn_SRGB) {
         return ColorSpacePrimariesDawn::SRGB;
     }
 
@@ -2071,21 +2098,7 @@ namespace woki::rhi::wgpu::convert {
 }
 
 [[nodiscard]] inline WGPUBufferUsage ToWgpuBufferUsage(BufferUsage value) noexcept {
-    switch (value) {
-    case BufferUsage::None: return WGPUBufferUsage_None;
-    case BufferUsage::MapRead: return WGPUBufferUsage_MapRead;
-    case BufferUsage::MapWrite: return WGPUBufferUsage_MapWrite;
-    case BufferUsage::CopySrc: return WGPUBufferUsage_CopySrc;
-    case BufferUsage::CopyDst: return WGPUBufferUsage_CopyDst;
-    case BufferUsage::Index: return WGPUBufferUsage_Index;
-    case BufferUsage::Vertex: return WGPUBufferUsage_Vertex;
-    case BufferUsage::Uniform: return WGPUBufferUsage_Uniform;
-    case BufferUsage::Storage: return WGPUBufferUsage_Storage;
-    case BufferUsage::Indirect: return WGPUBufferUsage_Indirect;
-    case BufferUsage::QueryResolve: return WGPUBufferUsage_QueryResolve;
-    case BufferUsage::TexelBuffer: return WGPUBufferUsage_TexelBuffer;
-    }
-    return WGPUBufferUsage_None;
+    return static_cast<WGPUBufferUsage>(static_cast<u64>(value));
 }
 
 [[nodiscard]] inline BufferUsage FromWgpuBufferUsage(WGPUBufferUsage value) noexcept {
@@ -2173,13 +2186,7 @@ namespace woki::rhi::wgpu::convert {
 }
 
 [[nodiscard]] inline WGPUShaderStage ToWgpuShaderStage(ShaderStage value) noexcept {
-    switch (value) {
-    case ShaderStage::None: return WGPUShaderStage_None;
-    case ShaderStage::Vertex: return WGPUShaderStage_Vertex;
-    case ShaderStage::Fragment: return WGPUShaderStage_Fragment;
-    case ShaderStage::Compute: return WGPUShaderStage_Compute;
-    }
-    return WGPUShaderStage_None;
+    return static_cast<WGPUShaderStage>(static_cast<u64>(value));
 }
 
 [[nodiscard]] inline ShaderStage FromWgpuShaderStage(WGPUShaderStage value) noexcept {
@@ -2193,17 +2200,7 @@ namespace woki::rhi::wgpu::convert {
 }
 
 [[nodiscard]] inline WGPUTextureUsage ToWgpuTextureUsage(TextureUsage value) noexcept {
-    switch (value) {
-    case TextureUsage::None: return WGPUTextureUsage_None;
-    case TextureUsage::CopySrc: return WGPUTextureUsage_CopySrc;
-    case TextureUsage::CopyDst: return WGPUTextureUsage_CopyDst;
-    case TextureUsage::TextureBinding: return WGPUTextureUsage_TextureBinding;
-    case TextureUsage::StorageBinding: return WGPUTextureUsage_StorageBinding;
-    case TextureUsage::RenderAttachment: return WGPUTextureUsage_RenderAttachment;
-    case TextureUsage::TransientAttachment: return WGPUTextureUsage_TransientAttachment;
-    case TextureUsage::StorageAttachment: return WGPUTextureUsage_StorageAttachment;
-    }
-    return WGPUTextureUsage_None;
+    return static_cast<WGPUTextureUsage>(static_cast<u64>(value));
 }
 
 [[nodiscard]] inline TextureUsage FromWgpuTextureUsage(WGPUTextureUsage value) noexcept {
