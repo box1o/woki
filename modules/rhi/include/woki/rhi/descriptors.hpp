@@ -184,11 +184,43 @@ struct ComputePassDesc final {
 struct RenderPassDesc final {
     void* next_in_chain{nullptr};
     std::string label{"RenderPass"};
+    void* timestamp_writes{nullptr};
+    void* occlusion_query_set{nullptr};
     u32 color_attachment_count{0};
     void* color_attachments{nullptr};
     void* depth_stencil_attachment{nullptr};
-    void* occlusion_query_set{nullptr};
+};
+
+struct RenderPassColorAttachmentDesc final {
+    void* next_in_chain{nullptr};
+    TextureView* view{nullptr};
+    TextureView* resolve_target{nullptr};
+    u32 depth_slice{kDepthSliceUndefined};
+    LoadOp load_op{LoadOp::Clear};
+    StoreOp store_op{StoreOp::Store};
+    Color clear_value{0.12, 0.12, 0.18, 1.0};
+};
+
+struct RenderPassDepthStencilAttachmentDesc final {
+    void* next_in_chain{nullptr};
+    TextureView* view{nullptr};
+    LoadOp depth_load_op{LoadOp::Clear};
+    StoreOp depth_store_op{StoreOp::Store};
+    f32 depth_clear_value{1.0f};
+    bool depth_read_only{false};
+    LoadOp stencil_load_op{LoadOp::Clear};
+    StoreOp stencil_store_op{StoreOp::Store};
+    u32 stencil_clear_value{0};
+    bool stencil_read_only{false};
+};
+
+struct RenderPassDescTyped final {
+    void* next_in_chain{nullptr};
+    std::string label{"RenderPass"};
     void* timestamp_writes{nullptr};
+    QuerySet* occlusion_query_set{nullptr};
+    std::span<const RenderPassColorAttachmentDesc> color_attachments{};
+    const RenderPassDepthStencilAttachmentDesc* depth_stencil_attachment{nullptr};
 };
 
 struct TexelCopyTextureInfo final {

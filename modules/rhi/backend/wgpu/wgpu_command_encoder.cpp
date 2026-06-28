@@ -2,6 +2,7 @@
 
 #include "detail/copy_convert.hpp"
 #include "detail/native_helpers.hpp"
+#include "detail/render_pass_descriptor.hpp"
 #include "detail/string.hpp"
 #include "wgpu_command_buffer.hpp"
 #include "wgpu_compute_pass_encoder.hpp"
@@ -48,6 +49,22 @@ Result<scope<RenderPassEncoder>> WgpuCommandEncoderImpl::BeginRenderPass(
     native.timestampWrites = static_cast<WGPUPassTimestampWrites*>(desc.timestamp_writes);
 
     WGPURenderPassEncoder pass = wgpuCommandEncoderBeginRenderPass(encoder_.get(), &native);
+    if (pass == nullptr) {
+        return Err(ErrorCode::GraphicsResourceCreationFailed, "Failed to begin render pass");
+    }
+
+    return Ok(createScope<WgpuRenderPassEncoderImpl>(pass));
+}
+
+Result<scope<RenderPassEncoder>> WgpuCommandEncoderImpl::BeginRenderPass(
+    const RenderPassDescTyped& desc) {
+    if (!encoder_) {
+        return Err(ErrorCode::GraphicsResourceCreationFailed, "Command encoder is invalid");
+    }
+
+    const detail::RenderPassDescriptorStorage storage(desc);
+    WGPURenderPassEncoder pass =
+        wgpuCommandEncoderBeginRenderPass(encoder_.get(), &storage.native);
     if (pass == nullptr) {
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Failed to begin render pass");
     }

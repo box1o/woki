@@ -19,6 +19,8 @@ public:
         const ComputePassDesc& desc = {}) = 0;
     [[nodiscard]] virtual Result<scope<RenderPassEncoder>> BeginRenderPass(
         const RenderPassDesc& desc) = 0;
+    [[nodiscard]] virtual Result<scope<RenderPassEncoder>> BeginRenderPass(
+        const RenderPassDescTyped& desc) = 0;
 
     [[nodiscard]] virtual Result<void> ClearBuffer(
         const Buffer& buffer, u64 offset = 0, u64 size = kWholeSize) = 0;

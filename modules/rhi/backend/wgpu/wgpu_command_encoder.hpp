@@ -15,6 +15,8 @@ public:
         const ComputePassDesc& desc) override;
     [[nodiscard]] Result<scope<RenderPassEncoder>> BeginRenderPass(
         const RenderPassDesc& desc) override;
+    [[nodiscard]] Result<scope<RenderPassEncoder>> BeginRenderPass(
+        const RenderPassDescTyped& desc) override;
 
     [[nodiscard]] Result<void> ClearBuffer(
         const Buffer& buffer, u64 offset, u64 size) override;

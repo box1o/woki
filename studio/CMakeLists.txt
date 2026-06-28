@@ -36,6 +36,7 @@ target_include_directories(studio
 set(_DEPS
     woki::core
     woki::gfx
+    woki::rhi
     woki::extension
 )
 
