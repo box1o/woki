@@ -36,6 +36,7 @@ target_include_directories(studio
 set(_DEPS
     woki::core
     woki::gfx
+    woki::extension
 )
 
 if(EMSCRIPTEN)
@@ -67,7 +68,7 @@ if(EMSCRIPTEN)
 
     if(EXISTS "${_RES_DIR}")
         target_link_options(studio PRIVATE
-            "--preload-file" "${_RES_DIR}@${_WEB_RES_MOUNT}"
+            "SHELL:--preload-file ${_RES_DIR}@${_WEB_RES_MOUNT}"
         )
         target_compile_definitions(studio PRIVATE
             __RES_ROOT="${_WEB_RES_MOUNT}"
@@ -76,7 +77,7 @@ if(EMSCRIPTEN)
 
     if(EXISTS "${_CFG_DIR}")
         target_link_options(studio PRIVATE
-            "--preload-file" "${_CFG_DIR}@${_WEB_CFG_MOUNT}"
+            "SHELL:--preload-file ${_CFG_DIR}@${_WEB_CFG_MOUNT}"
         )
     endif()
 
@@ -87,8 +88,17 @@ if(EMSCRIPTEN)
         "-sALLOW_MEMORY_GROWTH=1"
         "-sASSERTIONS=1"
         "-sNO_DISABLE_EXCEPTION_CATCHING"
+        "--js-library" "${CMAKE_SOURCE_DIR}/modules/extension/web/woki_ext.js"
         "--shell-file" "${CMAKE_SOURCE_DIR}/web/index.html"
     )
+
+    set(_EXT_DIR "${CMAKE_SOURCE_DIR}/extensions")
+    if(EXISTS "${_EXT_DIR}")
+        target_link_options(studio PRIVATE
+            "SHELL:--preload-file ${_EXT_DIR}@/extensions"
+        )
+        target_compile_definitions(studio PRIVATE WOKI_SOURCE_EXTENSIONS_DIR="/extensions")
+    endif()
 
     set_target_properties(studio PROPERTIES
         OUTPUT_NAME "studio"
@@ -130,7 +140,6 @@ else()
     list(APPEND _DEPS
         Threads::Threads
         msdfgen::msdfgen
-        woki::extension
     )
 
     if(NOT TARGET dawn::webgpu_dawn)
