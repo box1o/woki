@@ -6,6 +6,7 @@
 #include "native_helpers.hpp"
 #include "string.hpp"
 
+#include <optional>
 #include <vector>
 
 #include <webgpu/webgpu.h>
@@ -54,10 +55,22 @@ using convert::ToWgpu;
     return native;
 }
 
+[[nodiscard]] inline WGPUPassTimestampWrites ToWgpu(const PassTimestampWritesDesc& desc) noexcept {
+    WGPUPassTimestampWrites native = WGPU_PASS_TIMESTAMP_WRITES_INIT;
+    native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
+    native.querySet = desc.query_set == nullptr
+        ? nullptr
+        : static_cast<WGPUQuerySet>(desc.query_set->GetNativeHandles().resource);
+    native.beginningOfPassWriteIndex = desc.beginning_of_pass_write_index;
+    native.endOfPassWriteIndex = desc.end_of_pass_write_index;
+    return native;
+}
+
 struct RenderPassDescriptorStorage final {
     std::vector<WGPURenderPassColorAttachment> color_attachments{};
     WGPURenderPassDepthStencilAttachment depth_stencil_attachment =
         WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
+    std::optional<WGPUPassTimestampWrites> timestamp_writes{};
     WGPURenderPassDescriptor native = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     bool has_depth_stencil{false};
 
@@ -72,7 +85,10 @@ struct RenderPassDescriptorStorage final {
         native.colorAttachmentCount = color_attachments.size();
         native.colorAttachments =
             color_attachments.empty() ? nullptr : color_attachments.data();
-        native.timestampWrites = static_cast<WGPUPassTimestampWrites*>(desc.timestamp_writes);
+        if (desc.timestamp_writes != nullptr) {
+            timestamp_writes = ToWgpu(*desc.timestamp_writes);
+            native.timestampWrites = &*timestamp_writes;
+        }
         native.occlusionQuerySet =
             desc.occlusion_query_set == nullptr
             ? nullptr

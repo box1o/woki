@@ -94,6 +94,7 @@ inline constexpr size_t kWholeMapSize = kWholeSize;
 inline constexpr u32 kMipLevelCountUndefined = 0xFFFFFFFFu;
 inline constexpr u32 kArrayLayerCountUndefined = 0xFFFFFFFFu;
 inline constexpr u32 kDepthSliceUndefined = 0xFFFFFFFFu;
+inline constexpr u32 kQuerySetIndexUndefined = 0xFFFFFFFFu;
 
 [[nodiscard]] constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs) noexcept {
     return static_cast<TextureUsage>(static_cast<u64>(lhs) | static_cast<u64>(rhs));

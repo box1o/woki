@@ -594,11 +594,9 @@ Result<scope<TexelBufferView>> WgpuBufferImpl::CreateTexelView(
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Buffer is invalid");
     }
 
-    WGPUTexelBufferViewDescriptor native = WGPU_TEXEL_BUFFER_VIEW_DESCRIPTOR_INIT;
-    native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    native.label = detail::ToStringView(desc.label);
-
-    return Ok(CreateTexelBufferViewObject(wgpuBufferCreateTexelView(handle_.get(), &native)));
+    const detail::TexelBufferViewDescriptorStorage storage(desc);
+    return Ok(CreateTexelBufferViewObject(
+        wgpuBufferCreateTexelView(handle_.get(), &storage.native)));
 }
 
 void WgpuBufferImpl::Destroy() {
@@ -1020,8 +1018,8 @@ u32 WgpuResourceTableImpl::InsertBinding(const BindingResourceDesc& resource) {
         return 0;
     }
 
-    const auto* native_resource = static_cast<const WGPUBindingResource*>(resource.next_in_chain);
-    return wgpuResourceTableInsertBinding(handle_.get(), native_resource);
+    const WGPUBindingResource native_resource = detail::ToWgpu(resource);
+    return wgpuResourceTableInsertBinding(handle_.get(), &native_resource);
 }
 
 Result<void> WgpuResourceTableImpl::RemoveBinding(const u32 slot) {
@@ -1047,9 +1045,9 @@ Result<void> WgpuResourceTableImpl::Update(
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Resource table is invalid");
     }
 
-    const auto* native_resource = static_cast<const WGPUBindingResource*>(resource.next_in_chain);
+    const WGPUBindingResource native_resource = detail::ToWgpu(resource);
     return FromWgpuStatus(
-        wgpuResourceTableUpdate(handle_.get(), slot, native_resource),
+        wgpuResourceTableUpdate(handle_.get(), slot, &native_resource),
         "Failed to update resource table binding");
 }
 

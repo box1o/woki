@@ -135,6 +135,11 @@ struct DeviceDesc final {
     std::string label{"Device"};
 };
 
+struct Origin2D final {
+    u32 x{0};
+    u32 y{0};
+};
+
 struct Origin3D final {
     u32 x{0};
     u32 y{0};
@@ -175,10 +180,17 @@ struct CommandBufferDesc final {
     std::string label{"CommandBuffer"};
 };
 
+struct PassTimestampWritesDesc final {
+    void* next_in_chain{nullptr};
+    QuerySet* query_set{nullptr};
+    u32 beginning_of_pass_write_index{kQuerySetIndexUndefined};
+    u32 end_of_pass_write_index{kQuerySetIndexUndefined};
+};
+
 struct ComputePassDesc final {
     void* next_in_chain{nullptr};
     std::string label{"ComputePass"};
-    void* timestamp_writes{nullptr};
+    const PassTimestampWritesDesc* timestamp_writes{nullptr};
 };
 
 struct RenderPassDesc final {
@@ -217,7 +229,7 @@ struct RenderPassDepthStencilAttachmentDesc final {
 struct RenderPassDescTyped final {
     void* next_in_chain{nullptr};
     std::string label{"RenderPass"};
-    void* timestamp_writes{nullptr};
+    const PassTimestampWritesDesc* timestamp_writes{nullptr};
     QuerySet* occlusion_query_set{nullptr};
     std::span<const RenderPassColorAttachmentDesc> color_attachments{};
     const RenderPassDepthStencilAttachmentDesc* depth_stencil_attachment{nullptr};
@@ -255,6 +267,71 @@ struct CompilationInfo final {
     std::vector<CompilationMessage> messages{};
 };
 
+struct StencilFaceStateDesc final {
+    CompareFunction compare{CompareFunction::Undefined};
+    StencilOperation fail_op{StencilOperation::Undefined};
+    StencilOperation depth_fail_op{StencilOperation::Undefined};
+    StencilOperation pass_op{StencilOperation::Undefined};
+};
+
+struct BlendComponentDesc final {
+    BlendOperation operation{BlendOperation::Add};
+    BlendFactor src_factor{BlendFactor::One};
+    BlendFactor dst_factor{BlendFactor::Zero};
+};
+
+struct BlendStateDesc final {
+    BlendComponentDesc color{};
+    BlendComponentDesc alpha{};
+};
+
+struct BufferBindingLayoutDesc final {
+    void* next_in_chain{nullptr};
+    BufferBindingType type{BufferBindingType::Undefined};
+    bool has_dynamic_offset{false};
+    u64 min_binding_size{0};
+};
+
+struct SamplerBindingLayoutDesc final {
+    void* next_in_chain{nullptr};
+    SamplerBindingType type{SamplerBindingType::Undefined};
+};
+
+struct TextureBindingLayoutDesc final {
+    void* next_in_chain{nullptr};
+    TextureSampleType sample_type{TextureSampleType::Undefined};
+    TextureViewDimension view_dimension{TextureViewDimension::Undefined};
+    bool multisampled{false};
+};
+
+struct StorageTextureBindingLayoutDesc final {
+    void* next_in_chain{nullptr};
+    StorageTextureAccess access{StorageTextureAccess::Undefined};
+    TextureFormat format{TextureFormat::Undefined};
+    TextureViewDimension view_dimension{TextureViewDimension::Undefined};
+};
+
+struct BindGroupLayoutEntryDesc final {
+    void* next_in_chain{nullptr};
+    u32 binding{0};
+    u32 visibility{0};
+    u32 binding_array_size{0};
+    BufferBindingLayoutDesc buffer{};
+    SamplerBindingLayoutDesc sampler{};
+    TextureBindingLayoutDesc texture{};
+    StorageTextureBindingLayoutDesc storage_texture{};
+};
+
+struct BindGroupEntryDesc final {
+    void* next_in_chain{nullptr};
+    u32 binding{0};
+    Buffer* buffer{nullptr};
+    u64 offset{0};
+    u64 size{kWholeSize};
+    Sampler* sampler{nullptr};
+    TextureView* texture_view{nullptr};
+};
+
 struct ComputeStateDesc final {
     void* next_in_chain{nullptr};
     ShaderModule* module{nullptr};
@@ -278,15 +355,13 @@ struct TextureDesc final {
 struct BindGroupDesc final {
     void* next_in_chain{nullptr};
     BindGroupLayout* layout{nullptr};
-    u32 entry_count{0};
-    void* entries{nullptr};
+    std::span<const BindGroupEntryDesc> entries{};
     std::string label{"BindGroup"};
 };
 
 struct BindGroupLayoutDesc final {
     void* next_in_chain{nullptr};
-    u32 entry_count{0};
-    void* entries{nullptr};
+    std::span<const BindGroupLayoutEntryDesc> entries{};
     std::string label{"BindGroupLayout"};
 };
 
@@ -310,6 +385,18 @@ struct ComputePipelineDesc final {
 
 struct ExternalTextureDesc final {
     void* next_in_chain{nullptr};
+    TextureView* plane0{nullptr};
+    TextureView* plane1{nullptr};
+    Origin2D crop_origin{};
+    Extent2D crop_size{};
+    Extent2D apparent_size{};
+    bool do_yuv_to_rgb_conversion_only{false};
+    const f32* yuv_to_rgb_conversion_matrix{nullptr};
+    const f32* src_transfer_function_parameters{nullptr};
+    const f32* dst_transfer_function_parameters{nullptr};
+    const f32* gamut_conversion_matrix{nullptr};
+    bool mirrored{false};
+    ExternalTextureRotation rotation{ExternalTextureRotation::Rotate0Degrees};
     std::string label{"ExternalTexture"};
 };
 
@@ -373,7 +460,7 @@ struct VertexStateDesc final {
 struct ColorTargetStateDesc final {
     void* next_in_chain{nullptr};
     TextureFormat format{TextureFormat::BGRA8Unorm};
-    void* blend{nullptr};
+    const BlendStateDesc* blend{nullptr};
     ColorWriteMask write_mask{ColorWriteMask::All};
 };
 
@@ -400,6 +487,13 @@ struct DepthStencilStateDesc final {
     TextureFormat format{TextureFormat::Depth24PlusStencil8};
     std::optional<bool> depth_write_enabled{true};
     CompareFunction depth_compare{CompareFunction::Less};
+    StencilFaceStateDesc stencil_front{};
+    StencilFaceStateDesc stencil_back{};
+    u32 stencil_read_mask{0xFFFFFFFF};
+    u32 stencil_write_mask{0xFFFFFFFF};
+    i32 depth_bias{0};
+    f32 depth_bias_slope_scale{0.0f};
+    f32 depth_bias_clamp{0.0f};
 };
 
 struct RenderPipelineDescTyped final {
@@ -456,6 +550,9 @@ struct SharedTextureMemoryDesc final {
 
 struct TexelBufferViewDesc final {
     void* next_in_chain{nullptr};
+    TextureFormat format{TextureFormat::Undefined};
+    u64 offset{0};
+    u64 size{kWholeSize};
     std::string label{"TexelBufferView"};
 };
 
@@ -478,6 +575,11 @@ struct RenderBundleDesc final {
 
 struct BindingResourceDesc final {
     void* next_in_chain{nullptr};
+    Buffer* buffer{nullptr};
+    u64 offset{0};
+    u64 size{kWholeSize};
+    Sampler* sampler{nullptr};
+    TextureView* texture_view{nullptr};
 };
 
 struct SharedBufferMemoryBeginAccessDesc final {

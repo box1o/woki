@@ -76,12 +76,23 @@ struct VertexStateStorage final {
 };
 
 struct ColorTargetStateStorage final {
+    std::optional<BlendStateDesc> blend_storage{};
+    WGPUBlendState native_blend = WGPU_BLEND_STATE_INIT;
     WGPUColorTargetState native = WGPU_COLOR_TARGET_STATE_INIT;
 
     explicit ColorTargetStateStorage(const ColorTargetStateDesc& desc) {
         native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
         native.format = ToWgpu(desc.format);
-        native.blend = static_cast<const WGPUBlendState*>(desc.blend);
+        if (desc.blend != nullptr) {
+            blend_storage = *desc.blend;
+            native_blend.color.operation = ToWgpu(blend_storage->color.operation);
+            native_blend.color.srcFactor = ToWgpu(blend_storage->color.src_factor);
+            native_blend.color.dstFactor = ToWgpu(blend_storage->color.dst_factor);
+            native_blend.alpha.operation = ToWgpu(blend_storage->alpha.operation);
+            native_blend.alpha.srcFactor = ToWgpu(blend_storage->alpha.src_factor);
+            native_blend.alpha.dstFactor = ToWgpu(blend_storage->alpha.dst_factor);
+            native.blend = &native_blend;
+        }
         native.writeMask = ToWgpuColorWriteMask(desc.write_mask);
     }
 };
@@ -132,6 +143,19 @@ struct DepthStencilStateStorage final {
         native.format = ToWgpu(desc.format);
         native.depthWriteEnabled = ToWgpuOptionalBool(desc.depth_write_enabled);
         native.depthCompare = ToWgpu(desc.depth_compare);
+        native.stencilFront.compare = ToWgpu(desc.stencil_front.compare);
+        native.stencilFront.failOp = ToWgpu(desc.stencil_front.fail_op);
+        native.stencilFront.depthFailOp = ToWgpu(desc.stencil_front.depth_fail_op);
+        native.stencilFront.passOp = ToWgpu(desc.stencil_front.pass_op);
+        native.stencilBack.compare = ToWgpu(desc.stencil_back.compare);
+        native.stencilBack.failOp = ToWgpu(desc.stencil_back.fail_op);
+        native.stencilBack.depthFailOp = ToWgpu(desc.stencil_back.depth_fail_op);
+        native.stencilBack.passOp = ToWgpu(desc.stencil_back.pass_op);
+        native.stencilReadMask = desc.stencil_read_mask;
+        native.stencilWriteMask = desc.stencil_write_mask;
+        native.depthBias = desc.depth_bias;
+        native.depthBiasSlopeScale = desc.depth_bias_slope_scale;
+        native.depthBiasClamp = desc.depth_bias_clamp;
     }
 };
 

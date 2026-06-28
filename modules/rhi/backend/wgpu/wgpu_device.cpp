@@ -4,6 +4,7 @@
 #include "detail/copy_convert.hpp"
 #include "detail/device_descriptor.hpp"
 #include "detail/device_features.hpp"
+#include "detail/external_texture_descriptor.hpp"
 #include "detail/pipeline_descriptor.hpp"
 #include "detail/resource_descriptor.hpp"
 #include "detail/string.hpp"
@@ -291,12 +292,12 @@ Result<scope<Texture>> WgpuDeviceImpl::CreateErrorTexture(const TextureDesc& des
 }
 
 Result<scope<ExternalTexture>> WgpuDeviceImpl::CreateExternalTexture(const ExternalTextureDesc& desc) {
-    WGPUExternalTextureDescriptor native = WGPU_EXTERNAL_TEXTURE_DESCRIPTOR_INIT;
-    native.label = detail::ToStringView(desc.label);
-    native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
+    const detail::ExternalTextureDescriptorStorage storage(desc);
     return CreateResource<ExternalTexture>(
         device_.get(),
-        [&](WGPUDevice device) { return wgpuDeviceCreateExternalTexture(device, &native); },
+        [&](WGPUDevice device) {
+            return wgpuDeviceCreateExternalTexture(device, &storage.native);
+        },
         CreateExternalTextureObject,
         "external texture");
 }

@@ -14,6 +14,10 @@ using namespace woki::rhi::wgpu::convert;
     return WGPUOrigin3D{origin.x, origin.y, origin.z};
 }
 
+[[nodiscard]] inline WGPUOrigin2D ToWgpu(const Origin2D& origin) noexcept {
+    return WGPUOrigin2D{origin.x, origin.y};
+}
+
 [[nodiscard]] inline WGPUExtent3D ToWgpu(const Extent3D& extent) noexcept {
     return WGPUExtent3D{extent.width, extent.height, extent.depth_or_array_layers};
 }

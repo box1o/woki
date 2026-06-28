@@ -8,6 +8,8 @@
 #include "wgpu_compute_pass_encoder.hpp"
 #include "wgpu_render_pass_encoder.hpp"
 
+#include <optional>
+
 namespace woki::rhi::wgpu {
 
 WgpuCommandEncoderImpl::WgpuCommandEncoderImpl(const WGPUCommandEncoder encoder) noexcept
@@ -22,7 +24,11 @@ Result<scope<ComputePassEncoder>> WgpuCommandEncoderImpl::BeginComputePass(
     WGPUComputePassDescriptor native = WGPU_COMPUTE_PASS_DESCRIPTOR_INIT;
     native.label = detail::ToStringView(desc.label);
     native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    native.timestampWrites = static_cast<WGPUPassTimestampWrites*>(desc.timestamp_writes);
+    std::optional<WGPUPassTimestampWrites> timestamp_writes{};
+    if (desc.timestamp_writes != nullptr) {
+        timestamp_writes = detail::ToWgpu(*desc.timestamp_writes);
+        native.timestampWrites = &*timestamp_writes;
+    }
 
     WGPUComputePassEncoder pass = wgpuCommandEncoderBeginComputePass(encoder_.get(), &native);
     if (pass == nullptr) {

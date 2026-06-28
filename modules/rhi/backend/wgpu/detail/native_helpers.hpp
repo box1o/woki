@@ -24,6 +24,11 @@ namespace woki::rhi::wgpu::detail {
                                  : static_cast<WGPUBindGroup>(bind_group->GetNativeHandles().resource);
 }
 
+[[nodiscard]] inline WGPUBindGroupLayout NativeBindGroupLayout(const BindGroupLayout* layout) noexcept {
+    return layout == nullptr ? nullptr
+                             : static_cast<WGPUBindGroupLayout>(layout->GetNativeHandles().resource);
+}
+
 [[nodiscard]] inline WGPUPipelineLayout NativePipelineLayout(const PipelineLayout* layout) noexcept {
     return layout == nullptr ? nullptr
                              : static_cast<WGPUPipelineLayout>(layout->GetNativeHandles().resource);
@@ -32,6 +37,14 @@ namespace woki::rhi::wgpu::detail {
 [[nodiscard]] inline WGPUShaderModule NativeShaderModule(const ShaderModule* module) noexcept {
     return module == nullptr ? nullptr
                              : static_cast<WGPUShaderModule>(module->GetNativeHandles().resource);
+}
+
+[[nodiscard]] inline WGPUSampler NativeSampler(const Sampler* sampler) noexcept {
+    return sampler == nullptr ? nullptr : static_cast<WGPUSampler>(sampler->GetNativeHandles().resource);
+}
+
+[[nodiscard]] inline WGPUTextureView NativeTextureView(const TextureView* view) noexcept {
+    return view == nullptr ? nullptr : static_cast<WGPUTextureView>(view->GetNativeHandles().resource);
 }
 
 [[nodiscard]] inline WGPUComputePipeline NativeComputePipeline(const ComputePipeline& pipeline) noexcept {

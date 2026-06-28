@@ -3,6 +3,8 @@
 #include <woki/rhi/descriptors.hpp>
 #include <woki/rhi/objects.hpp>
 
+#include "bind_group_descriptor.hpp"
+#include "external_texture_descriptor.hpp"
 #include "copy_convert.hpp"
 #include "native_helpers.hpp"
 #include "string.hpp"
@@ -16,11 +18,6 @@
 namespace woki::rhi::wgpu::detail {
 
 using convert::ToWgpu;
-
-[[nodiscard]] inline WGPUBindGroupLayout NativeBindGroupLayout(const BindGroupLayout* layout) noexcept {
-    return layout == nullptr ? nullptr
-                             : static_cast<WGPUBindGroupLayout>(layout->GetNativeHandles().resource);
-}
 
 struct ShaderModuleDescriptorStorage final {
     std::string code{};
@@ -129,29 +126,6 @@ struct PipelineLayoutDescriptorStorage final {
     }
 };
 
-struct BindGroupLayoutDescriptorStorage final {
-    WGPUBindGroupLayoutDescriptor native = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
-
-    explicit BindGroupLayoutDescriptorStorage(const BindGroupLayoutDesc& desc) {
-        native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-        native.label = ToStringView(desc.label);
-        native.entryCount = desc.entry_count;
-        native.entries = static_cast<const WGPUBindGroupLayoutEntry*>(desc.entries);
-    }
-};
-
-struct BindGroupDescriptorStorage final {
-    WGPUBindGroupDescriptor native = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
-
-    explicit BindGroupDescriptorStorage(const BindGroupDesc& desc) {
-        native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-        native.label = ToStringView(desc.label);
-        native.layout = NativeBindGroupLayout(desc.layout);
-        native.entryCount = desc.entry_count;
-        native.entries = static_cast<const WGPUBindGroupEntry*>(desc.entries);
-    }
-};
-
 struct ComputeStateStorage final {
     WGPUComputeState native = WGPU_COMPUTE_STATE_INIT;
 
@@ -161,6 +135,18 @@ struct ComputeStateStorage final {
         native.entryPoint = ToStringView(desc.entry_point);
         native.constantCount = desc.constant_count;
         native.constants = static_cast<const WGPUConstantEntry*>(desc.constants);
+    }
+};
+
+struct TexelBufferViewDescriptorStorage final {
+    WGPUTexelBufferViewDescriptor native = WGPU_TEXEL_BUFFER_VIEW_DESCRIPTOR_INIT;
+
+    explicit TexelBufferViewDescriptorStorage(const TexelBufferViewDesc& desc) {
+        native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
+        native.label = ToStringView(desc.label);
+        native.format = ToWgpu(desc.format);
+        native.offset = desc.offset;
+        native.size = desc.size;
     }
 };
 
