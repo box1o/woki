@@ -65,6 +65,19 @@ function(add_module_test name)
         )
     endif()
 
+    if(DEFINED ENV{WOKI_WASM_CLANG})
+        target_compile_definitions(${name} PRIVATE
+            WOKI_TEST_WASM_CLANG="$ENV{WOKI_WASM_CLANG}")
+    endif()
+    if(DEFINED ENV{WOKI_LLVM_PREFIX})
+        target_compile_definitions(${name} PRIVATE
+            WOKI_TEST_LLVM_PREFIX="$ENV{WOKI_LLVM_PREFIX}")
+    endif()
+    if(DEFINED ENV{WOKI_WASM_LD})
+        target_compile_definitions(${name} PRIVATE
+            WOKI_TEST_WASM_LD="$ENV{WOKI_WASM_LD}")
+    endif()
+
     add_test(NAME ${name} COMMAND ${name})
 
     if(TARGET woki_tests)

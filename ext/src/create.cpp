@@ -110,15 +110,18 @@ void ext_on_unload(void) {}
     const std::string source = cpp ? "src/plugin.cpp" : "src/plugin.c";
 
     return "cmake_minimum_required(VERSION 3.25)\n"
+           "\n"
+           "if(NOT DEFINED WOKI_REPO_ROOT)\n"
+           "    get_filename_component(WOKI_REPO_ROOT \"${CMAKE_CURRENT_SOURCE_DIR}/../..\" ABSOLUTE)\n"
+           "endif()\n"
+           "\n"
+           "include(\"${WOKI_REPO_ROOT}/cmake/ExtensionProject.cmake\")\n"
+           "\n"
            "project(woki_extension LANGUAGES " +
            std::string(cpp ? "CXX" : "C") +
            R"()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-if(NOT DEFINED WOKI_REPO_ROOT)
-    get_filename_component(WOKI_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-endif()
 
 include("${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake")
 add_wokiext()" +
