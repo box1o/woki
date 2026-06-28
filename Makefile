@@ -23,7 +23,7 @@ ifeq ($(findstring clang,$(CXX)),clang)
 endif
 
 .DEFAULT_GOAL := run
-.PHONY: configure deps build rebuild clean install run test all wokiext wokiext-install extensions lsp \
+.PHONY: configure build rebuild clean install run test all \
 	configure-web build-web web
 
 RUN_ARGS       := $(if $(CONFIG),--config $(CONFIG),)
@@ -41,15 +41,7 @@ configure:
 		-DWOKI_EXTENSION_WITH_WASMTIME=$(WOKI_EXTENSION_WITH_WASMTIME) \
 		-DWOKI_WASMTIME_PROVIDER=$(WASMTIME_PROVIDER)
 
-deps: configure
-	@echo "→ Fetching and building third-party dependencies..."
-	@cmake --build $(BUILD_DIR) --target woki_thirdparty_deps -j$(NUM_JOBS)
-
-lsp: configure
-	@ln -sf $(BUILD_DIR)/compile_commands.json compile_commands.json
-	@echo "✓ LSP: compile_commands.json -> $(BUILD_DIR)/compile_commands.json"
-
-build: deps
+build: configure
 	@echo "→ Building native..."
 	@cmake --build $(BUILD_DIR) -j$(NUM_JOBS)
 	@echo "✓ Native build complete"
@@ -61,20 +53,6 @@ run: build
 test: build
 	@echo "→ Running tests..."
 	@ctest --test-dir $(BUILD_DIR) --output-on-failure
-
-wokiext: deps
-	@echo "→ Building wokiext..."
-	@cmake --build $(BUILD_DIR) --target wokiext -j$(NUM_JOBS)
-	@echo "✓ wokiext build complete"
-
-wokiext-install: wokiext
-	@echo "→ Installing wokiext to $(PREFIX)..."
-	@cmake --install $(BUILD_DIR) --prefix $(PREFIX)
-
-extensions: deps
-	@echo "→ Building extensions..."
-	@cmake --build $(BUILD_DIR) --target woki_extensions -j$(NUM_JOBS)
-	@echo "✓ Extensions build complete"
 
 install:
 	@echo "→ Installing native to $(PREFIX)..."
@@ -104,6 +82,13 @@ configure-web:
 build-web: configure-web
 	@echo "→ Building web..."
 	@cmake --build $(WEB_BUILD_DIR) -j$(NUM_JOBS)
+	@cp web/favicon.svg $(WEB_BUILD_DIR)/favicon.svg 2>/dev/null || true
+	@cp config/icons/favicon.ico $(WEB_BUILD_DIR)/favicon.ico 2>/dev/null || true
+	@cp config/icons/apple-touch-icon.png $(WEB_BUILD_DIR)/apple-touch-icon.png 2>/dev/null || true
+	@cp config/icons/woki-32.png $(WEB_BUILD_DIR)/woki-32.png 2>/dev/null || true
+	@cp config/icons/woki-64.png $(WEB_BUILD_DIR)/woki-64.png 2>/dev/null || true
+	@cp web/woki-sad.svg $(WEB_BUILD_DIR)/woki-sad.svg 2>/dev/null || true
+	@cp $(WEB_BUILD_DIR)/$(WEB_TARGET).html $(WEB_BUILD_DIR)/index.html
 	@echo "✓ Web build complete"
 
 web: build-web

@@ -180,7 +180,7 @@ jobs:
         timeout-minutes: 12
         shell: bash
         run: |
-          cmake --build build --target woki_tests --config Release -j4 --verbose 2>&1 | tee build-tests.log
+          cmake --build build --target woki_tests woki_extensions --config Release -j4 --verbose 2>&1 | tee build-tests.log
           BUILD_STATUS=${PIPESTATUS[0]}
           if [ $BUILD_STATUS -ne 0 ]; then
             echo "=== BUILD FAILED (last 100 lines) ==="
