@@ -5,6 +5,12 @@ if(NOT EMSCRIPTEN)
         "Enable Wasmtime wasm runtime in woki::extension (downloads or builds Wasmtime C API)"
         ON
     )
+
+    set(WOKI_WASMTIME_ROOT "" CACHE PATH "Wasmtime C API install root (overrides auto-download)")
+    set(WOKI_WASMTIME_PROVIDER "prebuilt" CACHE STRING
+        "How to obtain Wasmtime C API: prebuilt, source, or auto")
+    set_property(CACHE WOKI_WASMTIME_PROVIDER PROPERTY STRINGS prebuilt source auto)
+    option(WOKI_WASMTIME_USE_SHARED "Link against shared libwasmtime instead of static" OFF)
 endif()
 
 function(apply_compiler_options target)

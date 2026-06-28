@@ -67,7 +67,8 @@ if(NOT EMSCRIPTEN)
         endif()
     endif()
 
-    add_subdirectory(wasmtime)
+    include(Wasmtime)
+    woki_setup_wasmtime()
 
     add_custom_target(woki_thirdparty_deps)
     if(TARGET archive)

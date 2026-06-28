@@ -1,5 +1,9 @@
 include_guard(GLOBAL)
 
+# Wasmtime C API integration for native extension hosting.
+# Options (see cmake/Options.cmake): WOKI_WASMTIME_PROVIDER (prebuilt|source|auto),
+# WOKI_WASMTIME_ROOT, WOKI_WASMTIME_USE_SHARED, WOKI_WASMTIME_VERSION.
+
 include(FetchContent)
 
 set(WOKI_WASMTIME_VERSION "45.0.1" CACHE STRING "Wasmtime release version (without leading v)")

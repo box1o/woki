@@ -107,30 +107,22 @@ void ext_on_unload(void) {}
 
 [[nodiscard]] std::string ExtensionCMake(std::string_view lang) {
     const bool cpp = lang == "cpp";
-    const std::string compiler = cpp ? "clang++" : "clang";
-    const std::string lang_token = cpp ? "CXX" : "C";
     const std::string source = cpp ? "src/plugin.cpp" : "src/plugin.c";
 
     return "cmake_minimum_required(VERSION 3.25)\n"
-           "find_program(WOKI_WASM_COMPILER " +
-           compiler +
-           " REQUIRED)\n"
-           "set(CMAKE_" +
-           lang_token +
-           R"(_COMPILER "${WOKI_WASM_COMPILER}" CACHE STRING "Wasm extension compiler" FORCE)
-project(woki_extension LANGUAGES )" +
-           lang_token + R"()
+           "project(woki_extension LANGUAGES " +
+           std::string(cpp ? "CXX" : "C") +
+           R"()
 
-get_filename_component(WOKI_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-if(EXISTS "${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake")
-    include(${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake)
-    add_wokiext()" +
-           source + R"()
-else()
-    message(FATAL_ERROR
-        "add_wokiext requires cmake/ExtensionWasm.cmake. "
-        "Create extensions inside the woki repository under extensions/.")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NOT DEFINED WOKI_REPO_ROOT)
+    get_filename_component(WOKI_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 endif()
+
+include("${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake")
+add_wokiext()" +
+           source + R"()
 )";
 }
 
