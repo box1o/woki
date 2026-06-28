@@ -38,6 +38,12 @@ Status Verify(const PathOptions& options) {
         return Status::Error;
     }
 
+    auto manifest = woki::ext::LoadManifest(root / "manifest.yaml");
+    if (!manifest) {
+        std::cerr << manifest.error().Message() << '\n';
+        return Status::Error;
+    }
+
     auto layout = SourceLayout(root);
     if (!layout) {
         std::cerr << layout.error().Message() << '\n';
@@ -47,6 +53,12 @@ Status Verify(const PathOptions& options) {
     auto valid = woki::ext::ValidatePackageLayout(*layout);
     if (!valid) {
         std::cerr << valid.error().Message() << '\n';
+        return Status::Error;
+    }
+
+    auto guest = woki::ext::wasm::ValidateGuestModule(layout->wasm, *manifest);
+    if (!guest) {
+        std::cerr << guest.error().Message() << '\n';
         return Status::Error;
     }
 

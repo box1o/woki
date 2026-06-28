@@ -12,23 +12,29 @@ namespace {
 
 namespace fs = std::filesystem;
 
-[[nodiscard]] woki::Result<woki::ext::Roots> RootsFromOption(const fs::path& root) {
-    if (root.empty()) {
-        return woki::ext::DefaultRoots();
+[[nodiscard]] woki::Result<std::string> InspectArchiveId(const fs::path& archive_path) {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const fs::path root = fs::temp_directory_path() / ("wokiext-inspect-" + std::to_string(stamp));
+
+    auto roots = woki::ext::RootsFromBase(root);
+    if (!roots) {
+        return woki::Err(roots.error());
     }
 
-    const fs::path normalized = fs::absolute(root).lexically_normal();
-    woki::ext::Roots roots;
-    roots.extensions = normalized / "extensions";
-    roots.data = normalized / "ext-data";
-    roots.cache = normalized / "cache" / "ext";
-    return woki::Ok(std::move(roots));
+    auto installed = woki::ext::InstallArchive(archive_path, *roots);
+    std::error_code cleanup_error;
+    fs::remove_all(root, cleanup_error);
+    if (!installed) {
+        return woki::Err(installed.error());
+    }
+
+    return woki::Ok(installed->install_root.filename().string());
 }
 
 } // namespace
 
 Status Install(const InstallOptions& options) {
-    auto roots = RootsFromOption(options.root);
+    auto roots = woki::ext::RootsFromBase(options.root);
     if (!roots) {
         std::cerr << roots.error().Message() << '\n';
         return Status::Error;
@@ -57,6 +63,15 @@ Status Install(const InstallOptions& options) {
             return Status::Error;
         }
         install_path = temp_archive;
+    } else if (options.force) {
+        auto id = InspectArchiveId(path);
+        if (!id) {
+            std::cerr << id.error().Message() << '\n';
+            return Status::Error;
+        }
+        if (fs::exists(roots->extensions / *id)) {
+            (void)Remove(RemoveOptions{.id = *id, .root = options.root});
+        }
     }
 
     woki::Result<woki::ext::PackageLayout> installed =

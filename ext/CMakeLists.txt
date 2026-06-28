@@ -37,6 +37,10 @@ if(NOT EMSCRIPTEN)
     target_link_libraries(wokiext PRIVATE woki::libarchive)
 endif()
 
+target_compile_definitions(wokiext PRIVATE
+    WOKI_MANIFEST_SCHEMA_PATH="${CMAKE_SOURCE_DIR}/modules/extension/schema/manifest.schema.json"
+)
+
 install(TARGETS wokiext
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

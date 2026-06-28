@@ -50,6 +50,12 @@ struct RemoveOptions {
     bool keep_data{false};
 };
 
+struct CommandsOptions {
+    std::filesystem::path path;
+    std::filesystem::path root;
+    bool json{false};
+};
+
 [[nodiscard]] int Run(std::span<const char* const> args);
 
 [[nodiscard]] Status Create(const CreateOptions& options);
@@ -59,6 +65,8 @@ struct RemoveOptions {
 [[nodiscard]] Status Install(const InstallOptions& options);
 [[nodiscard]] Status List(const ListOptions& options);
 [[nodiscard]] Status Remove(const RemoveOptions& options);
+[[nodiscard]] Status Commands(const CommandsOptions& options);
+[[nodiscard]] Status Schema();
 
 void PrintUsage(std::string_view executable);
 

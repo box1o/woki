@@ -11,19 +11,6 @@ namespace {
 
 namespace fs = std::filesystem;
 
-[[nodiscard]] woki::Result<woki::ext::Roots> RootsFromOption(const fs::path& root) {
-    if (root.empty()) {
-        return woki::ext::DefaultRoots();
-    }
-
-    const fs::path normalized = fs::absolute(root).lexically_normal();
-    woki::ext::Roots roots;
-    roots.extensions = normalized / "extensions";
-    roots.data = normalized / "ext-data";
-    roots.cache = normalized / "cache" / "ext";
-    return woki::Ok(std::move(roots));
-}
-
 [[nodiscard]] bool RemovePath(const fs::path& path) {
     std::error_code error;
     fs::remove_all(path, error);
@@ -37,7 +24,7 @@ namespace fs = std::filesystem;
 } // namespace
 
 Status List(const ListOptions& options) {
-    auto roots = RootsFromOption(options.root);
+    auto roots = woki::ext::RootsFromBase(options.root);
     if (!roots) {
         std::cerr << roots.error().Message() << '\n';
         return Status::Error;
@@ -70,7 +57,7 @@ Status Remove(const RemoveOptions& options) {
         return Status::Usage;
     }
 
-    auto roots = RootsFromOption(options.root);
+    auto roots = woki::ext::RootsFromBase(options.root);
     if (!roots) {
         std::cerr << roots.error().Message() << '\n';
         return Status::Error;

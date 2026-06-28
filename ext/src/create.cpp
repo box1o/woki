@@ -59,48 +59,26 @@ permissions:
 )yaml";
 }
 
-[[nodiscard]] std::string PluginCpp() {
-    return R"cpp(#include "types.h"
-#include "version.h"
+[[nodiscard]] std::string PluginSource(std::string_view lang) {
+    const bool cpp = lang == "cpp";
+    const std::string init_message =
+        cpp ? "    static constexpr char kMessage[] = \"hello from wokiext\";\n"
+            : "    static const char kMessage[] = \"hello from wokiext\";\n";
+    const std::string extern_open = cpp ? "extern \"C\" {\n\n" : "";
+    const std::string extern_close = cpp ? "\n} // extern \"C\"\n" : "";
 
-#include <stdint.h>
-
-#if defined(__clang__)
-#define WOKI_IMPORT(module, name) __attribute__((import_module(module), import_name(name)))
-#define WOKI_EXPORT(name) __attribute__((export_name(name)))
-#else
-#define WOKI_IMPORT(module, name)
-#define WOKI_EXPORT(name)
-#endif
-
-extern "C" {
-
-WOKI_IMPORT("woki_host", "host_log")
-int32_t host_log(woki_ext_log_level_t level, const char* message, uint32_t len);
-
-static uint8_t g_event_payload[4096];
-
-WOKI_EXPORT("ext_alloc")
-uint32_t ext_alloc(uint32_t len) {
-    if (len == 0 || len > sizeof(g_event_payload)) {
-        return 0;
-    }
-    return reinterpret_cast<uint32_t>(g_event_payload);
-}
-
-WOKI_EXPORT("ext_free")
-void ext_free(uint32_t ptr, uint32_t len) {
-    (void)ptr;
-    (void)len;
-}
-
+    return std::string("#include \"version.h\"\n#include \"ext.h\"\n#include \"host_imports.h\"\n"
+                       "#include \"guest_alloc.h\"\n\n") +
+           extern_open +
+           R"(
 WOKI_EXPORT("ext_api_version")
 uint32_t ext_api_version(void) { return WOKI_EXT_API_VERSION; }
 
 WOKI_EXPORT("ext_init")
 int32_t ext_init(void) {
-    static constexpr char kMessage[] = "hello from wokiext";
-    return host_log(WOKI_EXT_LOG_INFO, kMessage, sizeof(kMessage) - 1);
+)" +
+           init_message +
+           R"(    return host_log(WOKI_EXT_LOG_INFO, kMessage, sizeof(kMessage) - 1);
 }
 
 WOKI_EXPORT("ext_on_tick")
@@ -113,68 +91,18 @@ void ext_on_event(uint32_t type, const uint8_t* payload, uint32_t len) {
     (void)len;
 }
 
-WOKI_EXPORT("ext_on_unload")
-void ext_on_unload(void) {}
-
-} // extern "C"
-)cpp";
-}
-
-[[nodiscard]] std::string PluginC() {
-    return R"c(#include "types.h"
-#include "version.h"
-
-#include <stdint.h>
-
-#if defined(__clang__)
-#define WOKI_IMPORT(module, name) __attribute__((import_module(module), import_name(name)))
-#define WOKI_EXPORT(name) __attribute__((export_name(name)))
-#else
-#define WOKI_IMPORT(module, name)
-#define WOKI_EXPORT(name)
-#endif
-
-WOKI_IMPORT("woki_host", "host_log")
-int32_t host_log(woki_ext_log_level_t level, const char* message, uint32_t len);
-
-static uint8_t g_event_payload[4096];
-
-WOKI_EXPORT("ext_alloc")
-uint32_t ext_alloc(uint32_t len) {
-    if (len == 0 || len > sizeof(g_event_payload)) {
-        return 0;
-    }
-    return (uint32_t)g_event_payload;
-}
-
-WOKI_EXPORT("ext_free")
-void ext_free(uint32_t ptr, uint32_t len) {
-    (void)ptr;
-    (void)len;
-}
-
-WOKI_EXPORT("ext_api_version")
-uint32_t ext_api_version(void) { return WOKI_EXT_API_VERSION; }
-
-WOKI_EXPORT("ext_init")
-int32_t ext_init(void) {
-    static const char message[] = "hello from wokiext";
-    return host_log(WOKI_EXT_LOG_INFO, message, sizeof(message) - 1);
-}
-
-WOKI_EXPORT("ext_on_tick")
-void ext_on_tick(double dt_ms) { (void)dt_ms; }
-
-WOKI_EXPORT("ext_on_event")
-void ext_on_event(uint32_t type, const uint8_t* payload, uint32_t len) {
-    (void)type;
+WOKI_EXPORT("ext_on_command")
+int32_t ext_on_command(const char* command_id, uint32_t command_len,
+    const uint8_t* payload, uint32_t len) {
     (void)payload;
     (void)len;
+    return host_log(WOKI_EXT_LOG_INFO, command_id, command_len);
 }
 
 WOKI_EXPORT("ext_on_unload")
 void ext_on_unload(void) {}
-)c";
+)" +
+           extern_close;
 }
 
 [[nodiscard]] std::string ExtensionCMake(std::string_view lang) {
@@ -185,57 +113,25 @@ void ext_on_unload(void) {}
 
     return "cmake_minimum_required(VERSION 3.25)\n"
            "find_program(WOKI_WASM_COMPILER " +
-           compiler + " REQUIRED)\n"
+           compiler +
+           " REQUIRED)\n"
            "set(CMAKE_" +
-           lang_token + R"(_COMPILER "${WOKI_WASM_COMPILER}" CACHE STRING "Wasm extension compiler" FORCE)
+           lang_token +
+           R"(_COMPILER "${WOKI_WASM_COMPILER}" CACHE STRING "Wasm extension compiler" FORCE)
 project(woki_extension LANGUAGES )" +
            lang_token + R"()
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 get_filename_component(WOKI_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 if(EXISTS "${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake")
     include(${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake)
-    woki_add_extension_wasm()" +
+    add_wokiext()" +
            source + R"()
 else()
     message(FATAL_ERROR
-        "woki_add_extension_wasm requires cmake/ExtensionWasm.cmake. "
+        "add_wokiext requires cmake/ExtensionWasm.cmake. "
         "Create extensions inside the woki repository under extensions/.")
 endif()
 )";
-}
-
-[[nodiscard]] std::string ExtensionMakefile() {
-    return R"make(BUILD_DIR ?= build
-BUILD_TYPE ?= Release
-NUM_JOBS ?= $(shell nproc)
-
-.DEFAULT_GOAL := build
-.PHONY: configure build lsp verify bundle install clean
-
-configure:
-	@cmake -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
-
-build: configure
-	@cmake --build $(BUILD_DIR) -j$(NUM_JOBS)
-
-lsp: configure
-	@ln -sf $(BUILD_DIR)/compile_commands.json compile_commands.json
-	@echo "✓ LSP: compile_commands.json -> $(BUILD_DIR)/compile_commands.json"
-
-verify: build
-	@wokiext verify .
-
-bundle: verify
-	@wokiext bundle .
-
-install: bundle
-	@wokiext install .
-
-clean:
-	@rm -rf $(BUILD_DIR) extension.wasm *.wokiext
-)make";
 }
 
 } // namespace
@@ -268,9 +164,8 @@ Status Create(const CreateOptions& options) {
 
     WriteFile(root / "manifest.yaml", Manifest(id, options.name));
     WriteFile(root / "CMakeLists.txt", ExtensionCMake(options.lang));
-    WriteFile(root / "Makefile", ExtensionMakefile());
     WriteFile(root / "src" / (options.lang == "cpp" ? "plugin.cpp" : "plugin.c"),
-        options.lang == "cpp" ? PluginCpp() : PluginC());
+        PluginSource(options.lang));
 
     std::cout << "Created extension project: " << root << '\n';
     return Status::Ok;
