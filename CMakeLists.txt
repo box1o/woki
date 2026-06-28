@@ -43,4 +43,37 @@ foreach(module_entry IN LISTS module_entries)
         add_subdirectory("${modules_dir}/${module_entry}")
     endif()
 endforeach()
+
+add_subdirectory(ext)
+
+if(NOT EMSCRIPTEN)
+    set(extensions_dir "${CMAKE_SOURCE_DIR}/extensions")
+    if(EXISTS "${extensions_dir}")
+        file(GLOB extension_entries RELATIVE "${extensions_dir}" "${extensions_dir}/*")
+        add_custom_target(woki_extensions ALL)
+
+        foreach(extension_entry IN LISTS extension_entries)
+            set(extension_dir "${extensions_dir}/${extension_entry}")
+            if(IS_DIRECTORY "${extension_dir}" AND EXISTS "${extension_dir}/CMakeLists.txt")
+                set(extension_build_dir "${CMAKE_BINARY_DIR}/extensions/${extension_entry}")
+                string(REGEX REPLACE "[^A-Za-z0-9_]" "_" extension_target_name
+                    "woki_extension_${extension_entry}")
+                add_custom_target(${extension_target_name}
+                    COMMAND ${CMAKE_COMMAND}
+                        -B "${extension_build_dir}"
+                        -S "${extension_dir}"
+                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+                    COMMAND ${CMAKE_COMMAND}
+                        --build "${extension_build_dir}"
+                    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+                    COMMENT "Building extension ${extension_entry}"
+                    VERBATIM
+                )
+                add_dependencies(woki_extensions ${extension_target_name})
+            endif()
+        endforeach()
+    endif()
+endif()
+
 add_subdirectory(studio)

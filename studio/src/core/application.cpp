@@ -1,7 +1,10 @@
 #include "application.hpp"
+
 #include "woki/api/instance.hpp"
 #include "woki/core.hpp"
+#include "woki/events/format.hpp"
 
+#include <filesystem>
 #include <vector>
 
 #include <webgpu/webgpu.h>
@@ -13,6 +16,16 @@ namespace {
 constexpr double kLogoClearRed = 0x18 / 255.0;
 constexpr double kLogoClearGreen = 0x18 / 255.0;
 constexpr double kLogoClearBlue = 0x18 / 255.0;
+
+#ifndef __EMSCRIPTEN__
+[[nodiscard]] std::filesystem::path SourceExtensionsRoot() {
+#ifdef WOKI_SOURCE_DIR
+    return std::filesystem::path{WOKI_SOURCE_DIR} / "extensions";
+#else
+    return std::filesystem::current_path() / "extensions";
+#endif
+}
+#endif
 
 void RenderClearPass(api::Device& device, api::Swapchain& swapchain) {
     auto frame = swapchain.AcquireNextFrame();
@@ -121,9 +134,8 @@ void Application::Initialize() {
     slog::Info("Created window '{}' ({}x{})", window_->GetTitle(), window_->GetWidth(),
         window_->GetHeight());
 
-    window_event_callback_id_ = window_->AddEventCallback([this](events::Event& event) {
-        EmitEvent(event);
-    });
+    window_event_callback_id_ =
+        window_->AddEventCallback([this](events::Event& event) { EmitEvent(event); });
 
     // NOTE: Instance
     instance_ = api::Instance::Create({
@@ -145,6 +157,19 @@ void Application::Initialize() {
         WOKI_PANIC("Failed to create graphics surface");
         return;
     }
+
+#ifndef __EMSCRIPTEN__
+#ifdef WOKI_EXTENSION_WITH_WASMTIME
+    extensions_ = createScope<ext::Manager>(ext::wasm::CreateWasmtimeBackend());
+#else
+    extensions_ = createScope<ext::Manager>();
+#endif
+    if (auto scanned = extensions_->Scan(); !scanned) {
+        slog::Warn("Extension scan failed: {}", scanned.error().Message());
+    } else if (auto loaded = extensions_->LoadAll(); !loaded) {
+        slog::Warn("Extension load failed: {}", loaded.error().Message());
+    }
+#endif
 
     BeginGraphicsInitialization();
 }
@@ -171,8 +196,7 @@ void Application::BeginGraphicsInitialization() {
 
     auto future = instance_->RequestAdapter(adapter_desc, api::CallbackMode::kAllowSpontaneous,
         [this, device_desc = std::move(device_desc)](api::RequestAdapterStatus status,
-            scope<api::Adapter> adapter,
-            std::string_view message) mutable {
+            scope<api::Adapter> adapter, std::string_view message) mutable {
             if (status != api::RequestAdapterStatus::kSuccess || adapter == nullptr) {
                 graphics_initialization_failed_ = true;
                 slog::Critical("Failed to request graphics adapter: {}",
@@ -185,8 +209,7 @@ void Application::BeginGraphicsInitialization() {
 
             auto device_future = adapter_->RequestDevice(device_desc,
                 api::CallbackMode::kAllowSpontaneous,
-                [this](api::RequestDeviceStatus device_status,
-                    scope<api::Device> device,
+                [this](api::RequestDeviceStatus device_status, scope<api::Device> device,
                     std::string_view device_message) {
                     if (device_status != api::RequestDeviceStatus::kSuccess || device == nullptr) {
                         graphics_initialization_failed_ = true;
@@ -274,6 +297,13 @@ void Application::FinalizeGraphicsInitialization() {
 void Application::Shutdown() noexcept {
     EmitEvent<events::AppShutdownEvent>();
 
+#ifndef __EMSCRIPTEN__
+    if (extensions_ != nullptr) {
+        extensions_->UnloadAll();
+        extensions_.reset();
+    }
+#endif
+
     if (window_ != nullptr && window_resize_callback_id_ != 0) {
         window_->RemoveResizeCallback(window_resize_callback_id_);
         window_resize_callback_id_ = 0;
@@ -347,6 +377,12 @@ bool Application::Tick() {
     EmitEvent<events::FrameBeginEvent>(delta_time);
     EmitEvent<events::AppTickEvent>(delta_time);
 
+#ifndef __EMSCRIPTEN__
+    if (extensions_ != nullptr) {
+        extensions_->Tick(static_cast<f64>(delta_time) * 1000.0);
+    }
+#endif
+
     window_->PollEvents();
 
     if (!IsGraphicsReady()) {
@@ -388,8 +424,76 @@ CallbackId Application::AddEventCallback(EventCallback callback) {
 
 void Application::RemoveEventCallback(CallbackId id) { event_callbacks_.erase(id); }
 
+#ifndef __EMSCRIPTEN__
+void Application::LoadSourceExtensions() {
+    if (extensions_ == nullptr) {
+#ifdef WOKI_EXTENSION_WITH_WASMTIME
+        extensions_ = createScope<ext::Manager>(ext::wasm::CreateWasmtimeBackend());
+#else
+        extensions_ = createScope<ext::Manager>();
+#endif
+    }
+
+    auto roots = ext::DefaultRoots();
+    if (!roots) {
+        slog::Warn("Failed to resolve extension roots: {}", roots.error().Message());
+        return;
+    }
+
+    const std::filesystem::path source_root = SourceExtensionsRoot();
+    roots->extensions = source_root;
+
+    extensions_->UnloadAll();
+    extensions_->SetRoots(std::move(*roots));
+
+    if (auto scanned = extensions_->ScanSource(source_root); !scanned) {
+        slog::Warn("Source extension scan failed: {}", scanned.error().Message());
+        return;
+    }
+
+    if (auto loaded = extensions_->LoadAll(); !loaded) {
+        slog::Warn("Source extension load failed: {}", loaded.error().Message());
+        return;
+    }
+
+    u32 active_count = 0;
+    for (const ext::Record& record : extensions_->Records()) {
+        if (record.state == ext::State::Active) {
+            ++active_count;
+            continue;
+        }
+        if (record.state == ext::State::Failed) {
+            slog::Warn("Extension '{}' failed: {}", record.id, record.error);
+        }
+    }
+
+    slog::Info("Loaded {} source extension(s) from {}", active_count, source_root.string());
+}
+
+void Application::DispatchEventToExtensions(const events::Event& event) {
+    if (extensions_ == nullptr) {
+        return;
+    }
+
+    const std::string payload = events::ToString(event);
+    extensions_->DispatchEvent(static_cast<u32>(event.GetEventType()),
+        std::span<const u8>(reinterpret_cast<const u8*>(payload.data()), payload.size()));
+}
+#endif
+
 void Application::EmitEvent(events::Event& event) {
     event.timestamp = Clock::Seconds();
+
+#ifndef __EMSCRIPTEN__
+    if (event.GetEventType() == events::EventType::kKeyPressed) {
+        const auto& key_event = static_cast<const events::KeyPressedEvent&>(event);
+        if (key_event.key == events::KeyCode::kE && key_event.repeat_count == 0) {
+            LoadSourceExtensions();
+        }
+    }
+
+    DispatchEventToExtensions(event);
+#endif
 
     std::vector<EventCallback> callbacks;
     callbacks.reserve(event_callbacks_.size());

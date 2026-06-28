@@ -26,6 +26,59 @@ mark_dependency_system(Catch2)
 mark_dependency_system(Catch2WithMain)
 
 if(NOT EMSCRIPTEN)
+    find_package(LibArchive QUIET)
+    if(NOT LibArchive_FOUND)
+        find_or_add(LibArchive
+            NO_SYSTEM
+            GIT_REPOSITORY https://github.com/libarchive/libarchive.git
+            GIT_TAG v3.7.7
+            DISABLE_INSTALL
+            CMAKE_CACHE_VARS
+                "ENABLE_TEST=OFF"
+                "ENABLE_WERROR=OFF"
+                "ENABLE_INSTALL=OFF"
+                "ENABLE_TAR=OFF"
+                "ENABLE_CPIO=OFF"
+                "ENABLE_CAT=OFF"
+        )
+    else()
+        message(STATUS "Found LibArchive (system)")
+    endif()
+
+    if(TARGET archive)
+        mark_dependency_system(archive)
+    elseif(TARGET archive_static)
+        mark_dependency_system(archive_static)
+    endif()
+
+    if(NOT TARGET woki::libarchive)
+        add_library(woki_libarchive INTERFACE)
+        add_library(woki::libarchive ALIAS woki_libarchive)
+
+        if(TARGET archive)
+            target_link_libraries(woki_libarchive INTERFACE archive)
+        elseif(TARGET archive_static)
+            target_link_libraries(woki_libarchive INTERFACE archive_static)
+        elseif(LibArchive_FOUND AND LibArchive_LIBRARY AND LibArchive_INCLUDE_DIR)
+            target_include_directories(woki_libarchive INTERFACE "${LibArchive_INCLUDE_DIR}")
+            target_link_libraries(woki_libarchive INTERFACE "${LibArchive_LIBRARY}")
+        else()
+            message(FATAL_ERROR "libarchive is required on native builds but no CMake target is available")
+        endif()
+    endif()
+
+    add_subdirectory(wasmtime)
+
+    add_custom_target(woki_thirdparty_deps)
+    if(TARGET archive)
+        add_dependencies(woki_thirdparty_deps archive)
+    elseif(TARGET archive_static)
+        add_dependencies(woki_thirdparty_deps archive_static)
+    endif()
+    if(TARGET wasmtime-crate)
+        add_dependencies(woki_thirdparty_deps wasmtime-crate)
+    endif()
+
     find_or_add(fmt
         NO_SYSTEM
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
@@ -82,5 +135,5 @@ if(NOT EMSCRIPTEN)
             DAWN_USE_GLFW=ON
     )
 else()
-    message(STATUS "Skipping native graphics dependencies for Emscripten")
+    message(STATUS "Skipping native-only dependencies for Emscripten")
 endif()
