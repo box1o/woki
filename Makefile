@@ -10,10 +10,6 @@ CONFIG         ?= config/conf/studio.yaml
 PREFIX         ?= /usr/local
 WOKI_EXTENSION_WITH_WASMTIME ?= ON
 WASMTIME_PROVIDER ?= prebuilt
-WOKI_WASMTIME_BUILD_FROM_SOURCE ?= OFF
-ifneq ($(WOKI_WASMTIME_BUILD_FROM_SOURCE),OFF)
-WASMTIME_PROVIDER := source
-endif
 
 # Use Clang with libc++ to match the Dawn dependency
 CXX            := $(shell which clang++ 2>/dev/null || which c++ 2>/dev/null || echo c++)

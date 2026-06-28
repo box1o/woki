@@ -1,8 +1,11 @@
-# Shared wasm guest extension build + LSP (compile_commands) support.
+# Wasm guest extension build (outputs extension.wasm next to the project sources).
 #
-# Usage from extensions/<name>/CMakeLists.txt:
-#   include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ExtensionWasm.cmake)
+# Usage:
+#   include(${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake)
 #   add_wokiext(src/plugin.cpp)
+#
+# Requires clang/clang++ with --target=wasm32-unknown-unknown support.
+# Set CMAKE_EXPORT_COMPILE_COMMANDS ON in the extension project for clangd.
 
 set(WOKI_WASM_GUEST_EXPORTS
     ext_api_version
@@ -16,14 +19,15 @@ set(WOKI_WASM_GUEST_EXPORTS
 )
 
 function(add_wokiext source_file)
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json" FORCE)
-
+    if(NOT DEFINED WOKI_REPO_ROOT)
+        get_filename_component(WOKI_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+    endif()
     if(NOT WOKI_SDK_DIR)
-        get_filename_component(_woki_root "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-        set(WOKI_SDK_DIR "${_woki_root}/modules/extension/sdk" CACHE PATH "Woki extension SDK directory")
+        set(WOKI_SDK_DIR "${WOKI_REPO_ROOT}/modules/extension/sdk")
     endif()
 
     set(_source "${CMAKE_CURRENT_SOURCE_DIR}/${source_file}")
+    set(_wasm "${CMAKE_CURRENT_SOURCE_DIR}/extension.wasm")
 
     if(_source MATCHES "\\.c$")
         set(_std_flag -std=c17)
@@ -36,8 +40,6 @@ function(add_wokiext source_file)
             find_program(WOKI_WASM_COMPILER clang++ REQUIRED)
         endif()
     endif()
-
-    set(_wasm "${CMAKE_CURRENT_SOURCE_DIR}/extension.wasm")
 
     set(_guest_flags
         --target=wasm32-unknown-unknown
@@ -52,7 +54,7 @@ function(add_wokiext source_file)
         list(APPEND _export_flags "-Wl,--export=${_symbol}")
     endforeach()
 
-    # Real compile target so CMAKE_EXPORT_COMPILE_COMMANDS populates clangd entries.
+    # OBJECT target mirrors guest flags for clangd (compile_commands.json).
     add_library(extension_guest OBJECT EXCLUDE_FROM_ALL "${_source}")
     target_compile_options(extension_guest PRIVATE ${_guest_flags})
     target_include_directories(extension_guest PRIVATE "${WOKI_SDK_DIR}")
