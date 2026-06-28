@@ -38,8 +38,10 @@ void PrintUsage(std::string_view executable) {
               << "  " << executable << " install <path-or-wokiext> [--root <dir>] [--force]\n"
               << "  " << executable << " list [--root <dir>]\n"
               << "  " << executable << " remove <id> [--root <dir>] [--keep-data]\n"
-              << "  " << executable << " run <path> [--release|--debug]\n"
-              << "  " << executable << " test <path> [--release|--debug]\n"
+              << "  " << executable << " commands [<path>] [--root <dir>] [--json]\n"
+              << "  " << executable << " schema\n"
+              << "  " << executable << " run <path> [--release|--debug]  (build, verify, bundle)\n"
+              << "  " << executable << " test <path> [--release|--debug]  (build, verify)\n"
               << "  " << executable << " clean <path>\n";
 }
 
@@ -188,6 +190,30 @@ int Run(std::span<const char* const> args) {
                 .keep_data = parsed.count("keep-data") != 0,
             };
             return static_cast<int>(Remove(remove));
+        }
+
+        if (command == "commands") {
+            cxxopts::Options options(executable, "Print extension command contributions");
+            options.add_options()("root", "Installation root override",
+                cxxopts::value<std::string>())("json", "Print JSON output")(
+                "path", "Extension project path", cxxopts::value<std::string>());
+            options.parse_positional({"path"});
+
+            auto parsed = options.parse(static_cast<int>(command_args.size()), command_args.data());
+            CommandsOptions commands{
+                .path = parsed.count("path")
+                            ? std::filesystem::path(parsed["path"].as<std::string>())
+                            : std::filesystem::path{},
+                .root = parsed.count("root")
+                            ? std::filesystem::path(parsed["root"].as<std::string>())
+                            : std::filesystem::path{},
+                .json = parsed.count("json") != 0,
+            };
+            return static_cast<int>(Commands(commands));
+        }
+
+        if (command == "schema") {
+            return static_cast<int>(Schema());
         }
 
         std::cerr << "Unknown command: " << command << '\n';

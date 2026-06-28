@@ -18,7 +18,8 @@ install: build
 	@cmake --install $(BUILD_DIR) --prefix $(PREFIX)
 
 test: build
-	@$(BUILD_DIR)/ext/wokiext --help
+	@cmake --build $(BUILD_DIR) --target woki_extensions -j$(NUM_JOBS)
+	@$(BUILD_DIR)/ext/wokiext verify ../extensions/kitty
 
 clean:
 	@rm -rf $(BUILD_DIR)

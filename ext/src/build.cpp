@@ -35,9 +35,21 @@ Status Build(const BuildOptions& options) {
     }
 
     const std::string configure = "cmake -B " + Quote(build_dir) + " -S " + Quote(root) +
-                                  " -DCMAKE_BUILD_TYPE=" + options.config;
+                                  " -DCMAKE_BUILD_TYPE=" + options.config +
+                                  " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON";
     if (std::system(configure.c_str()) != 0) {
         return Status::Error;
+    }
+
+    const std::filesystem::path compile_commands = build_dir / "compile_commands.json";
+    if (std::filesystem::is_regular_file(compile_commands)) {
+        std::error_code copy_error;
+        std::filesystem::copy_file(compile_commands, root / "compile_commands.json",
+            std::filesystem::copy_options::overwrite_existing, copy_error);
+        if (copy_error) {
+            std::cerr << "Warning: failed to export compile_commands.json: " << copy_error.message()
+                      << '\n';
+        }
     }
 
     const std::string build = "cmake --build " + Quote(build_dir);

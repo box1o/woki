@@ -17,14 +17,6 @@ namespace {
 
 namespace fs = std::filesystem;
 
-[[nodiscard]] bool IsBundleEntry(const fs::path& relative) {
-    if (relative == "manifest.yaml" || relative == "extension.wasm" || relative == "signature") {
-        return true;
-    }
-    auto it = relative.begin();
-    return it != relative.end() && (*it == "assets" || *it == "extension.native");
-}
-
 [[nodiscard]] fs::path DefaultBundlePath(const fs::path& root) {
     auto manifest = woki::ext::LoadManifest(root / "manifest.yaml");
     if (!manifest) {
@@ -34,9 +26,10 @@ namespace fs = std::filesystem;
 }
 
 [[nodiscard]] Status WriteEntry(
-    struct archive* writer, const fs::path& root, const fs::path& path) {
+    struct archive* writer, const fs::path& root, const fs::path& path,
+    const std::filesystem::path& wasm_path) {
     const fs::path relative = fs::relative(path, root);
-    if (!IsBundleEntry(relative)) {
+    if (!woki::ext::IsAllowedArchiveEntry(relative, wasm_path)) {
         return Status::Ok;
     }
 
@@ -88,6 +81,12 @@ Status Bundle(const BundleOptions& options) {
         return Status::Error;
     }
 
+    auto manifest = woki::ext::LoadManifest(root / "manifest.yaml");
+    if (!manifest) {
+        std::cerr << manifest.error().Message() << '\n';
+        return Status::Error;
+    }
+
     const fs::path out_file =
         options.out_file.empty() ? DefaultBundlePath(root) : fs::absolute(options.out_file);
     fs::create_directories(out_file.parent_path());
@@ -111,7 +110,7 @@ Status Bundle(const BundleOptions& options) {
         if (entry.is_directory()) {
             continue;
         }
-        status = WriteEntry(writer, root, entry.path());
+        status = WriteEntry(writer, root, entry.path(), manifest->wasm_path);
         if (status != Status::Ok) {
             break;
         }
