@@ -1,5 +1,8 @@
 #include "woki/ext/manifest.hpp"
 
+#include "woki/ext/path_safety.hpp"
+#include "version.h"
+
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
@@ -9,6 +12,8 @@
 #include <string_view>
 
 namespace woki::ext {
+
+static_assert(kApiVersion == WOKI_EXT_API_VERSION);
 
 namespace {
 
@@ -55,6 +60,11 @@ namespace fs = std::filesystem;
     return true;
 }
 
+[[nodiscard]] bool IsValidCommandId(std::string_view extension_id, std::string_view command_id) {
+    return command_id.size() > extension_id.size() && command_id.starts_with(extension_id) &&
+           command_id[extension_id.size()] == '.' && IsValidId(command_id);
+}
+
 [[nodiscard]] bool IsSemverish(std::string_view version) noexcept {
     if (version.empty()) {
         return false;
@@ -71,10 +81,6 @@ namespace fs = std::filesystem;
     }) && has_digit;
 }
 
-[[nodiscard]] bool HasTraversal(const fs::path& path) {
-    return std::ranges::any_of(path, [](const fs::path& part) { return part == ".."; });
-}
-
 [[nodiscard]] Result<void> ValidateRuntimePath(const fs::path& path) {
     if (path.empty()) {
         return Err(ErrorCode::ParseMissingField,
@@ -85,7 +91,7 @@ namespace fs = std::filesystem;
             "Manifest field 'runtime.wasm' must be relative to the package root. Use:\n"
             "runtime:\n  wasm: extension.wasm");
     }
-    if (HasTraversal(path)) {
+    if (HasPathTraversal(path)) {
         return Err(ErrorCode::ValidationInvalidState,
             "Manifest field 'runtime.wasm' must not contain '..'. Use a file inside the package, "
             "for example:\nruntime:\n  wasm: extension.wasm");
@@ -197,6 +203,67 @@ namespace fs = std::filesystem;
     return Ok(std::move(parsed));
 }
 
+[[nodiscard]] Result<std::vector<CommandContribution>> ParseCommands(const YAML::Node& root) {
+    const YAML::Node contributes = root["contributes"];
+    if (!contributes) {
+        return Ok(std::vector<CommandContribution>{});
+    }
+    if (!contributes.IsMap()) {
+        return Err(ErrorCode::ParseTypeMismatch,
+            WrongTypeMessage("contributes", "a map",
+                "contributes:\n  commands:\n    - id: woki.hello.say\n      title: Say Hello"));
+    }
+
+    const YAML::Node commands = contributes["commands"];
+    if (!commands) {
+        return Ok(std::vector<CommandContribution>{});
+    }
+    if (!commands.IsSequence()) {
+        return Err(ErrorCode::ParseTypeMismatch,
+            WrongTypeMessage("contributes.commands", "a sequence",
+                "contributes:\n  commands:\n    - id: woki.hello.say\n      title: Say Hello"));
+    }
+
+    std::vector<CommandContribution> parsed;
+    parsed.reserve(commands.size());
+    for (const YAML::Node& command_node : commands) {
+        if (!command_node.IsMap()) {
+            return Err(ErrorCode::ParseTypeMismatch,
+                "Each command contribution must be a map. Use:\n"
+                "contributes:\n  commands:\n    - id: woki.hello.say\n      title: Say Hello");
+        }
+
+        auto id = RequiredString(command_node, "id", "id: woki.hello.say");
+        if (!id) {
+            return Err(id.error());
+        }
+
+        auto title = RequiredString(command_node, "title", "title: Say Hello");
+        if (!title) {
+            return Err(title.error());
+        }
+
+        CommandContribution command{
+            .id = std::move(*id),
+            .title = std::move(*title),
+            .category = {},
+        };
+
+        const YAML::Node category = command_node["category"];
+        if (category) {
+            if (!category.IsScalar()) {
+                return Err(ErrorCode::ParseTypeMismatch,
+                    WrongTypeMessage("category", "a string", "category: Tools"));
+            }
+            command.category = category.as<std::string>();
+        }
+
+        parsed.push_back(std::move(command));
+    }
+
+    return Ok(std::move(parsed));
+}
+
 } // namespace
 
 Result<Manifest> LoadManifest(const fs::path& path) {
@@ -252,6 +319,12 @@ Result<Manifest> LoadManifest(const fs::path& path) {
         }
         manifest.permissions = std::move(*permissions);
 
+        auto commands = ParseCommands(root);
+        if (!commands) {
+            return Err(commands.error());
+        }
+        manifest.commands = std::move(*commands);
+
         auto valid = ValidateManifest(manifest);
         if (!valid) {
             return Err(valid.error());
@@ -282,6 +355,29 @@ Result<void> ValidateManifest(const Manifest& manifest) {
     if (manifest.api_version != kApiVersion) {
         return Err(ErrorCode::ValidationInvalidState,
             "Manifest field 'apiVersion' is unsupported. For this build use:\napiVersion: 1");
+    }
+
+    std::vector<std::string_view> command_ids;
+    command_ids.reserve(manifest.commands.size());
+    for (const CommandContribution& command : manifest.commands) {
+        if (!IsValidCommandId(manifest.id, command.id)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Manifest command id '" + command.id +
+                    "' is invalid. Use a lowercase reverse-DNS id prefixed by the extension id, "
+                    "for example:\ncontributes:\n  commands:\n    - id: " +
+                    manifest.id + ".example\n      title: Example");
+        }
+        if (command.title.empty()) {
+            return Err(ErrorCode::ParseMissingField, "Manifest command '" + command.id +
+                                                         "' is missing a non-empty title. Add:\n"
+                                                         "contributes:\n  commands:\n    - id: " +
+                                                         command.id + "\n      title: Example");
+        }
+        if (std::ranges::find(command_ids, std::string_view(command.id)) != command_ids.end()) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Manifest contains duplicate command id: " + command.id);
+        }
+        command_ids.push_back(command.id);
     }
 
     return ValidateRuntimePath(manifest.wasm_path);

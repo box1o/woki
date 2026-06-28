@@ -58,6 +58,11 @@ add_module(extension
     DEPENDENCIES ${EXTENSION_DEPS}
 )
 
+target_include_directories(woki_extension
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/sdk>
+)
+
 if(NOT EMSCRIPTEN)
     if(TARGET woki_thirdparty_deps)
         add_dependencies(woki_extension woki_thirdparty_deps)
@@ -71,6 +76,21 @@ endif()
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/sdk/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/woki
     FILES_MATCHING PATTERN "*.h"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/schema/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/woki/extension/schema
+    FILES_MATCHING PATTERN "*.json"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wit/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/woki/extension/wit
+    FILES_MATCHING PATTERN "*.wit"
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/web/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/woki/extension/web
+    FILES_MATCHING PATTERN "*.js"
 )
 
 if(BUILD_TESTING)

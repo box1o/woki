@@ -255,6 +255,42 @@ void WriteDuplicateEntryZip(const fs::path& archive_path) {
     archive_write_free(writer);
 }
 
+void WriteSingleEntryZip(
+    const fs::path& archive_path, std::string_view path, mode_t type, std::string_view target = {}) {
+    struct archive* writer = archive_write_new();
+    REQUIRE(writer != nullptr);
+    REQUIRE(archive_write_set_format_zip(writer) == ARCHIVE_OK);
+    REQUIRE(archive_write_open_filename(writer, archive_path.string().c_str()) == ARCHIVE_OK);
+
+    struct archive_entry* archive_entry_ptr = archive_entry_new();
+    REQUIRE(archive_entry_ptr != nullptr);
+    archive_entry_set_pathname(archive_entry_ptr, std::string(path).c_str());
+    archive_entry_set_filetype(archive_entry_ptr, type);
+    archive_entry_set_perm(archive_entry_ptr, 0644);
+    if (!target.empty()) {
+        if (type == AE_IFLNK) {
+            archive_entry_set_symlink(archive_entry_ptr, std::string(target).c_str());
+        } else {
+            archive_entry_set_hardlink(archive_entry_ptr, std::string(target).c_str());
+        }
+    }
+    if (type == AE_IFREG) {
+        static constexpr std::string_view kContents = "hello";
+        archive_entry_set_size(archive_entry_ptr, static_cast<la_int64_t>(kContents.size()));
+        REQUIRE(archive_write_header(writer, archive_entry_ptr) == ARCHIVE_OK);
+        REQUIRE(archive_write_data(writer, kContents.data(), kContents.size()) ==
+                static_cast<la_ssize_t>(kContents.size()));
+    } else {
+        archive_entry_set_size(archive_entry_ptr, 0);
+        REQUIRE(archive_write_header(writer, archive_entry_ptr) == ARCHIVE_OK);
+    }
+
+    REQUIRE(archive_write_finish_entry(writer) == ARCHIVE_OK);
+    archive_entry_free(archive_entry_ptr);
+    archive_write_close(writer);
+    archive_write_free(writer);
+}
+
 #endif
 
 TEST_CASE("Extension package installer installs a .wokiext zip archive") {
@@ -349,6 +385,48 @@ TEST_CASE("Extension package installer rejects duplicate archive entries") {
     REQUIRE_FALSE(installed.has_value());
     REQUIRE(installed.error().Code() == woki::ErrorCode::ValidationInvalidState);
     REQUIRE(installed.error().Message().contains("duplicate"));
+#else
+    SKIP("Archive installation is native-only");
+#endif
+}
+
+TEST_CASE("Extension package installer rejects archive path traversal") {
+#ifndef __EMSCRIPTEN__
+    const fs::path root = MakeTempDir("install_archive_traversal");
+    const fs::path archive_path = root / "traversal.wokiext";
+    WriteSingleEntryZip(archive_path, "../manifest.yaml", AE_IFREG);
+
+    const woki::ext::Roots roots{
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    };
+
+    auto installed = woki::ext::InstallArchive(archive_path, roots);
+    REQUIRE_FALSE(installed.has_value());
+    REQUIRE(installed.error().Code() == woki::ErrorCode::ValidationInvalidState);
+    REQUIRE(installed.error().Message().contains(".."));
+#else
+    SKIP("Archive installation is native-only");
+#endif
+}
+
+TEST_CASE("Extension package installer rejects archive links") {
+#ifndef __EMSCRIPTEN__
+    const fs::path root = MakeTempDir("install_archive_link");
+    const fs::path archive_path = root / "link.wokiext";
+    WriteSingleEntryZip(archive_path, "assets/link", AE_IFLNK, "manifest.yaml");
+
+    const woki::ext::Roots roots{
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    };
+
+    auto installed = woki::ext::InstallArchive(archive_path, roots);
+    REQUIRE_FALSE(installed.has_value());
+    REQUIRE(installed.error().Code() == woki::ErrorCode::ValidationInvalidState);
+    REQUIRE(installed.error().Message().contains("link"));
 #else
     SKIP("Archive installation is native-only");
 #endif

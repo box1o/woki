@@ -1,5 +1,7 @@
 #include "woki/ext/package.hpp"
 
+#include "woki/ext/path_safety.hpp"
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -33,33 +35,6 @@ inline constexpr std::uintmax_t kMaxWasmBytes = 32u * 1024u * 1024u;
     return Ok(std::move(normalized));
 }
 
-[[nodiscard]] bool StartsWithPath(const fs::path& path, const fs::path& prefix) {
-    auto path_it = path.begin();
-    auto prefix_it = prefix.begin();
-    for (; prefix_it != prefix.end(); ++prefix_it, ++path_it) {
-        if (path_it == path.end() || *path_it != *prefix_it) {
-            return false;
-        }
-    }
-    return true;
-}
-
-[[nodiscard]] bool HasTraversal(const fs::path& path) {
-    return std::ranges::any_of(path, [](const fs::path& part) { return part == ".."; });
-}
-
-[[nodiscard]] bool IsAllowedPackageEntry(const fs::path& relative_path, const Manifest& manifest) {
-    if (relative_path.empty() || relative_path.is_absolute() || HasTraversal(relative_path)) {
-        return false;
-    }
-    if (relative_path == "manifest.yaml" || relative_path == manifest.wasm_path ||
-        relative_path == "signature") {
-        return true;
-    }
-    return StartsWithPath(relative_path, "assets") ||
-           StartsWithPath(relative_path, "extension.native");
-}
-
 [[nodiscard]] Result<void> ValidateSourceEntry(const fs::directory_entry& entry,
     const fs::path& source_root, const Manifest& manifest, std::uintmax_t* total_bytes) {
     std::error_code error;
@@ -68,7 +43,7 @@ inline constexpr std::uintmax_t kMaxWasmBytes = 32u * 1024u * 1024u;
         return Err(ErrorCode::FileReadError, error.message());
     }
 
-    if (!IsAllowedPackageEntry(relative, manifest)) {
+    if (!IsAllowedArchiveEntry(relative, manifest.wasm_path)) {
         return Err(ErrorCode::ValidationInvalidState,
             "Package contains unsupported entry '" + relative.string() +
                 "'. Allowed entries are manifest.yaml, runtime.wasm, assets/**, "
@@ -171,13 +146,13 @@ inline constexpr std::uintmax_t kMaxWasmBytes = 32u * 1024u * 1024u;
         return Err(ErrorCode::ValidationInvalidState,
             "Archive entry must be relative: " + std::string(entry_path));
     }
-    if (HasTraversal(relative)) {
+    if (HasPathTraversal(relative)) {
         return Err(ErrorCode::ValidationInvalidState,
             "Archive entry must not contain '..': " + std::string(entry_path));
     }
 
     relative = relative.lexically_normal();
-    if (relative.empty() || relative == "." || HasTraversal(relative)) {
+    if (relative.empty() || relative == "." || HasPathTraversal(relative)) {
         return Err(ErrorCode::ValidationInvalidState,
             "Archive entry path is invalid: " + std::string(entry_path));
     }

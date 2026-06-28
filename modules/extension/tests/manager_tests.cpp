@@ -2,8 +2,10 @@
 
 #include <woki/ext/ext.hpp>
 
+#include <array>
 #include <filesystem>
 #include <fstream>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -30,13 +32,24 @@ public:
         last_event = event_type;
     }
 
+    [[nodiscard]] woki::Result<void> DispatchCommand(
+        woki::ext::Record&, std::string_view command_id, std::span<const woki::u8> payload) override {
+        last_command = command_id;
+        last_command_payload_size = payload.size();
+        ++commands;
+        return woki::Ok();
+    }
+
     void Unload(woki::ext::Record&) override { ++unloads; }
 
     int loads{0};
     int initializes{0};
     int ticks{0};
+    int commands{0};
     int unloads{0};
     woki::u32 last_event{0};
+    std::string last_command;
+    std::size_t last_command_payload_size{0};
 };
 
 [[nodiscard]] fs::path MakeTempDir(std::string_view name) {
@@ -64,6 +77,10 @@ runtime:
 permissions:
   - log
   - events
+contributes:
+  commands:
+    - id: woki.hello.say
+      title: Say Hello
 )");
     WriteFile(package / "extension.wasm", "");
 }
@@ -98,9 +115,34 @@ TEST_CASE("Extension manager scans loads ticks and unloads records") {
     manager.DispatchEvent(9, {});
     REQUIRE(backend.last_event == 9);
 
+    const std::array<woki::u8, 3> payload{1, 2, 3};
+    auto commanded = manager.ExecuteCommand("woki.hello.say", payload);
+    REQUIRE(commanded.has_value());
+    REQUIRE(backend.commands == 1);
+    REQUIRE(backend.last_command == "woki.hello.say");
+    REQUIRE(backend.last_command_payload_size == payload.size());
+
     manager.UnloadAll();
     REQUIRE(backend.unloads == 1);
     REQUIRE(manager.Find("woki.hello")->state == woki::ext::State::Unloaded);
+}
+
+TEST_CASE("Extension manager reports unknown command ids") {
+    const fs::path root = MakeTempDir("missing_command");
+    WritePackage(root / "extensions" / "woki.hello");
+
+    FakeBackend backend;
+    woki::ext::Manager manager(&backend);
+    manager.SetRoots({
+        .extensions = root / "extensions",
+        .data = root / "ext-data",
+        .cache = root / "cache" / "woki" / "ext",
+    });
+
+    REQUIRE(manager.Scan().has_value());
+    auto commanded = manager.ExecuteCommand("woki.hello.missing");
+    REQUIRE_FALSE(commanded.has_value());
+    REQUIRE(commanded.error().Code() == woki::ErrorCode::FileNotFound);
 }
 
 TEST_CASE("Extension manager reports missing extension ids") {

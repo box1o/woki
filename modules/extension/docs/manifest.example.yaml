@@ -6,3 +6,10 @@ runtime:
   wasm: extension.wasm
 permissions:
   - log
+# Optional:
+#  - events
+# contributes:
+#   commands:
+#     - id: woki.hello.say
+#       title: Say Hello
+#       category: Examples

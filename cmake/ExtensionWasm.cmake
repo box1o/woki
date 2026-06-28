@@ -2,9 +2,22 @@
 #
 # Usage from extensions/<name>/CMakeLists.txt:
 #   include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ExtensionWasm.cmake)
-#   woki_add_extension_wasm(src/plugin.cpp)
+#   add_wokiext(src/plugin.cpp)
 
-function(woki_add_extension_wasm source_file)
+set(WOKI_WASM_GUEST_EXPORTS
+    ext_api_version
+    ext_init
+    ext_on_tick
+    ext_on_event
+    ext_on_command
+    ext_on_unload
+    ext_alloc
+    ext_free
+)
+
+function(add_wokiext source_file)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export compile_commands.json" FORCE)
+
     if(NOT WOKI_SDK_DIR)
         get_filename_component(_woki_root "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
         set(WOKI_SDK_DIR "${_woki_root}/modules/extension/sdk" CACHE PATH "Woki extension SDK directory")
@@ -29,14 +42,21 @@ function(woki_add_extension_wasm source_file)
     set(_guest_flags
         --target=wasm32-unknown-unknown
         -nostdlib
+        -fno-builtin
         -I${WOKI_SDK_DIR}
         ${_std_flag}
     )
+
+    set(_export_flags)
+    foreach(_symbol IN LISTS WOKI_WASM_GUEST_EXPORTS)
+        list(APPEND _export_flags "-Wl,--export=${_symbol}")
+    endforeach()
 
     # Real compile target so CMAKE_EXPORT_COMPILE_COMMANDS populates clangd entries.
     add_library(extension_guest OBJECT EXCLUDE_FROM_ALL "${_source}")
     target_compile_options(extension_guest PRIVATE ${_guest_flags})
     target_include_directories(extension_guest PRIVATE "${WOKI_SDK_DIR}")
+    set_target_properties(extension_guest PROPERTIES EXPORT_COMPILE_COMMANDS ON)
     if(_source MATCHES "\\.c$")
         set_target_properties(extension_guest PROPERTIES LINKER_LANGUAGE C)
     else()
@@ -46,21 +66,12 @@ function(woki_add_extension_wasm source_file)
     add_custom_command(
         OUTPUT "${_wasm}"
         COMMAND ${WOKI_WASM_COMPILER}
-            --target=wasm32-unknown-unknown
-            ${_std_flag}
+            ${_guest_flags}
             -O2
-            -nostdlib
-            -I "${WOKI_SDK_DIR}"
             -Wl,--no-entry
             -Wl,--allow-undefined
             -Wl,--export-memory
-            -Wl,--export=ext_api_version
-            -Wl,--export=ext_init
-            -Wl,--export=ext_on_tick
-            -Wl,--export=ext_on_event
-            -Wl,--export=ext_on_unload
-            -Wl,--export=ext_alloc
-            -Wl,--export=ext_free
+            ${_export_flags}
             -o "${_wasm}"
             "${_source}"
         DEPENDS "${_source}" extension_guest

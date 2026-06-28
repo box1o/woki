@@ -1,0 +1,31 @@
+interface logging {
+  enum level {
+    debug,
+    info,
+    warn,
+    error,
+  }
+
+  log: func(level: level, message: string) -> s32;
+}
+
+interface paths {
+  data-dir: func() -> string;
+  cache-dir: func() -> string;
+}
+
+interface storage {
+  read: func(path: string) -> result<list<u8>, s32>;
+  write: func(path: string, data: list<u8>) -> s32;
+  append: func(path: string, data: list<u8>) -> s32;
+}
+
+interface config {
+  get: func(key: string) -> result<string, s32>;
+  set: func(key: string, value: string) -> s32;
+}
+
+interface events {
+  subscribe: func(event-type: u32) -> s32;
+  emit: func(event-type: u32, payload: list<u8>) -> s32;
+}

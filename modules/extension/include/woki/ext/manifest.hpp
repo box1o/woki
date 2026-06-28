@@ -2,6 +2,7 @@
 
 // IWYU pragma: private, include "woki/ext/ext.hpp"
 
+#include "command.hpp"
 #include "perm.hpp"
 
 #include <woki/core.hpp>
@@ -13,7 +14,7 @@
 
 namespace woki::ext {
 
-inline constexpr u32 kApiVersion = 1;
+inline constexpr u32 kApiVersion = 1u; // Must match WOKI_EXT_API_VERSION in sdk/version.h
 inline constexpr std::size_t kMaxManifestBytes = 64u * 1024u;
 
 struct Manifest {
@@ -23,6 +24,7 @@ struct Manifest {
     u32 api_version{kApiVersion};
     std::filesystem::path wasm_path{"extension.wasm"};
     std::vector<Permission> permissions;
+    std::vector<CommandContribution> commands;
 };
 
 [[nodiscard]] Result<Manifest> LoadManifest(const std::filesystem::path& path);

@@ -14,6 +14,11 @@ struct Roots {
     std::filesystem::path cache;
 };
 
+[[nodiscard]] Result<Roots> RootsFromBase(const std::filesystem::path& base);
+
+[[nodiscard]] bool IsAllowedArchiveEntry(const std::filesystem::path& relative_path,
+    const std::filesystem::path& wasm_path);
+
 struct PackageLayout {
     std::filesystem::path install_root;
     std::filesystem::path manifest;

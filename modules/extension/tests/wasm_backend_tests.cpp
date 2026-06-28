@@ -2,8 +2,10 @@
 
 #include <woki/ext/ext.hpp>
 
+#include <array>
 #include <filesystem>
 #include <fstream>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -41,17 +43,31 @@ public:
         return woki::Ok();
     }
 
+    [[nodiscard]] woki::Result<woki::i32> Command(
+        woki::ext::Record&, std::string_view command_id, std::span<const woki::u8> payload) override {
+        last_command_id = command_id;
+        last_command_payload_size = payload.size();
+        if (fail_command) {
+            return woki::Err(woki::ErrorCode::InvalidState, "ext_on_command trap");
+        }
+        return woki::Ok(command_result);
+    }
+
     void Unload(woki::ext::Record&) override { unloaded = true; }
 
     woki::u32 api_version{woki::ext::kApiVersion};
     woki::i32 init_result{0};
+    woki::i32 command_result{0};
     bool fail_tick{false};
+    bool fail_command{false};
     bool loaded{false};
     bool initialized{false};
     bool unloaded{false};
     int ticks{0};
     woki::f64 last_delta_ms{0.0};
     woki::u32 last_event_type{0};
+    std::string last_command_id;
+    std::size_t last_command_payload_size{0};
 };
 
 [[nodiscard]] fs::path MakeTempDir(std::string_view name) {
@@ -120,8 +136,31 @@ TEST_CASE("Wasm backend loads validates api version and initializes through engi
     backend.DispatchEvent(record, 7, {});
     REQUIRE(engine_ptr->last_event_type == 7);
 
+    const std::array<woki::u8, 1> payload{7};
+    auto commanded = backend.DispatchCommand(record, "woki.hello.say", payload);
+    REQUIRE(commanded.has_value());
+    REQUIRE(engine_ptr->last_command_id == "woki.hello.say");
+    REQUIRE(engine_ptr->last_command_payload_size == payload.size());
+
     backend.Unload(record);
     REQUIRE(engine_ptr->unloaded);
+}
+
+TEST_CASE("Wasm backend reports extension command failures") {
+    const fs::path root = MakeTempDir("command_fail");
+    WriteManifest(root / "manifest.yaml");
+    WriteWasmMagic(root / "extension.wasm");
+
+    auto engine = woki::createScope<FakeEngine>();
+    engine->command_result = -1;
+    woki::ext::wasm::Backend backend(std::move(engine));
+    auto record = MakeRecord(root);
+
+    REQUIRE(backend.Load(record).has_value());
+    REQUIRE(backend.Initialize(record).has_value());
+    auto commanded = backend.DispatchCommand(record, "woki.hello.say", {});
+    REQUIRE_FALSE(commanded.has_value());
+    REQUIRE(commanded.error().Message().contains("failure code"));
 }
 
 TEST_CASE("Wasm backend rejects invalid wasm magic before engine load") {

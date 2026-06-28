@@ -183,6 +183,9 @@ struct InstanceState {
     std::optional<wasmtime::TypedFunc<double, std::monostate>> ext_on_tick;
     std::optional<wasmtime::TypedFunc<std::tuple<uint32_t, uint32_t, uint32_t>, std::monostate>>
         ext_on_event;
+    std::optional<
+        wasmtime::TypedFunc<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>, int32_t>>
+        ext_on_command;
     std::optional<wasmtime::TypedFunc<std::monostate, std::monostate>> ext_on_unload;
     std::optional<wasmtime::TypedFunc<uint32_t, uint32_t>> ext_alloc;
     std::optional<wasmtime::TypedFunc<std::tuple<uint32_t, uint32_t>, std::monostate>> ext_free;
@@ -229,6 +232,44 @@ struct InstanceState {
         return Err(ErrorCode::ValidationOutOfRange, "Guest event payload buffer is out of bounds.");
     }
     return Ok(std::span<u8>(data.data() + start, size));
+}
+
+[[nodiscard]] Result<uint32_t> AllocateGuestBytes(InstanceState& state, std::span<const u8> bytes) {
+    if (bytes.empty()) {
+        return Ok(0u);
+    }
+    if (!state.ext_alloc) {
+        return Err(ErrorCode::InvalidState,
+            "Extension cannot receive host payloads because it does not export ext_alloc.");
+    }
+
+    auto allocated = FromTrapResult(
+        state.ext_alloc->call(state.store, static_cast<uint32_t>(bytes.size())), "ext_alloc trap");
+    if (!allocated) {
+        return Err(allocated.error());
+    }
+    const uint32_t guest_ptr = *allocated;
+    if (guest_ptr == 0) {
+        return Err(ErrorCode::ValidationInvalidState, "Extension ext_alloc returned null.");
+    }
+
+    auto guest = InstanceBytesOut(state, guest_ptr, static_cast<uint32_t>(bytes.size()));
+    if (!guest) {
+        if (state.ext_free) {
+            (void)state.ext_free->call(
+                state.store, std::make_tuple(guest_ptr, static_cast<uint32_t>(bytes.size())));
+        }
+        return Err(guest.error());
+    }
+    std::ranges::copy(bytes, guest->begin());
+    return Ok(guest_ptr);
+}
+
+void FreeGuestBytes(InstanceState& state, uint32_t ptr, uint32_t len) {
+    if (ptr == 0 || !state.ext_free) {
+        return;
+    }
+    (void)state.ext_free->call(state.store, std::make_tuple(ptr, len));
 }
 
 template <typename Params, typename Results>
@@ -626,6 +667,14 @@ Result<void> WasmtimeEngine::Load(Record& record, host::HostApi& /*host*/) {
         }
         state->ext_free = std::move(*free);
     }
+    if (state->instance->get(state->store, "ext_on_command")) {
+        auto command = TypedExport<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>, int32_t>(
+            *state, "ext_on_command");
+        if (!command) {
+            return Err(command.error());
+        }
+        state->ext_on_command = std::move(*command);
+    }
 
     state->ext_api_version = std::move(*api_version);
     state->ext_init = std::move(*init);
@@ -677,47 +726,65 @@ Result<void> WasmtimeEngine::Event(Record& record, u32 event_type, std::span<con
         return Err(fueled.error());
     }
 
-    uint32_t payload_ptr = 0;
     uint32_t payload_len = static_cast<uint32_t>(payload.size());
-    if (!payload.empty()) {
-        if (!state->ext_alloc) {
-            return Err(ErrorCode::InvalidState,
-                "Extension cannot receive event payloads because it does not export ext_alloc.");
-        }
-
-        auto allocated =
-            FromTrapResult(state->ext_alloc->call(state->store, payload_len), "ext_alloc trap");
-        if (!allocated) {
-            return Err(allocated.error());
-        }
-        payload_ptr = *allocated;
-        if (payload_ptr == 0) {
-            return Err(ErrorCode::ValidationInvalidState, "Extension ext_alloc returned null.");
-        }
-
-        auto guest = InstanceBytesOut(*state, payload_ptr, payload_len);
-        if (!guest) {
-            if (state->ext_free) {
-                (void)state->ext_free->call(
-                    state->store, std::make_tuple(payload_ptr, payload_len));
-            }
-            return Err(guest.error());
-        }
-        std::ranges::copy(payload, guest->begin());
+    auto allocated_payload = AllocateGuestBytes(*state, payload);
+    if (!allocated_payload) {
+        return Err(allocated_payload.error());
     }
+    const uint32_t payload_ptr = *allocated_payload;
 
     auto dispatched = FromTrapResult(state->ext_on_event->call(state->store,
                                          std::make_tuple(event_type, payload_ptr, payload_len)),
         "ext_on_event trap");
 
-    if (payload_ptr != 0 && state->ext_free) {
-        (void)state->ext_free->call(state->store, std::make_tuple(payload_ptr, payload_len));
-    }
+    FreeGuestBytes(*state, payload_ptr, payload_len);
     if (!dispatched) {
         return Err(dispatched.error());
     }
     return Ok();
 }
+
+Result<i32> WasmtimeEngine::Command(
+    Record& record, std::string_view command_id, std::span<const u8> payload) {
+    auto* state = impl_->instances.at(record.id).get();
+    if (!state->ext_on_command) {
+        return Err(ErrorCode::InvalidState,
+            "Extension '" + record.id +
+                "' declares commands but does not export ext_on_command.");
+    }
+    if (auto fueled = RefillFuel(*state); !fueled) {
+        return Err(fueled.error());
+    }
+
+    auto command_ptr = AllocateGuestBytes(
+        *state, std::span<const u8>(reinterpret_cast<const u8*>(command_id.data()),
+                    command_id.size()));
+    if (!command_ptr) {
+        return Err(command_ptr.error());
+    }
+
+    const uint32_t command_len = static_cast<uint32_t>(command_id.size());
+    const uint32_t payload_len = static_cast<uint32_t>(payload.size());
+    auto payload_ptr = AllocateGuestBytes(*state, payload);
+    if (!payload_ptr) {
+        FreeGuestBytes(*state, *command_ptr, command_len);
+        return Err(payload_ptr.error());
+    }
+
+    auto dispatched = FromTrapResult(state->ext_on_command->call(state->store,
+                                         std::make_tuple(
+                                             *command_ptr, command_len, *payload_ptr, payload_len)),
+        "ext_on_command trap");
+
+    FreeGuestBytes(*state, *payload_ptr, payload_len);
+    FreeGuestBytes(*state, *command_ptr, command_len);
+    if (!dispatched) {
+        return Err(dispatched.error());
+    }
+    return Ok(*dispatched);
+}
+
+void WasmtimeEngine::Discard(Record& record) { impl_->instances.erase(record.id); }
 
 void WasmtimeEngine::Unload(Record& record) {
     const auto it = impl_->instances.find(record.id);
@@ -730,11 +797,6 @@ void WasmtimeEngine::Unload(Record& record) {
     (void)FromTrapResult(
         state->ext_on_unload->call(state->store, std::monostate{}), "ext_on_unload trap");
     impl_->instances.erase(it);
-}
-
-scope<RuntimeBackend> CreateWasmtimeBackend() {
-    auto engine = createScope<WasmtimeEngine>();
-    return createScope<Backend>(std::move(engine));
 }
 
 } // namespace woki::ext::wasm
