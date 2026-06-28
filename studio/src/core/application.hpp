@@ -4,10 +4,10 @@
 #include <unordered_map>
 
 #include <woki/core.hpp>
-#ifndef __EMSCRIPTEN__
-#include <woki/ext/ext.hpp>
-#endif
 #include <woki/gfx.hpp>
+
+#include "context.hpp"
+#include "layer_stack.hpp"
 
 namespace woki {
 
@@ -43,16 +43,13 @@ private:
     void Initialize();
     void Shutdown() noexcept;
     [[nodiscard]] bool IsReady() const noexcept;
-    [[nodiscard]] bool IsGraphicsReady() const noexcept;
-    void BeginGraphicsInitialization();
-    void FinalizeGraphicsInitialization();
+    [[nodiscard]] Context BuildContext();
+    void ConfigureLayers();
+    void AttachLayers();
+    void DetachLayers() noexcept;
     void Start();
     void Stop() noexcept;
     void EmitEvent(events::Event& event);
-#ifndef __EMSCRIPTEN__
-    void LoadSourceExtensions();
-    void DispatchEventToExtensions(const events::Event& event);
-#endif
 
     template <typename T, typename... Args> void EmitEvent(Args&&... args) {
         T event(std::forward<Args>(args)...);
@@ -61,21 +58,12 @@ private:
 
     ApplicationSettings settings_{};
     scope<Window> window_;
-    scope<api::Instance> instance_;
-    scope<api::Surface> surface_;
-    scope<api::Adapter> adapter_;
-    scope<api::Device> device_;
-    scope<api::Swapchain> swapchain_;
-#ifndef __EMSCRIPTEN__
-    scope<ext::Manager> extensions_;
-#endif
+    scope<LayerStack> layers_;
     std::unordered_map<CallbackId, EventCallback> event_callbacks_;
     CallbackId next_callback_id_{1};
     CallbackId window_event_callback_id_{0};
-    CallbackId window_resize_callback_id_{0};
     FrameTimer frame_timer_{};
-    bool graphics_initialization_started_{false};
-    bool graphics_initialization_failed_{false};
+    bool layers_configured_{false};
     bool is_running_{false};
 };
 
