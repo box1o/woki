@@ -247,8 +247,9 @@ namespace woki::rhi::wgpu::convert {
 
 [[nodiscard]] inline ColorSpacePrimariesDawn FromWgpu(WGPUColorSpacePrimariesDawn value) noexcept {
     switch (value) {
-    case WGPUColorSpacePrimariesDawn_SRGB: return ColorSpacePrimariesDawn::SRGB;
-    case WGPUColorSpacePrimariesDawn_Rec709: return ColorSpacePrimariesDawn::Rec709;
+    case WGPUColorSpacePrimariesDawn_SRGB:
+    case WGPUColorSpacePrimariesDawn_Rec709:
+        return ColorSpacePrimariesDawn::SRGB;
     case WGPUColorSpacePrimariesDawn_Rec601: return ColorSpacePrimariesDawn::Rec601;
     case WGPUColorSpacePrimariesDawn_Rec2020: return ColorSpacePrimariesDawn::Rec2020;
     case WGPUColorSpacePrimariesDawn_DisplayP3: return ColorSpacePrimariesDawn::DisplayP3;
