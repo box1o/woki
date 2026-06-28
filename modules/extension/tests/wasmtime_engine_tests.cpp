@@ -3,6 +3,8 @@
 
 #include <woki/ext/ext.hpp>
 
+#include "wasm_test_compiler.hpp"
+
 #if defined(WOKI_EXTENSION_WITH_WASMTIME)
 
 #include <cstdlib>
@@ -30,19 +32,15 @@ void WriteFile(const fs::path& path, std::string_view contents) {
 
 [[nodiscard]] bool CompileWasm(
     const fs::path& source, const fs::path& wasm, std::string_view exports) {
-    const std::string command = "clang --target=wasm32-unknown-unknown -nostdlib -fno-builtin "
-                                "-Wl,--no-entry -Wl,--export-memory " +
-                                std::string(exports) + " -o " + wasm.string() + " " +
-                                source.string();
-    return std::system(command.c_str()) == 0;
+    return woki_test_compile_wasm(source.string(), wasm.string(), exports);
 }
 
 [[nodiscard]] std::string StandardExports() {
-    return "-Wl,--export=ext_api_version "
-           "-Wl,--export=ext_init "
-           "-Wl,--export=ext_on_tick "
-           "-Wl,--export=ext_on_event "
-           "-Wl,--export=ext_on_unload";
+    return "--export=ext_api_version "
+           "--export=ext_init "
+           "--export=ext_on_tick "
+           "--export=ext_on_event "
+           "--export=ext_on_unload";
 }
 
 [[nodiscard]] woki::ext::Record MakeRecord(const fs::path& root,
@@ -108,10 +106,10 @@ __attribute__((export_name("ext_on_event"))) void ext_on_event(unsigned t, unsig
 __attribute__((export_name("ext_on_unload"))) void ext_on_unload(void) {}
 )c");
     REQUIRE(CompileWasm(source, root / "extension.wasm",
-        "-Wl,--export=ext_api_version "
-        "-Wl,--export=ext_on_tick "
-        "-Wl,--export=ext_on_event "
-        "-Wl,--export=ext_on_unload"));
+        "--export=ext_api_version "
+        "--export=ext_on_tick "
+        "--export=ext_on_event "
+        "--export=ext_on_unload"));
 
     auto record = MakeRecord(root);
     auto backend = MakeBackend();
@@ -253,9 +251,9 @@ __attribute__((export_name("ext_on_unload"))) void ext_on_unload(void) {}
 )c");
     REQUIRE(CompileWasm(source, root / "extension.wasm",
         StandardExports() + " "
-        "-Wl,--export=ext_on_command "
-        "-Wl,--export=ext_alloc "
-        "-Wl,--export=ext_free"));
+        "--export=ext_on_command "
+        "--export=ext_alloc "
+        "--export=ext_free"));
 
     auto record = MakeRecord(root);
     auto backend = MakeBackend();
