@@ -59,6 +59,9 @@ public:
         const ShaderModuleDesc& desc = {}) override;
     [[nodiscard]] Result<scope<Texture>> CreateTexture(const TextureDesc& desc = {}) override;
 
+    [[nodiscard]] Result<scope<Swapchain>> CreateSwapchain(
+        Surface& surface, SwapchainDesc desc = {}) override;
+
     void Destroy() override;
     void ForceLoss(DeviceLostReason reason, std::string_view message) override;
 

@@ -27,6 +27,7 @@ class SharedBufferMemory;
 class SharedFence;
 class SharedTextureMemory;
 class Surface;
+class Swapchain;
 class TexelBufferView;
 class Texture;
 class TextureView;

@@ -12,4 +12,5 @@
 #include "rhi/objects.hpp"
 #include "rhi/queue.hpp"
 #include "rhi/surface.hpp"
+#include "rhi/swapchain.hpp"
 #include "rhi/types.hpp"

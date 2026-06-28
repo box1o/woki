@@ -4,6 +4,7 @@
 #include "types.hpp"
 
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -209,15 +210,51 @@ struct ImageCopyExternalTexture final {
     Extent2D natural_size{};
 };
 
+struct CompilationMessage final {
+    CompilationMessageType type{CompilationMessageType::Error};
+    std::string message{};
+    u64 line_num{0};
+    u64 line_pos{0};
+    u64 offset{0};
+    u64 length{0};
+};
+
+struct CompilationInfo final {
+    std::vector<CompilationMessage> messages{};
+};
+
+struct ComputeStateDesc final {
+    void* next_in_chain{nullptr};
+    ShaderModule* module{nullptr};
+    std::string entry_point{"main"};
+    u32 constant_count{0};
+    void* constants{nullptr};
+};
+
 struct TextureDesc final {
+    void* next_in_chain{nullptr};
+    Extent3D size{};
+    u32 mip_level_count{1};
+    u32 sample_count{1};
+    TextureDimension dimension{TextureDimension::e2D};
+    TextureFormat format{TextureFormat::Undefined};
+    TextureUsage usage{};
+    std::vector<TextureFormat> view_formats{};
     std::string label{"Texture"};
 };
 
 struct BindGroupDesc final {
+    void* next_in_chain{nullptr};
+    BindGroupLayout* layout{nullptr};
+    u32 entry_count{0};
+    void* entries{nullptr};
     std::string label{"BindGroup"};
 };
 
 struct BindGroupLayoutDesc final {
+    void* next_in_chain{nullptr};
+    u32 entry_count{0};
+    void* entries{nullptr};
     std::string label{"BindGroupLayout"};
 };
 
@@ -228,10 +265,14 @@ struct BufferDesc final {
 };
 
 struct CommandEncoderDesc final {
+    void* next_in_chain{nullptr};
     std::string label{"CommandEncoder"};
 };
 
 struct ComputePipelineDesc final {
+    void* next_in_chain{nullptr};
+    PipelineLayout* layout{nullptr};
+    ComputeStateDesc compute{};
     std::string label{"ComputePipeline"};
 };
 
@@ -241,30 +282,62 @@ struct ExternalTextureDesc final {
 };
 
 struct PipelineLayoutDesc final {
+    void* next_in_chain{nullptr};
+    std::span<BindGroupLayout* const> bind_group_layouts{};
     std::string label{"PipelineLayout"};
 };
 
 struct QuerySetDesc final {
+    void* next_in_chain{nullptr};
+    QueryType type{QueryType::Occlusion};
+    u32 count{0};
     std::string label{"QuerySet"};
 };
 
 struct RenderBundleEncoderDesc final {
+    void* next_in_chain{nullptr};
+    std::vector<TextureFormat> color_formats{};
+    TextureFormat depth_stencil_format{TextureFormat::Undefined};
+    u32 sample_count{1};
+    bool depth_read_only{false};
+    bool stencil_read_only{false};
     std::string label{"RenderBundleEncoder"};
 };
 
 struct RenderPipelineDesc final {
+    void* next_in_chain{nullptr};
+    PipelineLayout* layout{nullptr};
+    void* vertex{nullptr};
+    void* primitive{nullptr};
+    void* depth_stencil{nullptr};
+    void* multisample{nullptr};
+    void* fragment{nullptr};
     std::string label{"RenderPipeline"};
 };
 
 struct ResourceTableDesc final {
+    void* next_in_chain{nullptr};
     std::string label{"ResourceTable"};
 };
 
 struct SamplerDesc final {
+    void* next_in_chain{nullptr};
+    AddressMode address_mode_u{AddressMode::ClampToEdge};
+    AddressMode address_mode_v{AddressMode::ClampToEdge};
+    AddressMode address_mode_w{AddressMode::ClampToEdge};
+    FilterMode mag_filter{FilterMode::Nearest};
+    FilterMode min_filter{FilterMode::Nearest};
+    MipmapFilterMode mipmap_filter{MipmapFilterMode::Nearest};
+    f32 lod_min_clamp{0.0f};
+    f32 lod_max_clamp{32.0f};
+    CompareFunction compare{CompareFunction::Undefined};
+    u16 max_anisotropy{1};
     std::string label{"Sampler"};
 };
 
 struct ShaderModuleDesc final {
+    void* next_in_chain{nullptr};
+    std::string code{};
     std::string label{"ShaderModule"};
 };
 
@@ -290,6 +363,13 @@ struct TexelBufferViewDesc final {
 
 struct TextureViewDesc final {
     void* next_in_chain{nullptr};
+    TextureFormat format{TextureFormat::Undefined};
+    TextureViewDimension dimension{TextureViewDimension::Undefined};
+    u32 base_mip_level{0};
+    u32 mip_level_count{kMipLevelCountUndefined};
+    u32 base_array_layer{0};
+    u32 array_layer_count{kArrayLayerCountUndefined};
+    TextureAspect aspect{TextureAspect::All};
     std::string label{"TextureView"};
 };
 

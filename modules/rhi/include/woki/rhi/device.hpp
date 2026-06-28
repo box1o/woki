@@ -4,6 +4,7 @@
 #include "descriptors.hpp"
 #include "forward.hpp"
 #include "queue.hpp"
+#include "swapchain_desc.hpp"
 #include "types.hpp"
 
 #include <span>
@@ -53,6 +54,9 @@ public:
     [[nodiscard]] virtual Result<scope<ShaderModule>> CreateShaderModule(
         const ShaderModuleDesc& desc = {}) = 0;
     [[nodiscard]] virtual Result<scope<Texture>> CreateTexture(const TextureDesc& desc = {}) = 0;
+
+    [[nodiscard]] virtual Result<scope<Swapchain>> CreateSwapchain(
+        Surface& surface, SwapchainDesc desc = {}) = 0;
 
     virtual void Destroy() = 0;
     virtual void ForceLoss(DeviceLostReason reason, std::string_view message) = 0;

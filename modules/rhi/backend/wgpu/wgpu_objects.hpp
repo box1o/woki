@@ -24,5 +24,6 @@ namespace woki::rhi::wgpu {
 [[nodiscard]] scope<SharedFence> CreateSharedFenceObject(WGPUSharedFence handle);
 [[nodiscard]] scope<SharedTextureMemory> CreateSharedTextureMemoryObject(WGPUSharedTextureMemory handle);
 [[nodiscard]] scope<Texture> CreateTextureObject(WGPUTexture handle);
+[[nodiscard]] scope<TextureView> CreateTextureViewObject(WGPUTextureView handle);
 
 } // namespace woki::rhi::wgpu

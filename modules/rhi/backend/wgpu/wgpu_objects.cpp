@@ -1,7 +1,9 @@
 #include "wgpu_objects.hpp"
 
+#include "detail/compilation_info.hpp"
 #include "detail/handle.hpp"
 #include "detail/native_helpers.hpp"
+#include "detail/resource_descriptor.hpp"
 #include "detail/string.hpp"
 #include "wgpu_enums.hpp"
 
@@ -47,10 +49,13 @@ void ShaderModuleCompilationInfoThunk(
         return;
     }
 
-    state->callback(
-        FromWgpu(status),
-        const_cast<void*>(static_cast<const void*>(compilation_info)),
-        {});
+    if (compilation_info != nullptr) {
+        const CompilationInfo info = detail::FromWgpuCompilationInfo(*compilation_info);
+        state->callback(FromWgpu(status), &info, {});
+        return;
+    }
+
+    state->callback(FromWgpu(status), nullptr, {});
 }
 
 [[nodiscard]] Result<void> FromWgpuStatus(const WGPUStatus status, std::string_view message) {
@@ -721,11 +726,8 @@ scope<TextureView> WgpuTextureImpl::CreateErrorView(const TextureViewDesc& desc)
         return nullptr;
     }
 
-    WGPUTextureViewDescriptor native = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
-    native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    native.label = detail::ToStringView(desc.label);
-
-    return CreateTextureViewObject(wgpuTextureCreateErrorView(handle_.get(), &native));
+    const detail::TextureViewDescriptorStorage storage(desc);
+    return CreateTextureViewObject(wgpuTextureCreateErrorView(handle_.get(), &storage.native));
 }
 
 scope<TextureView> WgpuTextureImpl::CreateView(const TextureViewDesc& desc) const {
@@ -733,11 +735,8 @@ scope<TextureView> WgpuTextureImpl::CreateView(const TextureViewDesc& desc) cons
         return nullptr;
     }
 
-    WGPUTextureViewDescriptor native = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
-    native.nextInChain = static_cast<WGPUChainedStruct*>(desc.next_in_chain);
-    native.label = detail::ToStringView(desc.label);
-
-    return CreateTextureViewObject(wgpuTextureCreateView(handle_.get(), &native));
+    const detail::TextureViewDescriptorStorage storage(desc);
+    return CreateTextureViewObject(wgpuTextureCreateView(handle_.get(), &storage.native));
 }
 
 void WgpuTextureImpl::Destroy() {
@@ -1229,10 +1228,9 @@ Result<scope<Texture>> WgpuSharedTextureMemoryImpl::CreateTexture(const TextureD
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Shared texture memory is invalid");
     }
 
-    WGPUTextureDescriptor native = WGPU_TEXTURE_DESCRIPTOR_INIT;
-    native.label = detail::ToStringView(desc.label);
+    const detail::TextureDescriptorStorage storage(desc);
 
-    const WGPUTexture texture = wgpuSharedTextureMemoryCreateTexture(handle_.get(), &native);
+    const WGPUTexture texture = wgpuSharedTextureMemoryCreateTexture(handle_.get(), &storage.native);
     if (texture == nullptr) {
         return Err(ErrorCode::GraphicsResourceCreationFailed, "Failed to create shared texture");
     }
