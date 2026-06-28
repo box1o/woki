@@ -22,16 +22,6 @@ using convert::ToWgpu;
                              : static_cast<WGPUBindGroupLayout>(layout->GetNativeHandles().resource);
 }
 
-[[nodiscard]] inline WGPUPipelineLayout NativePipelineLayout(const PipelineLayout* layout) noexcept {
-    return layout == nullptr ? nullptr
-                             : static_cast<WGPUPipelineLayout>(layout->GetNativeHandles().resource);
-}
-
-[[nodiscard]] inline WGPUShaderModule NativeShaderModule(const ShaderModule* module) noexcept {
-    return module == nullptr ? nullptr
-                             : static_cast<WGPUShaderModule>(module->GetNativeHandles().resource);
-}
-
 struct ShaderModuleDescriptorStorage final {
     std::string code{};
     WGPUShaderSourceWGSL wgsl_source = WGPU_SHADER_SOURCE_WGSL_INIT;

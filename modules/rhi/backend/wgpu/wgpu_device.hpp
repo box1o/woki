@@ -48,6 +48,8 @@ public:
         const RenderBundleEncoderDesc& desc = {}) override;
     [[nodiscard]] Result<scope<RenderPipeline>> CreateRenderPipeline(
         const RenderPipelineDesc& desc = {}) override;
+    [[nodiscard]] Result<scope<RenderPipeline>> CreateRenderPipeline(
+        const RenderPipelineDescTyped& desc) override;
     [[nodiscard]] Future CreateRenderPipelineAsync(
         const RenderPipelineDesc& desc,
         CallbackMode callback_mode,

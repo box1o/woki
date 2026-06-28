@@ -347,6 +347,72 @@ struct RenderPipelineDesc final {
     std::string label{"RenderPipeline"};
 };
 
+struct VertexAttributeDesc final {
+    void* next_in_chain{nullptr};
+    VertexFormat format{VertexFormat::Float32x3};
+    u64 offset{0};
+    u32 shader_location{0};
+};
+
+struct VertexBufferLayoutDesc final {
+    void* next_in_chain{nullptr};
+    VertexStepMode step_mode{VertexStepMode::Vertex};
+    u64 array_stride{0};
+    std::span<const VertexAttributeDesc> attributes{};
+};
+
+struct VertexStateDesc final {
+    void* next_in_chain{nullptr};
+    ShaderModule* module{nullptr};
+    std::string entry_point{"main"};
+    u32 constant_count{0};
+    void* constants{nullptr};
+    std::span<const VertexBufferLayoutDesc> buffers{};
+};
+
+struct ColorTargetStateDesc final {
+    void* next_in_chain{nullptr};
+    TextureFormat format{TextureFormat::BGRA8Unorm};
+    void* blend{nullptr};
+    ColorWriteMask write_mask{ColorWriteMask::All};
+};
+
+struct FragmentStateDesc final {
+    void* next_in_chain{nullptr};
+    ShaderModule* module{nullptr};
+    std::string entry_point{"main"};
+    u32 constant_count{0};
+    void* constants{nullptr};
+    std::span<const ColorTargetStateDesc> targets{};
+};
+
+struct PrimitiveStateDesc final {
+    void* next_in_chain{nullptr};
+    PrimitiveTopology topology{PrimitiveTopology::TriangleList};
+    IndexFormat strip_index_format{IndexFormat::Undefined};
+    FrontFace front_face{FrontFace::CCW};
+    CullMode cull_mode{CullMode::None};
+    bool unclipped_depth{false};
+};
+
+struct DepthStencilStateDesc final {
+    void* next_in_chain{nullptr};
+    TextureFormat format{TextureFormat::Depth24PlusStencil8};
+    std::optional<bool> depth_write_enabled{true};
+    CompareFunction depth_compare{CompareFunction::Less};
+};
+
+struct RenderPipelineDescTyped final {
+    void* next_in_chain{nullptr};
+    PipelineLayout* layout{nullptr};
+    const VertexStateDesc* vertex{nullptr};
+    const PrimitiveStateDesc* primitive{nullptr};
+    const DepthStencilStateDesc* depth_stencil{nullptr};
+    void* multisample{nullptr};
+    const FragmentStateDesc* fragment{nullptr};
+    std::string label{"RenderPipeline"};
+};
+
 struct ResourceTableDesc final {
     void* next_in_chain{nullptr};
     std::string label{"ResourceTable"};

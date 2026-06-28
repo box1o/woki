@@ -44,6 +44,8 @@ public:
         const RenderBundleEncoderDesc& desc = {}) = 0;
     [[nodiscard]] virtual Result<scope<RenderPipeline>> CreateRenderPipeline(
         const RenderPipelineDesc& desc = {}) = 0;
+    [[nodiscard]] virtual Result<scope<RenderPipeline>> CreateRenderPipeline(
+        const RenderPipelineDescTyped& desc) = 0;
     [[nodiscard]] virtual Future CreateRenderPipelineAsync(
         const RenderPipelineDesc& desc,
         CallbackMode callback_mode,

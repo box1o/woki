@@ -24,6 +24,16 @@ namespace woki::rhi::wgpu::detail {
                                  : static_cast<WGPUBindGroup>(bind_group->GetNativeHandles().resource);
 }
 
+[[nodiscard]] inline WGPUPipelineLayout NativePipelineLayout(const PipelineLayout* layout) noexcept {
+    return layout == nullptr ? nullptr
+                             : static_cast<WGPUPipelineLayout>(layout->GetNativeHandles().resource);
+}
+
+[[nodiscard]] inline WGPUShaderModule NativeShaderModule(const ShaderModule* module) noexcept {
+    return module == nullptr ? nullptr
+                             : static_cast<WGPUShaderModule>(module->GetNativeHandles().resource);
+}
+
 [[nodiscard]] inline WGPUComputePipeline NativeComputePipeline(const ComputePipeline& pipeline) noexcept {
     return static_cast<WGPUComputePipeline>(pipeline.GetNativeHandles().resource);
 }

@@ -4,6 +4,7 @@
 #include "detail/copy_convert.hpp"
 #include "detail/device_descriptor.hpp"
 #include "detail/device_features.hpp"
+#include "detail/pipeline_descriptor.hpp"
 #include "detail/resource_descriptor.hpp"
 #include "detail/string.hpp"
 #include "wgpu_adapter.hpp"
@@ -334,6 +335,18 @@ Result<scope<RenderBundleEncoder>> WgpuDeviceImpl::CreateRenderBundleEncoder(
 
 Result<scope<RenderPipeline>> WgpuDeviceImpl::CreateRenderPipeline(const RenderPipelineDesc& desc) {
     const detail::RenderPipelineDescriptorStorage storage(desc);
+    return CreateResource<RenderPipeline>(
+        device_.get(),
+        [&](WGPUDevice device) {
+            return wgpuDeviceCreateRenderPipeline(device, &storage.native);
+        },
+        CreateRenderPipelineObject,
+        "render pipeline");
+}
+
+Result<scope<RenderPipeline>> WgpuDeviceImpl::CreateRenderPipeline(
+    const RenderPipelineDescTyped& desc) {
+    const detail::RenderPipelineTypedDescriptorStorage storage(desc);
     return CreateResource<RenderPipeline>(
         device_.get(),
         [&](WGPUDevice device) {

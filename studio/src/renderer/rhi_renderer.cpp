@@ -2,7 +2,119 @@
 
 #include <woki/rhi.hpp>
 
+#include <array>
 namespace woki {
+
+namespace {
+
+constexpr const char* kTriangleWgsl = R"(
+struct VertexOutput {
+    @builtin(position) position: vec4f,
+};
+
+@vertex
+fn vs_main(@location(0) pos: vec2f) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4f(pos, 0.0, 1.0);
+    return output;
+}
+
+@fragment
+fn fs_main() -> @location(0) vec4f {
+    return vec4f(0.92, 0.35, 0.18, 1.0);
+}
+)";
+
+constexpr std::array<f32, 6> kTriangleVertices = {
+    0.0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f,
+};
+
+} // namespace
+
+bool RhiRenderer::CreatePipelineResources() {
+    rhi::ShaderModuleDesc shader_desc{};
+    shader_desc.label = "StudioTriangleShader";
+    shader_desc.code = kTriangleWgsl;
+    auto shader = device_->CreateShaderModule(shader_desc);
+    if (!shader) {
+        slog::Error("RHI shader creation failed: {}", shader.error().Message());
+        return false;
+    }
+    shader_ = std::move(*shader);
+
+    rhi::PipelineLayoutDesc layout_desc{};
+    layout_desc.label = "StudioPipelineLayout";
+    auto pipeline_layout = device_->CreatePipelineLayout(layout_desc);
+    if (!pipeline_layout) {
+        slog::Error("RHI pipeline layout creation failed: {}", pipeline_layout.error().Message());
+        return false;
+    }
+    pipeline_layout_ = std::move(*pipeline_layout);
+
+    constexpr u64 kVertexBufferSize = sizeof(kTriangleVertices);
+    rhi::BufferDesc buffer_desc{};
+    buffer_desc.label = "StudioTriangleVertices";
+    buffer_desc.size = kVertexBufferSize;
+    buffer_desc.usage = static_cast<rhi::BufferUsage>(
+        static_cast<u64>(rhi::BufferUsage::Vertex) | static_cast<u64>(rhi::BufferUsage::CopyDst));
+    auto vertex_buffer = device_->CreateBuffer(buffer_desc);
+    if (!vertex_buffer) {
+        slog::Error("RHI vertex buffer creation failed: {}", vertex_buffer.error().Message());
+        return false;
+    }
+    vertex_buffer_ = std::move(*vertex_buffer);
+
+    if (auto write = device_->GetQueue().WriteBuffer(
+            *vertex_buffer_, 0, kTriangleVertices.data(), kVertexBufferSize);
+        !write) {
+        slog::Error("RHI vertex buffer upload failed: {}", write.error().Message());
+        return false;
+    }
+
+    const rhi::VertexAttributeDesc vertex_attribute{
+        .format = rhi::VertexFormat::Float32x2,
+        .offset = 0,
+        .shader_location = 0,
+    };
+    const rhi::VertexBufferLayoutDesc vertex_buffer_layout{
+        .array_stride = sizeof(f32) * 2,
+        .attributes = std::span<const rhi::VertexAttributeDesc>(&vertex_attribute, 1),
+    };
+    const rhi::VertexStateDesc vertex_state{
+        .module = shader_.get(),
+        .entry_point = "vs_main",
+        .buffers = std::span<const rhi::VertexBufferLayoutDesc>(&vertex_buffer_layout, 1),
+    };
+
+    const rhi::ColorTargetStateDesc color_target{
+        .format = rhi::TextureFormat::BGRA8Unorm,
+    };
+    const rhi::FragmentStateDesc fragment_state{
+        .module = shader_.get(),
+        .entry_point = "fs_main",
+        .targets = std::span<const rhi::ColorTargetStateDesc>(&color_target, 1),
+    };
+
+    const rhi::PrimitiveStateDesc primitive_state{};
+
+    const rhi::DepthStencilStateDesc depth_stencil_state{};
+
+    rhi::RenderPipelineDescTyped pipeline_desc{};
+    pipeline_desc.label = "StudioTrianglePipeline";
+    pipeline_desc.layout = pipeline_layout_.get();
+    pipeline_desc.vertex = &vertex_state;
+    pipeline_desc.primitive = &primitive_state;
+    pipeline_desc.depth_stencil = &depth_stencil_state;
+    pipeline_desc.fragment = &fragment_state;
+
+    auto render_pipeline = device_->CreateRenderPipeline(pipeline_desc);
+    if (!render_pipeline) {
+        slog::Error("RHI render pipeline creation failed: {}", render_pipeline.error().Message());
+        return false;
+    }
+    render_pipeline_ = std::move(*render_pipeline);
+    return true;
+}
 
 RhiRenderer::RhiRenderer() = default;
 
@@ -61,12 +173,21 @@ bool RhiRenderer::Initialize(Window& window) {
     }
     swapchain_ = std::move(*swapchain);
 
+    if (!CreatePipelineResources()) {
+        Shutdown();
+        return false;
+    }
+
     ready_ = true;
     slog::Info("RHI renderer initialized ({}x{})", width_, height_);
     return true;
 }
 
 void RhiRenderer::Shutdown() noexcept {
+    render_pipeline_.reset();
+    vertex_buffer_.reset();
+    pipeline_layout_.reset();
+    shader_.reset();
     swapchain_.reset();
     device_.reset();
     adapter_.reset();
@@ -123,7 +244,7 @@ bool RhiRenderer::RenderFrame() {
     color_attachment.view = &frame->ColorView();
 
     rhi::RenderPassDescTyped pass_desc{};
-    pass_desc.label = "StudioClearPass";
+    pass_desc.label = "StudioRenderPass";
     pass_desc.color_attachments = std::span<const rhi::RenderPassColorAttachmentDesc>(&color_attachment, 1);
 
     rhi::RenderPassDepthStencilAttachmentDesc depth_attachment{};
@@ -138,6 +259,9 @@ bool RhiRenderer::RenderFrame() {
         return false;
     }
     auto pass = std::move(*pass_result);
+    pass->SetPipeline(*render_pipeline_);
+    pass->SetVertexBuffer(0, vertex_buffer_.get());
+    pass->Draw(3);
     pass->End();
 
     auto command_buffer_result = encoder->Finish({});
