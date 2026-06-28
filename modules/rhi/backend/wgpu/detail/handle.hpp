@@ -52,6 +52,23 @@ using TextureHandle = GpuHandle<WGPUTexture, wgpuTextureRelease>;
 using TextureViewHandle = GpuHandle<WGPUTextureView, wgpuTextureViewRelease>;
 using DeviceHandle = GpuHandle<WGPUDevice, wgpuDeviceRelease>;
 using QueueHandle = GpuHandle<WGPUQueue, wgpuQueueRelease>;
+using BufferHandle = GpuHandle<WGPUBuffer, wgpuBufferRelease>;
+using CommandBufferHandle = GpuHandle<WGPUCommandBuffer, wgpuCommandBufferRelease>;
+using CommandEncoderHandle = GpuHandle<WGPUCommandEncoder, wgpuCommandEncoderRelease>;
+using BindGroupHandle = GpuHandle<WGPUBindGroup, wgpuBindGroupRelease>;
+using BindGroupLayoutHandle = GpuHandle<WGPUBindGroupLayout, wgpuBindGroupLayoutRelease>;
+using ComputePipelineHandle = GpuHandle<WGPUComputePipeline, wgpuComputePipelineRelease>;
+using ExternalTextureHandle = GpuHandle<WGPUExternalTexture, wgpuExternalTextureRelease>;
+using PipelineLayoutHandle = GpuHandle<WGPUPipelineLayout, wgpuPipelineLayoutRelease>;
+using QuerySetHandle = GpuHandle<WGPUQuerySet, wgpuQuerySetRelease>;
+using RenderBundleEncoderHandle = GpuHandle<WGPURenderBundleEncoder, wgpuRenderBundleEncoderRelease>;
+using RenderPipelineHandle = GpuHandle<WGPURenderPipeline, wgpuRenderPipelineRelease>;
+using ResourceTableHandle = GpuHandle<WGPUResourceTable, wgpuResourceTableRelease>;
+using SamplerHandle = GpuHandle<WGPUSampler, wgpuSamplerRelease>;
+using ShaderModuleHandle = GpuHandle<WGPUShaderModule, wgpuShaderModuleRelease>;
+using SharedBufferMemoryHandle = GpuHandle<WGPUSharedBufferMemory, wgpuSharedBufferMemoryRelease>;
+using SharedFenceHandle = GpuHandle<WGPUSharedFence, wgpuSharedFenceRelease>;
+using SharedTextureMemoryHandle = GpuHandle<WGPUSharedTextureMemory, wgpuSharedTextureMemoryRelease>;
 
 inline void retain(WGPUInstance handle) noexcept {
     if (handle != nullptr) {

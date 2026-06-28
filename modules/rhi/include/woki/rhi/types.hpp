@@ -64,6 +64,20 @@ using RequestDeviceCallback =
 using DeviceLostCallback = std::function<void(DeviceLostReason reason, std::string_view message)>;
 using UncapturedErrorCallback = std::function<void(ErrorType type, std::string_view message)>;
 
+using PopErrorScopeCallback =
+    std::function<void(PopErrorScopeStatus status, ErrorType type, std::string_view message)>;
+
+using QueueWorkDoneCallback =
+    std::function<void(QueueWorkDoneStatus status, std::string_view message)>;
+
+using CreateComputePipelineCallback = std::function<void(
+    CreatePipelineAsyncStatus status, scope<ComputePipeline> pipeline, std::string_view message)>;
+
+using CreateRenderPipelineCallback = std::function<void(
+    CreatePipelineAsyncStatus status, scope<RenderPipeline> pipeline, std::string_view message)>;
+
+using LoggingCallback = std::function<void(LoggingType type, std::string_view message)>;
+
 using Proc = void(*)();
 
 [[nodiscard]] constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs) noexcept {

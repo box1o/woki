@@ -134,4 +134,120 @@ struct DeviceDesc final {
     std::string label{"Device"};
 };
 
+struct Origin3D final {
+    u32 x{0};
+    u32 y{0};
+    u32 z{0};
+};
+
+struct Extent3D final {
+    u32 width{0};
+    u32 height{0};
+    u32 depth_or_array_layers{0};
+};
+
+struct Extent2D final {
+    u32 width{0};
+    u32 height{0};
+};
+
+struct TexelCopyBufferLayout final {
+    u64 offset{0};
+    u32 bytes_per_row{0};
+    u32 rows_per_image{0};
+};
+
+struct TexelCopyTextureInfo final {
+    void* texture{nullptr};
+    u32 mip_level{0};
+    Origin3D origin{};
+    TextureAspect aspect{TextureAspect::All};
+};
+
+struct CopyTextureForBrowserOptions final {
+    bool flip_y{false};
+    bool needs_color_space_conversion{false};
+    AlphaMode src_alpha_mode{AlphaMode::Unpremultiplied};
+};
+
+struct ImageCopyExternalTexture final {
+    void* external_texture{nullptr};
+    Origin3D origin{};
+    Extent2D natural_size{};
+};
+
+struct TextureDesc final {
+    std::string label{"Texture"};
+};
+
+struct BindGroupDesc final {
+    std::string label{"BindGroup"};
+};
+
+struct BindGroupLayoutDesc final {
+    std::string label{"BindGroupLayout"};
+};
+
+struct BufferDesc final {
+    u64 size{0};
+    BufferUsage usage{};
+    std::string label{"Buffer"};
+};
+
+struct CommandEncoderDesc final {
+    std::string label{"CommandEncoder"};
+};
+
+struct ComputePipelineDesc final {
+    std::string label{"ComputePipeline"};
+};
+
+struct ExternalTextureDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"ExternalTexture"};
+};
+
+struct PipelineLayoutDesc final {
+    std::string label{"PipelineLayout"};
+};
+
+struct QuerySetDesc final {
+    std::string label{"QuerySet"};
+};
+
+struct RenderBundleEncoderDesc final {
+    std::string label{"RenderBundleEncoder"};
+};
+
+struct RenderPipelineDesc final {
+    std::string label{"RenderPipeline"};
+};
+
+struct ResourceTableDesc final {
+    std::string label{"ResourceTable"};
+};
+
+struct SamplerDesc final {
+    std::string label{"Sampler"};
+};
+
+struct ShaderModuleDesc final {
+    std::string label{"ShaderModule"};
+};
+
+struct SharedBufferMemoryDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"SharedBufferMemory"};
+};
+
+struct SharedFenceDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"SharedFence"};
+};
+
+struct SharedTextureMemoryDesc final {
+    void* next_in_chain{nullptr};
+    std::string label{"SharedTextureMemory"};
+};
+
 } // namespace woki::rhi
