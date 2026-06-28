@@ -34,6 +34,8 @@ void RenderLayer::OnEvent(Context& ctx, events::Event& event) {
         return;
     }
 
+    renderer_.HandleEvent(event);
+
     if (event.GetEventType() != events::EventType::kWindowResized) {
         return;
     }

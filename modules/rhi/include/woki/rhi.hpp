@@ -14,3 +14,4 @@
 #include "rhi/surface.hpp"
 #include "rhi/swapchain.hpp"
 #include "rhi/types.hpp"
+#include "rhi/render_graph.hpp"
