@@ -6,3 +6,12 @@ runtime:
   wasm: extension.wasm
 permissions:
   - log
+contributes:
+  commands:
+    - id: woki.kitty.pet
+      title: Pet the Kitty
+      category: Fun
+
+    - id: woki.kitty.complex
+      title: Complex command
+      category: Fun

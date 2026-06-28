@@ -44,7 +44,9 @@ foreach(module_entry IN LISTS module_entries)
     endif()
 endforeach()
 
-add_subdirectory(ext)
+if(NOT EMSCRIPTEN)
+    add_subdirectory(ext)
+endif()
 
 if(NOT EMSCRIPTEN)
     set(extensions_dir "${CMAKE_SOURCE_DIR}/extensions")

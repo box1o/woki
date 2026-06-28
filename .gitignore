@@ -38,6 +38,8 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 compile_commands.json
+*.wokiext
+extension.wasm
 
 android/.gradle/
 android/**/.cxx/
