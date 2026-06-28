@@ -2,6 +2,9 @@
 
 #include <woki/ext/ext.hpp>
 
+#include <array>
+#include <string>
+
 namespace {
 
 class FakeBackend final : public woki::ext::RuntimeBackend {
@@ -27,6 +30,13 @@ public:
         last_event_type = event_type;
     }
 
+    [[nodiscard]] woki::Result<void> DispatchCommand(
+        woki::ext::Record&, std::string_view command_id, std::span<const woki::u8> payload) override {
+        last_command_id = command_id;
+        last_command_payload_size = payload.size();
+        return woki::Ok();
+    }
+
     void Unload(woki::ext::Record&) override { unloaded = true; }
 
     bool loaded{false};
@@ -35,6 +45,8 @@ public:
     int ticks{0};
     woki::f64 last_delta_ms{0.0};
     woki::u32 last_event_type{0};
+    std::string last_command_id;
+    std::size_t last_command_payload_size{0};
 };
 
 [[nodiscard]] woki::ext::Record MakeRecord() {
@@ -78,9 +90,25 @@ TEST_CASE("Extension runtime drives state machine with backend") {
     runtime.DispatchEvent(record, 42, {});
     REQUIRE(backend.last_event_type == 42);
 
+    const std::array<woki::u8, 2> payload{1, 2};
+    auto commanded = runtime.DispatchCommand(record, "woki.hello.say", payload);
+    REQUIRE(commanded.has_value());
+    REQUIRE(backend.last_command_id == "woki.hello.say");
+    REQUIRE(backend.last_command_payload_size == payload.size());
+
     runtime.Unload(record);
     REQUIRE(backend.unloaded);
     REQUIRE(record.state == woki::ext::State::Unloaded);
+}
+
+TEST_CASE("Extension runtime rejects commands for inactive records") {
+    FakeBackend backend;
+    woki::ext::Runtime runtime(&backend);
+    auto record = MakeRecord();
+
+    auto commanded = runtime.DispatchCommand(record, "woki.hello.say", {});
+    REQUIRE_FALSE(commanded.has_value());
+    REQUIRE(commanded.error().Code() == woki::ErrorCode::ValidationInvalidState);
 }
 
 TEST_CASE("Extension runtime can swap backends") {

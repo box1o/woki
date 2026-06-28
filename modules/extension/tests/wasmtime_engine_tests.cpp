@@ -30,7 +30,7 @@ void WriteFile(const fs::path& path, std::string_view contents) {
 
 [[nodiscard]] bool CompileWasm(
     const fs::path& source, const fs::path& wasm, std::string_view exports) {
-    const std::string command = "clang --target=wasm32-unknown-unknown -nostdlib "
+    const std::string command = "clang --target=wasm32-unknown-unknown -nostdlib -fno-builtin "
                                 "-Wl,--no-entry -Wl,--export-memory " +
                                 std::string(exports) + " -o " + wasm.string() + " " +
                                 source.string();
@@ -229,6 +229,42 @@ __attribute__((export_name("ext_on_unload"))) void ext_on_unload(void) {}
     auto initialized = backend.Initialize(record);
     REQUIRE_FALSE(initialized.has_value());
     REQUIRE(initialized.error().Message().contains("-3"));
+}
+
+TEST_CASE("Wasmtime engine dispatches commands through optional export") {
+    const fs::path root = MakeTempDir("command_dispatch");
+    const fs::path source = root / "extension.c";
+    WriteFile(source, R"c(
+static unsigned char buffer[1024];
+__attribute__((export_name("ext_alloc"))) unsigned ext_alloc(unsigned len) {
+    return (len > 0 && len <= sizeof(buffer)) ? (unsigned)buffer : 0;
+}
+__attribute__((export_name("ext_free"))) void ext_free(unsigned ptr, unsigned len) { (void)ptr; (void)len; }
+__attribute__((export_name("ext_api_version"))) unsigned ext_api_version(void) { return 1; }
+__attribute__((export_name("ext_init"))) int ext_init(void) { return 0; }
+__attribute__((export_name("ext_on_tick"))) void ext_on_tick(double delta_ms) { (void)delta_ms; }
+__attribute__((export_name("ext_on_event"))) void ext_on_event(unsigned t, unsigned p, unsigned l) { (void)t; (void)p; (void)l; }
+__attribute__((export_name("ext_on_command"))) int ext_on_command(unsigned command_ptr, unsigned command_len, unsigned payload_ptr, unsigned payload_len) {
+    (void)command_ptr;
+    (void)payload_ptr;
+    return command_len > 0 && payload_len == 2 ? 0 : -1;
+}
+__attribute__((export_name("ext_on_unload"))) void ext_on_unload(void) {}
+)c");
+    REQUIRE(CompileWasm(source, root / "extension.wasm",
+        StandardExports() + " "
+        "-Wl,--export=ext_on_command "
+        "-Wl,--export=ext_alloc "
+        "-Wl,--export=ext_free"));
+
+    auto record = MakeRecord(root);
+    auto backend = MakeBackend();
+    REQUIRE(backend.Load(record).has_value());
+    REQUIRE(backend.Initialize(record).has_value());
+
+    const std::array<woki::u8, 2> payload{1, 2};
+    auto commanded = backend.DispatchCommand(record, "woki.test.command", payload);
+    REQUIRE(commanded.has_value());
 }
 
 #endif // WOKI_EXTENSION_WITH_WASMTIME

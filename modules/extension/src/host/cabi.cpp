@@ -1,6 +1,9 @@
 #include "woki/ext/host/cabi.hpp"
 
 #include "woki/ext/host/api.hpp"
+#include "woki/ext/limits.hpp"
+
+#include "types.h"
 
 #include <algorithm>
 #include <cstring>
@@ -12,9 +15,18 @@ namespace woki::ext::host::cabi {
 
 namespace {
 
-inline constexpr u32 kMaxPathLen = 4096u;
-inline constexpr u32 kMaxLogLen = 4096u;
-inline constexpr u32 kMaxFileRw = 16u * 1024u * 1024u;
+using woki::ext::limits::kMaxConfigKeyBytes;
+using woki::ext::limits::kMaxConfigValueBytes;
+using woki::ext::limits::kMaxFileBytes;
+using woki::ext::limits::kMaxLogBytes;
+using woki::ext::limits::kMaxPathBytes;
+
+static_assert(cabi::kOk == WOKI_EXT_OK);
+static_assert(cabi::kErr == WOKI_EXT_ERR);
+static_assert(cabi::kDenied == WOKI_EXT_DENIED);
+static_assert(cabi::kNoSpace == WOKI_EXT_NO_SPACE);
+static_assert(cabi::kNotFound == WOKI_EXT_NOT_FOUND);
+static_assert(cabi::kInvalid == WOKI_EXT_INVALID);
 
 [[nodiscard]] i32 StatusFromError(const Error& error) noexcept {
     switch (error.Code()) {
@@ -96,7 +108,7 @@ i32 Log(Record& record, u32 level, const char* message, u32 len) {
         return cabi::kDenied;
     }
 
-    auto text = BoundedString(message, len, kMaxLogLen, "log message");
+    auto text = BoundedString(message, len, kMaxLogBytes, "log message");
     if (!text) {
         return StatusFromError(text.error());
     }
@@ -125,7 +137,7 @@ i32 PathCache(Record& record, char* out, u32 out_cap) {
 }
 
 i32 FileRead(Record& record, const char* rel_path, u8* out, u32* inout_len) {
-    auto path = BoundedCString(rel_path, kMaxPathLen, "path");
+    auto path = BoundedCString(rel_path, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -136,7 +148,7 @@ i32 FileRead(Record& record, const char* rel_path, u32 rel_path_len, u8* out, u3
     if (inout_len == nullptr) {
         return cabi::kInvalid;
     }
-    auto path = BoundedString(rel_path, rel_path_len, kMaxPathLen, "path");
+    auto path = BoundedString(rel_path, rel_path_len, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -146,7 +158,7 @@ i32 FileRead(Record& record, const char* rel_path, u32 rel_path_len, u8* out, u3
     if (!data) {
         return StatusFromError(data.error());
     }
-    if (data->size() > kMaxFileRw) {
+    if (data->size() > kMaxFileBytes) {
         return cabi::kNoSpace;
     }
     if (out == nullptr || *inout_len < data->size()) {
@@ -160,7 +172,7 @@ i32 FileRead(Record& record, const char* rel_path, u32 rel_path_len, u8* out, u3
 }
 
 i32 FileWrite(Record& record, const char* rel_path, const u8* data, u32 len) {
-    auto path = BoundedCString(rel_path, kMaxPathLen, "path");
+    auto path = BoundedCString(rel_path, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -171,11 +183,11 @@ i32 FileWrite(Record& record, const char* rel_path, u32 rel_path_len, const u8* 
     if (data == nullptr && len != 0) {
         return cabi::kInvalid;
     }
-    if (len > kMaxFileRw) {
+    if (len > kMaxFileBytes) {
         return cabi::kNoSpace;
     }
 
-    auto path = BoundedString(rel_path, rel_path_len, kMaxPathLen, "path");
+    auto path = BoundedString(rel_path, rel_path_len, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -190,7 +202,7 @@ i32 FileWrite(Record& record, const char* rel_path, u32 rel_path_len, const u8* 
 }
 
 i32 FileAppend(Record& record, const char* rel_path, const u8* data, u32 len) {
-    auto path = BoundedCString(rel_path, kMaxPathLen, "path");
+    auto path = BoundedCString(rel_path, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -201,11 +213,11 @@ i32 FileAppend(Record& record, const char* rel_path, u32 rel_path_len, const u8*
     if (data == nullptr && len != 0) {
         return cabi::kInvalid;
     }
-    if (len > kMaxFileRw) {
+    if (len > kMaxFileBytes) {
         return cabi::kNoSpace;
     }
 
-    auto path = BoundedString(rel_path, rel_path_len, kMaxPathLen, "path");
+    auto path = BoundedString(rel_path, rel_path_len, kMaxPathBytes, "path");
     if (!path) {
         return StatusFromError(path.error());
     }
@@ -220,7 +232,7 @@ i32 FileAppend(Record& record, const char* rel_path, u32 rel_path_len, const u8*
 }
 
 i32 ConfigGet(Record& record, const char* key, char* out, u32 out_cap) {
-    auto config_key = BoundedCString(key, kMaxPathLen, "config key");
+    auto config_key = BoundedCString(key, kMaxConfigKeyBytes, "config key");
     if (!config_key) {
         return StatusFromError(config_key.error());
     }
@@ -234,11 +246,11 @@ i32 ConfigGet(Record& record, const char* key, char* out, u32 out_cap) {
 }
 
 i32 ConfigSet(Record& record, const char* key, const char* value, u32 len) {
-    auto config_key = BoundedCString(key, kMaxPathLen, "config key");
+    auto config_key = BoundedCString(key, kMaxConfigKeyBytes, "config key");
     if (!config_key) {
         return StatusFromError(config_key.error());
     }
-    auto config_value = BoundedString(value, len, kMaxFileRw, "config value");
+    auto config_value = BoundedString(value, len, kMaxConfigValueBytes, "config value");
     if (!config_value) {
         return StatusFromError(config_value.error());
     }

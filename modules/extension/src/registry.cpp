@@ -53,6 +53,19 @@ Result<Roots> DefaultRoots() {
     return Ok(std::move(roots));
 }
 
+Result<Roots> RootsFromBase(const fs::path& base) {
+    if (base.empty()) {
+        return DefaultRoots();
+    }
+
+    Roots roots;
+    const fs::path normalized = fs::absolute(base).lexically_normal();
+    roots.extensions = normalized / "extensions";
+    roots.data = normalized / "ext-data";
+    roots.cache = normalized / "cache" / "ext";
+    return Ok(std::move(roots));
+}
+
 void Registry::SetRoots(Roots roots) { roots_ = std::move(roots); }
 
 Result<void> Registry::Scan() {

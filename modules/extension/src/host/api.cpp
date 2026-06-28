@@ -2,6 +2,8 @@
 
 #include <woki/logger/logger.hpp>
 
+#include "woki/ext/limits.hpp"
+#include "woki/ext/path_safety.hpp"
 #include "woki/ext/perm.hpp"
 
 #include <algorithm>
@@ -17,20 +19,8 @@ namespace {
 
 namespace fs = std::filesystem;
 
-inline constexpr std::size_t kMaxLogBytes = 4096u;
-inline constexpr std::size_t kMaxFileBytes = 16u * 1024u * 1024u;
-inline constexpr std::size_t kMaxConfigBytes = 64u * 1024u;
-
-[[nodiscard]] bool HasTraversal(const fs::path& path) {
-    return std::ranges::any_of(path, [](const fs::path& part) { return part == ".."; });
-}
-
-[[nodiscard]] bool IsSafeRelativePath(const fs::path& path) {
-    return !path.empty() && !path.is_absolute() && !HasTraversal(path);
-}
-
 [[nodiscard]] bool IsSafeConfigKey(std::string_view key) {
-    if (key.empty() || key.size() > 128) {
+    if (key.empty() || key.size() > limits::kMaxConfigKeyBytes) {
         return false;
     }
     return std::ranges::all_of(key, [](char ch) {
@@ -65,8 +55,8 @@ void HostApi::Log(LogLevel level, std::string_view message) const {
         return;
     }
 
-    if (message.size() > kMaxLogBytes) {
-        message = message.substr(0, kMaxLogBytes);
+    if (message.size() > limits::kMaxLogBytes) {
+        message = message.substr(0, limits::kMaxLogBytes);
     }
 
     switch (level) {
@@ -112,7 +102,7 @@ Result<std::vector<u8>> HostApi::ReadFile(const fs::path& relative_path) const {
     if (error) {
         return Err(ErrorCode::FileNotFound, error.message());
     }
-    if (size > kMaxFileBytes) {
+    if (size > limits::kMaxFileBytes) {
         return Err(ErrorCode::ValidationOutOfRange, "Extension file read exceeds 16 MiB limit.");
     }
 
@@ -129,7 +119,7 @@ Result<std::vector<u8>> HostApi::ReadFile(const fs::path& relative_path) const {
 }
 
 Result<void> HostApi::WriteFile(const fs::path& relative_path, std::span<const u8> data) const {
-    if (data.size() > kMaxFileBytes) {
+    if (data.size() > limits::kMaxFileBytes) {
         return Err(ErrorCode::ValidationOutOfRange, "Extension file write exceeds 16 MiB limit.");
     }
 
@@ -158,7 +148,7 @@ Result<void> HostApi::WriteFile(const fs::path& relative_path, std::span<const u
 }
 
 Result<void> HostApi::AppendFile(const fs::path& relative_path, std::span<const u8> data) const {
-    if (data.size() > kMaxFileBytes) {
+    if (data.size() > limits::kMaxFileBytes) {
         return Err(ErrorCode::ValidationOutOfRange, "Extension file append exceeds 16 MiB limit.");
     }
 
@@ -197,7 +187,7 @@ Result<std::string> HostApi::ReadConfig(std::string_view key) const {
     if (error) {
         return Err(ErrorCode::FileNotFound, error.message());
     }
-    if (size > kMaxConfigBytes) {
+    if (size > limits::kMaxConfigValueBytes) {
         return Err(ErrorCode::ValidationOutOfRange, "Extension config value exceeds 64 KiB limit.");
     }
 
@@ -209,7 +199,7 @@ Result<std::string> HostApi::ReadConfig(std::string_view key) const {
 }
 
 Result<void> HostApi::WriteConfig(std::string_view key, std::string_view value) const {
-    if (value.size() > kMaxConfigBytes) {
+    if (value.size() > limits::kMaxConfigValueBytes) {
         return Err(ErrorCode::ValidationOutOfRange, "Extension config value exceeds 64 KiB limit.");
     }
 

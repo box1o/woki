@@ -21,7 +21,7 @@ enum class State : u8 {
 enum class RuntimeTier : u8 {
     None,
     Wasm,
-    Native,
+    Web,
 };
 
 } // namespace woki::ext

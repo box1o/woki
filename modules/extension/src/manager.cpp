@@ -17,8 +17,9 @@ void LoadOne(Runtime& runtime, Record& record) {
     if (!loaded) {
         return;
     }
-    if(auto res = runtime.Initialize(record); !res){
-        slog::Critical("Failed to Initialize");
+    if (auto initialized = runtime.Initialize(record); !initialized) {
+        slog::Warn(
+            "Extension '{}' failed to initialize: {}", record.id, initialized.error().Message());
     }
 }
 
@@ -88,10 +89,34 @@ Result<PackageLayout> Manager::InstallUnpacked(const std::filesystem::path& sour
     return installed;
 }
 
-Result<void> Manager::Scan() { return registry_.Scan(); }
+Result<void> Manager::Scan() {
+    auto scanned = registry_.Scan();
+    if (!scanned) {
+        return Err(scanned.error());
+    }
+
+    commands_.Clear();
+    for (const Record& record : registry_.Records()) {
+        if (record.state != State::Failed) {
+            commands_.Register(record.id, record.manifest.commands);
+        }
+    }
+    return Ok();
+}
 
 Result<void> Manager::ScanSource(const std::filesystem::path& source_root) {
-    return registry_.ScanSource(source_root);
+    auto scanned = registry_.ScanSource(source_root);
+    if (!scanned) {
+        return Err(scanned.error());
+    }
+
+    commands_.Clear();
+    for (const Record& record : registry_.Records()) {
+        if (record.state != State::Failed) {
+            commands_.Register(record.id, record.manifest.commands);
+        }
+    }
+    return Ok();
 }
 
 Result<void> Manager::Load(std::string_view id) {
@@ -134,6 +159,11 @@ void Manager::DispatchEvent(u32 event_type, std::span<const u8> payload) {
     }
 }
 
+Result<void> Manager::ExecuteCommand(std::string_view command_id, std::span<const u8> payload) {
+    return command_dispatcher_.Execute(
+        commands_, runtime_, registry_.Records(), command_id, payload);
+}
+
 void Manager::Unload(std::string_view id) {
     Record* record = Find(id);
     if (record == nullptr) {
@@ -149,6 +179,8 @@ void Manager::UnloadAll() {
 }
 
 const std::vector<Record>& Manager::Records() const noexcept { return registry_.Records(); }
+
+const CommandRegistry& Manager::Commands() const noexcept { return commands_; }
 
 Record* Manager::Find(std::string_view id) noexcept {
     auto& records = registry_.Records();

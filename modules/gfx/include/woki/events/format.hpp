@@ -253,6 +253,104 @@ inline void AppendEventPayload(std::string& output, const Event& event) {
     return output.empty() ? std::string{"None"} : output;
 }
 
+[[nodiscard]] inline constexpr bool ShouldForwardToExtensions(EventType type) noexcept {
+    switch (type) {
+    case EventType::kAppTick:
+    case EventType::kAppUpdate:
+    case EventType::kAppRender:
+    case EventType::kMouseMoved:
+    case EventType::kFrameBegin:
+    case EventType::kFrameEnd:
+    case EventType::kRenderBegin:
+    case EventType::kRenderEnd:
+    case EventType::kSwapBuffers:
+        return false;
+    default:
+        return true;
+    }
+}
+
+namespace detail {
+
+inline void AppendJsonString(std::string& output, std::string_view value) {
+    output.push_back('"');
+    for (const char ch : value) {
+        switch (ch) {
+        case '"':
+            output += "\\\"";
+            break;
+        case '\\':
+            output += "\\\\";
+            break;
+        case '\n':
+            output += "\\n";
+            break;
+        case '\r':
+            output += "\\r";
+            break;
+        case '\t':
+            output += "\\t";
+            break;
+        default:
+            output.push_back(ch);
+            break;
+        }
+    }
+    output.push_back('"');
+}
+
+inline void AppendJsonKey(std::string& output, std::string_view key) {
+    if (!output.empty() && output.back() != '{') {
+        output.push_back(',');
+    }
+    AppendJsonString(output, key);
+    output.push_back(':');
+}
+
+} // namespace detail
+
+[[nodiscard]] inline std::string ToJson(const Event& event) {
+    std::string output{"{"};
+    detail::AppendJsonKey(output, "type");
+    detail::AppendJsonString(output, ToString(event.GetEventType()));
+
+    switch (event.GetEventType()) {
+    case EventType::kKeyPressed: {
+        const auto& typed_event = static_cast<const KeyPressedEvent&>(event);
+        detail::AppendJsonKey(output, "key");
+        output += std::to_string(static_cast<u16>(typed_event.key));
+        detail::AppendJsonKey(output, "repeat");
+        output += std::to_string(typed_event.repeat_count);
+        break;
+    }
+    case EventType::kKeyReleased: {
+        const auto& typed_event = static_cast<const KeyReleasedEvent&>(event);
+        detail::AppendJsonKey(output, "key");
+        output += std::to_string(static_cast<u16>(typed_event.key));
+        break;
+    }
+    case EventType::kKeyTyped: {
+        const auto& typed_event = static_cast<const KeyTypedEvent&>(event);
+        detail::AppendJsonKey(output, "character");
+        output += std::to_string(typed_event.character);
+        break;
+    }
+    case EventType::kWindowResized: {
+        const auto& typed_event = static_cast<const WindowResizeEvent&>(event);
+        detail::AppendJsonKey(output, "width");
+        output += std::to_string(typed_event.width);
+        detail::AppendJsonKey(output, "height");
+        output += std::to_string(typed_event.height);
+        break;
+    }
+    default:
+        break;
+    }
+
+    output.push_back('}');
+    return output;
+}
+
 [[nodiscard]] inline std::string ToString(const Event& event) {
     std::string output(event.GetName());
     output += " [type=";

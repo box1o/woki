@@ -1,0 +1,8 @@
+interface lifecycle {
+  api-version: func() -> u32;
+  init: func() -> s32;
+  tick: func(delta-ms: f64);
+  event: func(event-type: u32, payload: list<u8>);
+  command: func(command-id: string, payload: list<u8>) -> s32;
+  unload: func();
+}

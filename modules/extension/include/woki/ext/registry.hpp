@@ -2,7 +2,7 @@
 
 // IWYU pragma: private, include "woki/ext/ext.hpp"
 
-#include "error.hpp"
+#include "state.hpp"
 #include "package.hpp"
 
 #include <filesystem>

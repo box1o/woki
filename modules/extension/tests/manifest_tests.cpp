@@ -51,6 +51,57 @@ TEST_CASE("Extension manifest loads a valid manifest") {
     REQUIRE(woki::ext::HasPermission(*manifest, woki::ext::Permission::Log));
 }
 
+TEST_CASE("Extension manifest loads command contributions") {
+    const fs::path root = MakeTempDir("command_contributions");
+    const fs::path path = root / "manifest.yaml";
+    WriteFile(path, R"(
+id: woki.hello
+name: Hello
+version: 0.1.0
+apiVersion: 1
+runtime:
+  wasm: extension.wasm
+permissions:
+  - log
+contributes:
+  commands:
+    - id: woki.hello.say
+      title: Say Hello
+      category: Examples
+)");
+
+    auto manifest = woki::ext::LoadManifest(path);
+    REQUIRE(manifest.has_value());
+    REQUIRE(manifest->commands.size() == 1);
+    REQUIRE(manifest->commands.front().id == "woki.hello.say");
+    REQUIRE(manifest->commands.front().title == "Say Hello");
+    REQUIRE(manifest->commands.front().category == "Examples");
+}
+
+TEST_CASE("Extension manifest rejects command ids outside the extension namespace") {
+    const fs::path root = MakeTempDir("bad_command_id");
+    const fs::path path = root / "manifest.yaml";
+    WriteFile(path, R"(
+id: woki.hello
+name: Hello
+version: 0.1.0
+apiVersion: 1
+runtime:
+  wasm: extension.wasm
+permissions:
+  - log
+contributes:
+  commands:
+    - id: woki.other.say
+      title: Say Hello
+)");
+
+    auto manifest = woki::ext::LoadManifest(path);
+    REQUIRE_FALSE(manifest.has_value());
+    REQUIRE(manifest.error().Message().contains("woki.other.say"));
+    REQUIRE(manifest.error().Message().contains("woki.hello.example"));
+}
+
 TEST_CASE("Extension manifest rejects invalid id") {
     woki::ext::Manifest manifest;
     manifest.id = "Woki.Hello";

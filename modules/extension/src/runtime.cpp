@@ -99,6 +99,27 @@ void Runtime::DispatchEvent(Record& record, u32 event_type, std::span<const u8> 
     backend_->DispatchEvent(record, event_type, payload);
 }
 
+Result<void> Runtime::DispatchCommand(
+    Record& record, std::string_view command_id, std::span<const u8> payload) {
+    if (record.state != State::Active) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Extension command can only run while the extension is active.");
+    }
+
+    auto backend = RequireBackend(backend_);
+    if (!backend) {
+        MarkFailed(record, backend.error());
+        return Err(backend.error());
+    }
+
+    auto dispatched = backend_->DispatchCommand(record, command_id, payload);
+    if (!dispatched) {
+        MarkFailed(record, dispatched.error());
+        return Err(dispatched.error());
+    }
+    return Ok();
+}
+
 void Runtime::Unload(Record& record) {
     if (record.state != State::Active || backend_ == nullptr) {
         return;
