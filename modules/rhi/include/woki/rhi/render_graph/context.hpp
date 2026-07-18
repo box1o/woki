@@ -96,6 +96,8 @@ public:
     [[nodiscard]] Device& device() noexcept;
     [[nodiscard]] Buffer& buffer(u32 slot);
     [[nodiscard]] u32 buffer_count() const noexcept;
+    [[nodiscard]] TextureView& storage_texture(u32 slot);
+    [[nodiscard]] u32 storage_texture_count() const noexcept;
 
     template <typename T> [[nodiscard]] T& data() {
         WOKI_ASSERT(user_data_ != nullptr);
@@ -110,6 +112,7 @@ private:
     Device* device_{nullptr};
     void* user_data_{nullptr};
     std::vector<Buffer*> buffers_{};
+    std::vector<TextureView*> storage_textures_{};
 };
 
 } // namespace woki::rhi

@@ -281,6 +281,15 @@ Buffer& ComputePassContext::buffer(const u32 slot) {
 
 u32 ComputePassContext::buffer_count() const noexcept { return static_cast<u32>(buffers_.size()); }
 
+TextureView& ComputePassContext::storage_texture(const u32 slot) {
+    WOKI_ASSERT(slot < storage_textures_.size() && storage_textures_[slot] != nullptr);
+    return *storage_textures_[slot];
+}
+
+u32 ComputePassContext::storage_texture_count() const noexcept {
+    return static_cast<u32>(storage_textures_.size());
+}
+
 // --- PassBuilder ---
 
 PassBuilder::PassBuilder(RenderGraphBuilder& owner, const u32 pass_index)
@@ -374,6 +383,24 @@ PassBuilder& PassBuilder::Buffer(const PerFrameSlot resource) {
     WOKI_ASSERT(resource);
     WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
     owner_->blueprint_.passes[pass_index_].buffers.push_back({.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::StorageTexture(const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].storage_textures.push_back(
+        {.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::StorageTexture(const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].storage_textures.push_back(
+        {.resource_id = resource.id_});
     return *this;
 }
 
@@ -528,6 +555,9 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
         for (const auto& buffer : pass.buffers) {
             use_resource(buffer.resource_id, pass_index);
         }
+        for (const auto& texture : pass.storage_textures) {
+            use_resource(texture.resource_id, pass_index);
+        }
         for (const auto& copy : pass.copies) {
             use_resource(copy.src_resource_id, pass_index);
             use_resource(copy.dst_resource_id, pass_index);
@@ -566,6 +596,25 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
                     "RenderGraph pass '" + pass.debug_name + "' references an invalid buffer");
             }
         }
+        for (const auto& input : pass.storage_textures) {
+            if (input.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[input.resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph pass '" + pass.debug_name +
+                        "' references an invalid storage texture");
+            }
+            const auto& resource = blueprint_.resources[input.resource_id];
+            if (resource.kind == ResourceKind::Transient &&
+                !HasFlag(resource.transient.usage, TextureUsage::StorageBinding)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph transient storage texture requires StorageBinding usage");
+            }
+            if (resource.kind == ResourceKind::Owned && resource.owned_texture != nullptr &&
+                !HasFlag(resource.owned_texture->GetUsage(), TextureUsage::StorageBinding)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph owned storage texture requires StorageBinding usage");
+            }
+        }
         if (pass.kind == PassKind::Compute) {
             if (!pass.compute_execute || !pass.colors.empty() || pass.depth ||
                 pass.framebuffer_id || !pass.samples.empty() || !pass.copies.empty()) {
@@ -573,6 +622,10 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
                     "RenderGraph compute pass '" + pass.debug_name + "' has an invalid contract");
             }
             continue;
+        }
+        if (!pass.storage_textures.empty()) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph storage textures are only valid on compute passes");
         }
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             if (pass.copies.empty()) {
@@ -1049,7 +1102,8 @@ Result<void> RenderGraph::ExecuteCopyPass(
     return pass.copy_execute(context);
 }
 
-Result<void> RenderGraph::ExecuteComputePass(const u32 pass_index, CommandEncoder& encoder) {
+Result<void> RenderGraph::ExecuteComputePass(const u32 pass_index, CommandEncoder& encoder,
+    const std::unordered_map<u32, TextureView*>& per_frame_views) {
     const PassRecord& pass = blueprint_.passes[pass_index];
     auto pass_encoder = encoder.BeginComputePass({.label = pass.debug_name});
     if (!pass_encoder) {
@@ -1069,6 +1123,25 @@ Result<void> RenderGraph::ExecuteComputePass(const u32 pass_index, CommandEncode
                 "RenderGraph compute pass '" + pass.debug_name + "' missing buffer");
         }
         context.buffers_.push_back(buffer);
+    }
+    context.storage_textures_.reserve(pass.storage_textures.size());
+    for (const auto& input : pass.storage_textures) {
+        TextureView* view = nullptr;
+        if (input.resource_id < runtime_resources_.size() &&
+            runtime_resources_[input.resource_id].blueprint.kind == ResourceKind::PerFrame) {
+            if (const auto found = per_frame_views.find(input.resource_id);
+                found != per_frame_views.end()) {
+                view = found->second;
+            }
+        } else {
+            view = ResolveView(input.resource_id);
+        }
+        if (view == nullptr) {
+            pass_encoder->get()->End();
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph compute pass '" + pass.debug_name + "' missing storage texture");
+        }
+        context.storage_textures_.push_back(view);
     }
 
     auto executed = pass.compute_execute(context);
@@ -1158,7 +1231,8 @@ Result<void> RenderGraphFrame::Execute() {
         const PassRecord& pass = graph_->blueprint_.passes[pass_index];
         Result<void> result = Ok();
         if (pass.kind == PassKind::Compute) {
-            result = graph_->ExecuteComputePass(static_cast<u32>(pass_index), *encoder_);
+            result = graph_->ExecuteComputePass(
+                static_cast<u32>(pass_index), *encoder_, per_frame_views_);
         } else if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             result =
                 graph_->ExecuteCopyPass(static_cast<u32>(pass_index), *encoder_, width_, height_);

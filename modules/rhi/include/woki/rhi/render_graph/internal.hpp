@@ -60,6 +60,10 @@ struct BufferInput final {
     u32 resource_id{kInvalidGraphResource};
 };
 
+struct StorageTextureInput final {
+    u32 resource_id{kInvalidGraphResource};
+};
+
 enum class PassKind : u8 {
     Render,
     Compute,
@@ -80,6 +84,7 @@ struct PassRecord final {
     std::optional<DepthOutput> depth{};
     std::vector<SampleInput> samples{};
     std::vector<BufferInput> buffers{};
+    std::vector<StorageTextureInput> storage_textures{};
     std::vector<CopyOperation> copies{};
     std::function<Result<void>(RenderPassContext&)> render_execute{};
     std::function<Result<void>(ComputePassContext&)> compute_execute{};

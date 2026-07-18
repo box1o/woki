@@ -32,6 +32,8 @@ public:
     PassBuilder& Sample(Resource resource, SampleMode mode = SampleMode::ColorTexture);
     PassBuilder& Buffer(Resource resource);
     PassBuilder& Buffer(PerFrameSlot resource);
+    PassBuilder& StorageTexture(Resource resource);
+    PassBuilder& StorageTexture(PerFrameSlot resource);
     PassBuilder& Copy(Resource src, Resource dst);
 
     template <typename Fn> PassBuilder& Execute(Fn&& callback);

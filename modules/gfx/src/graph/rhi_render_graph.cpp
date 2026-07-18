@@ -184,6 +184,18 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
                 native_pass.Buffer(native_resources[buffer.resource.Index()]);
             }
         }
+        for (const auto& texture : pass->storage_textures) {
+            const auto* resource = graph.Resource(texture.resource);
+            if (resource == nullptr || resource->kind != GraphResourceKind::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Graph pass storage texture references an invalid texture");
+            }
+            if (resource->origin == GraphResourceOrigin::PerFrame) {
+                native_pass.StorageTexture(per_frame_slots[texture.resource.Index()]);
+            } else {
+                native_pass.StorageTexture(native_resources[texture.resource.Index()]);
+            }
+        }
         if (pass->kind == GraphPassKind::Compute) {
             const auto callback = pass->compute_execute;
             native_pass.Execute([callback](rhi::ComputePassContext& context) -> Result<void> {

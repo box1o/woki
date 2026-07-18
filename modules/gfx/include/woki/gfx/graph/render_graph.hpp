@@ -94,6 +94,10 @@ struct GraphBufferInput final {
     GraphResource resource{};
 };
 
+struct GraphStorageTextureInput final {
+    GraphResource resource{};
+};
+
 struct GraphPassDesc final {
     std::string label{};
     GraphPassKind kind{GraphPassKind::Render};
@@ -103,6 +107,7 @@ struct GraphPassDesc final {
     std::optional<GraphDepthOutput> depth{};
     std::vector<GraphSampleInput> samples{};
     std::vector<GraphBufferInput> buffers{};
+    std::vector<GraphStorageTextureInput> storage_textures{};
     std::function<Result<void>(rhi::RenderPassContext&)> execute{};
     std::function<Result<void>(rhi::ComputePassContext&)> compute_execute{};
 };

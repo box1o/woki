@@ -130,10 +130,11 @@ future GPU-driven visibility, indirect draws, compute-produced data, and externa
 bypassing graph scheduling.
 
 `GraphPassKind::Compute` records a native compute pass with a typed `ComputePassContext`. Compute
-callbacks receive their declared buffers by stable index and use the normal compute encoder for
-pipeline binding and dispatch. Writes automatically order later render or compute readers through the
-same resource dependency compiler. Compute passes cannot declare render attachments or render-sample
-inputs; storage-texture integration remains a future extension.
+callbacks receive declared buffers and storage-texture views by stable index and use the normal
+compute encoder for pipeline binding and dispatch. Writes automatically order later render or
+compute readers through the same resource dependency compiler, enabling image filters and GPU post
+effects to publish textures for later sampling. Compute passes cannot declare render attachments or
+render-sample inputs.
 
 ## Pipeline and diagnostics API
 

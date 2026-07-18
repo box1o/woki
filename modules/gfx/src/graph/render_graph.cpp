@@ -165,6 +165,10 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
             return Err(ErrorCode::ValidationInvalidState,
                 "Compute graph passes cannot declare render attachments or sampled render inputs");
         }
+        if (pass.kind != GraphPassKind::Compute && !pass.storage_textures.empty()) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Storage texture inputs are only supported by compute graph passes");
+        }
         std::vector<u32> used_resources{};
         used_resources.reserve(pass.resources.size());
 
@@ -223,6 +227,31 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
                 pass.resources.end()) {
                 return Err(ErrorCode::ValidationInvalidState,
                     "Render graph buffer input is missing its access declaration");
+            }
+        }
+        std::vector<u32> storage_texture_inputs{};
+        for (const auto& texture : pass.storage_textures) {
+            if (!texture.resource || texture.resource.Index() >= resources_.size() ||
+                resources_[texture.resource.Index()].kind != GraphResourceKind::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph storage texture input references an invalid texture");
+            }
+            if (std::ranges::find(storage_texture_inputs, texture.resource.Index()) !=
+                storage_texture_inputs.end()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph pass contains a duplicate storage texture input");
+            }
+            storage_texture_inputs.push_back(texture.resource.Index());
+            const auto& resource = resources_[texture.resource.Index()];
+            if (resource.origin == GraphResourceOrigin::Transient &&
+                !HasFlag(resource.transient.usage, rhi::TextureUsage::StorageBinding)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Transient storage texture requires StorageBinding usage");
+            }
+            if (std::ranges::find(pass.resources, texture.resource,
+                    &GraphResourceUse::resource) == pass.resources.end()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph storage texture is missing its access declaration");
             }
         }
 

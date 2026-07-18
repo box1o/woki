@@ -230,6 +230,71 @@ TEST_CASE("Render graph rejects render attachments on compute passes") {
     REQUIRE_FALSE(graph.Compile());
 }
 
+TEST_CASE("Render graph schedules compute storage textures before sampled consumers") {
+    woki::gfx::RenderGraph graph{};
+    const auto texture = graph.AddTransientTexture({
+        .label = "Bloom image",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage = woki::rhi::TextureUsage::StorageBinding |
+                 woki::rhi::TextureUsage::TextureBinding,
+    });
+    REQUIRE(texture);
+    const auto compute = graph.AddPass({
+        .label = "Compute bloom",
+        .kind = woki::gfx::GraphPassKind::Compute,
+        .resources = {{.resource = *texture, .access = woki::gfx::GraphAccess::Write}},
+        .storage_textures = {{.resource = *texture}},
+        .compute_execute = [](woki::rhi::ComputePassContext&) { return woki::Ok(); },
+    });
+    const auto composite = graph.AddPass({
+        .label = "Composite bloom",
+        .resources = {{.resource = *texture, .access = woki::gfx::GraphAccess::Read}},
+        .samples = {{.resource = *texture}},
+    });
+    REQUIRE(compute);
+    REQUIRE(composite);
+
+    const auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->passes.back().dependencies == std::vector{*compute});
+    REQUIRE(compiled->lifetimes.front().first_pass == 0);
+    REQUIRE(compiled->lifetimes.front().last_pass == 1);
+}
+
+TEST_CASE("Render graph validates storage texture declarations") {
+    woki::gfx::RenderGraph graph{};
+    const auto texture = graph.AddTransientTexture({
+        .label = "Storage output",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::TextureBinding,
+    });
+    REQUIRE(texture);
+    REQUIRE(graph.AddPass({
+        .label = "Missing storage usage",
+        .kind = woki::gfx::GraphPassKind::Compute,
+        .resources = {{.resource = *texture, .access = woki::gfx::GraphAccess::Write}},
+        .storage_textures = {{.resource = *texture}},
+        .compute_execute = [](woki::rhi::ComputePassContext&) { return woki::Ok(); },
+    }));
+    REQUIRE_FALSE(graph.Compile());
+
+    graph.Clear();
+    const auto buffer = graph.AddTransientBuffer({
+        .label = "Wrong storage kind",
+        .size = 256,
+        .usage = woki::rhi::BufferUsage::Storage,
+    });
+    REQUIRE(buffer);
+    REQUIRE(graph.AddPass({
+        .label = "Wrong storage kind",
+        .kind = woki::gfx::GraphPassKind::Compute,
+        .resources = {{.resource = *buffer, .access = woki::gfx::GraphAccess::Write}},
+        .storage_textures = {{.resource = *buffer}},
+        .compute_execute = [](woki::rhi::ComputePassContext&) { return woki::Ok(); },
+    }));
+    REQUIRE_FALSE(graph.Compile());
+}
+
 TEST_CASE("Render graph rejects unused transient resources") {
     woki::gfx::RenderGraph graph{};
     REQUIRE(graph.AddTransientBuffer({
