@@ -99,7 +99,7 @@ TEST_CASE("Frame planner culls bounded objects outside the supplied frustum") {
         woki::gfx::BuildRenderFramePlan(std::move(snapshot), features, {.frustum = *frustum});
 
     REQUIRE(plan);
-    REQUIRE(plan->snapshot.objects.empty());
+    REQUIRE(plan->snapshot.objects.size() == 1);
     REQUIRE(observer->opaque_draws == 0);
     REQUIRE(observer->transparent_draws == 0);
 }

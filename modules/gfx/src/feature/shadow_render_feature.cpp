@@ -48,8 +48,10 @@ Result<void> ShadowRenderFeature::AddPasses(
         return Err(ErrorCode::ValidationOutOfRange,
             "Shadow renderer requires a valid shadow-casting light index");
     }
-    auto shadow_queue = BuildRenderQueue(
-        context.snapshot, {.phase = DrawPhase::Opaque, .shadow_casters_only = true});
+    auto shadow_queue =
+        BuildRenderQueue(context.snapshot, {.phase = DrawPhase::Opaque,
+                                               .shadow_casters_only = true,
+                                               .frustum = desc_.light_view.frustum});
     if (!shadow_queue) {
         return Err(shadow_queue.error());
     }

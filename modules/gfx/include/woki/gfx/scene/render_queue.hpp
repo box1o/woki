@@ -11,6 +11,7 @@ struct RenderQueueFilter final {
     std::optional<DrawPhase> phase{};
     u64 layer_mask{~0ULL};
     bool shadow_casters_only{false};
+    std::optional<Frustum> frustum{};
 };
 
 struct QueuedDraw final {

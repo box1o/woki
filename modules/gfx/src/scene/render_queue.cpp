@@ -10,7 +10,9 @@ namespace {
     const DrawPacket& draw, const ExtractedObject& object, const RenderQueueFilter& filter) {
     return (!filter.phase || draw.phase == *filter.phase) &&
            (object.layer_mask & filter.layer_mask) != 0 &&
-           (!filter.shadow_casters_only || object.casts_shadows);
+           (!filter.shadow_casters_only || object.casts_shadows) &&
+           (!filter.frustum || !object.bounds ||
+               Intersects(*filter.frustum, TransformBounds(*object.bounds, object.transform)));
 }
 
 [[nodiscard]] bool CanAppend(const DrawBatch& batch, const DrawPacket& draw) {

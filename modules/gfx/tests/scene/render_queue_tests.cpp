@@ -74,3 +74,18 @@ TEST_CASE("Render queue filters non-shadow-casting objects") {
     REQUIRE(queue);
     REQUIRE(queue->draws.empty());
 }
+
+TEST_CASE("Render queue applies view-local frustum filtering without changing the snapshot") {
+    auto snapshot = MakeSnapshot();
+    snapshot.objects.front().bounds =
+        woki::gfx::BoundingSphere{.center = {4.0F, 0.0F, 0.0F}, .radius = 0.25F};
+    const auto frustum = woki::gfx::ExtractFrustum(woki::math::mat4f::identity());
+    REQUIRE(frustum);
+
+    const auto queue = woki::gfx::BuildRenderQueue(snapshot, {.frustum = *frustum});
+
+    REQUIRE(queue);
+    REQUIRE(queue->draws.empty());
+    REQUIRE(snapshot.objects.size() == 1);
+    REQUIRE(snapshot.draws.size() == 2);
+}
