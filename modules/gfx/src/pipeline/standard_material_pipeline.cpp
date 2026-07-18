@@ -53,6 +53,7 @@ Result<StandardMaterialPipeline> BuildStandardMaterialPipeline(
         .primitive = {.topology = rhi::PrimitiveTopology::TriangleList,
             .front_face = rhi::FrontFace::CCW,
             .cull_mode = desc.double_sided ? rhi::CullMode::None : rhi::CullMode::Back},
+        .sample_count = desc.targets.sample_count,
         .depth_fragment = desc.depth_fragment,
     };
     if (desc.pass != RenderPassClass::DepthOnly) {

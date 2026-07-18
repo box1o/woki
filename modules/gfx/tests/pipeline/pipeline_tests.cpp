@@ -9,6 +9,9 @@ TEST_CASE("Graphics pipeline descriptions require shader and attachments") {
     desc.shader = woki::gfx::ShaderHandle::FromParts(1, 1);
     desc.color_targets.push_back({.format = woki::rhi::TextureFormat::BGRA8Unorm});
     REQUIRE(woki::gfx::Validate(desc).has_value());
+
+    desc.sample_count = 0;
+    REQUIRE_FALSE(woki::gfx::Validate(desc));
 }
 
 TEST_CASE("Graphics pipeline vertex layouts require valid unique attributes") {

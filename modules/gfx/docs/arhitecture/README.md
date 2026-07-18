@@ -129,6 +129,11 @@ so graph memory behavior remains observable. This path supports
 future GPU-driven visibility, indirect draws, compute-produced data, and external UI geometry without
 bypassing graph scheduling.
 
+Transient textures carry an explicit sample count, and color outputs may name a separate resolve
+resource. The graph validates multisample source/target contracts, tracks both lifetimes, and passes
+the resolve view to RHI attachments. Forward rendering uses the target signature's sample count to
+create multisampled color and depth while publishing single-sampled color for post-processing.
+
 `GraphPassKind::Compute` records a native compute pass with a typed `ComputePassContext`. Compute
 callbacks receive declared buffers and storage-texture views by stable index and use the normal
 compute encoder for pipeline binding and dispatch. Writes automatically order later render or

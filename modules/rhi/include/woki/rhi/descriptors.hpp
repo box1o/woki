@@ -513,13 +513,19 @@ struct DepthStencilStateDesc final {
     f32 depth_bias_clamp{0.0f};
 };
 
+struct MultisampleStateDesc final {
+    u32 count{1};
+    u32 mask{0xFFFFFFFFu};
+    bool alpha_to_coverage_enabled{false};
+};
+
 struct RenderPipelineDescTyped final {
     void* next_in_chain{nullptr};
     PipelineLayout* layout{nullptr};
     const VertexStateDesc* vertex{nullptr};
     const PrimitiveStateDesc* primitive{nullptr};
     const DepthStencilStateDesc* depth_stencil{nullptr};
-    void* multisample{nullptr};
+    const MultisampleStateDesc* multisample{nullptr};
     const FragmentStateDesc* fragment{nullptr};
     std::string label{"RenderPipeline"};
 };

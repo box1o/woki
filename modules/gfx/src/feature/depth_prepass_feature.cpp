@@ -9,6 +9,10 @@ Result<void> Validate(const DepthPrepassFeatureDesc& desc) {
         return Err(
             ErrorCode::GraphicsInvalidFormat, "Depth prepass requires a depth texture format");
     }
+    if (desc.sample_count == 0) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Depth prepass sample count must be nonzero");
+    }
     if (!std::isfinite(desc.clear_depth) || desc.clear_depth < 0.0F || desc.clear_depth > 1.0F) {
         return Err(ErrorCode::ValidationOutOfRange,
             "Depth prepass clear value must be finite and normalized");
@@ -42,7 +46,10 @@ Result<void> DepthPrepassFeature::AddPasses(
             "Depth prepass must be the first main depth producer");
     }
 
-    const RenderTargetSignature targets{.depth_format = desc_.format};
+    const RenderTargetSignature targets{
+        .depth_format = desc_.format,
+        .sample_count = desc_.sample_count,
+    };
     auto prepared = PrepareDraws(context.opaque_queue, RenderPassClass::DepthOnly, targets,
         *meshes_, *materials_, *material_pipelines_);
     if (!prepared) {
@@ -57,6 +64,7 @@ Result<void> DepthPrepassFeature::AddPasses(
         .label = "Main depth",
         .format = desc_.format,
         .usage = rhi::TextureUsage::RenderAttachment | rhi::TextureUsage::TextureBinding,
+        .sample_count = desc_.sample_count,
         .extent = rhi::ExtentMode::Swapchain(),
     });
     if (!depth) {

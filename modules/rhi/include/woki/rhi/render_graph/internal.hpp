@@ -43,6 +43,7 @@ struct FramebufferRecord final {
 struct ColorOutput final {
     u32 slot{0};
     u32 resource_id{kInvalidGraphResource};
+    u32 resolve_resource_id{kInvalidGraphResource};
     ColorAttachmentConfig config{};
 };
 
@@ -97,6 +98,7 @@ struct TransientPoolKey final {
     TextureUsage usage{};
     u32 width{0};
     u32 height{0};
+    u32 sample_count{1};
 
     [[nodiscard]] bool operator==(const TransientPoolKey&) const = default;
 };

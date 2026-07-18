@@ -27,6 +27,8 @@ public:
     PassBuilder& Target(Framebuffer framebuffer, FramebufferTargetConfig config = {});
     PassBuilder& Color(u32 slot, Resource resource, ColorAttachmentConfig config = {});
     PassBuilder& Color(u32 slot, PerFrameSlot resource, ColorAttachmentConfig config = {});
+    PassBuilder& Resolve(u32 slot, Resource resource);
+    PassBuilder& Resolve(u32 slot, PerFrameSlot resource);
     PassBuilder& Depth(Resource resource, DepthAttachmentConfig config = {});
     PassBuilder& Depth(PerFrameSlot resource, DepthAttachmentConfig config = {});
     PassBuilder& Sample(Resource resource, SampleMode mode = SampleMode::ColorTexture);

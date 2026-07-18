@@ -33,6 +33,10 @@ Result<void> Validate(const GraphicsPipelineDesc& desc) {
         return Err(
             ErrorCode::ValidationNullValue, "Graphics pipeline requires a color or depth target");
     }
+    if (desc.sample_count == 0) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Graphics pipeline sample count must be nonzero");
+    }
 
     std::unordered_set<u32> shader_locations{};
     for (const auto& buffer : desc.vertex_buffers) {
@@ -136,10 +140,12 @@ public:
                 .targets = color_targets,
             };
         }
+        const rhi::MultisampleStateDesc multisample{.count = desc.sample_count};
         const rhi::RenderPipelineDescTyped native{
             .vertex = &vertex,
             .primitive = &desc.primitive,
             .depth_stencil = desc.depth_stencil ? &*desc.depth_stencil : nullptr,
+            .multisample = &multisample,
             .fragment = fragment ? &*fragment : nullptr,
             .label = desc.label,
         };

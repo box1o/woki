@@ -26,8 +26,22 @@ Result<void> ForwardRenderFeature::AddPasses(
         return Err(ErrorCode::ValidationInvalidState,
             "Forward renderer requires one color target and one depth target");
     }
+    if (desc_.targets.sample_count == 0) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Forward renderer sample count must be nonzero");
+    }
 
     GraphResource color = blackboard.Find(render_outputs::kColor);
+    if (color) {
+        const GraphResourceDesc* published_color = graph.Resource(color);
+        if (published_color == nullptr || published_color->kind != GraphResourceKind::Texture ||
+            (published_color->origin == GraphResourceOrigin::Transient &&
+                (published_color->transient.format != desc_.targets.color_formats.front() ||
+                    published_color->transient.sample_count != 1))) {
+            return Err(ErrorCode::GraphicsInvalidFormat,
+                "Published color is incompatible with the forward target signature");
+        }
+    }
     if (!color) {
         auto created = desc_.offscreen_color ? graph.AddTransientTexture({
                                                    .label = "Forward color",
@@ -45,6 +59,21 @@ Result<void> ForwardRenderFeature::AddPasses(
             return published;
         }
     }
+    GraphResource render_color = color;
+    const bool multisampled = desc_.targets.sample_count > 1;
+    if (multisampled) {
+        auto created = graph.AddTransientTexture({
+            .label = "Forward multisampled color",
+            .format = desc_.targets.color_formats.front(),
+            .usage = rhi::TextureUsage::RenderAttachment,
+            .sample_count = desc_.targets.sample_count,
+            .extent = rhi::ExtentMode::Swapchain(),
+        });
+        if (!created) {
+            return Err(created.error());
+        }
+        render_color = *created;
+    }
 
     GraphResource depth = blackboard.Find(render_outputs::kDepth);
     const bool depth_prepass = static_cast<bool>(depth);
@@ -52,7 +81,8 @@ Result<void> ForwardRenderFeature::AddPasses(
         const GraphResourceDesc* published_depth = graph.Resource(depth);
         if (published_depth == nullptr || published_depth->kind != GraphResourceKind::Texture ||
             (published_depth->origin == GraphResourceOrigin::Transient &&
-                published_depth->transient.format != *desc_.targets.depth_format)) {
+                (published_depth->transient.format != *desc_.targets.depth_format ||
+                    published_depth->transient.sample_count != desc_.targets.sample_count))) {
             return Err(ErrorCode::GraphicsInvalidFormat,
                 "Published main depth is incompatible with the forward target signature");
         }
@@ -62,6 +92,7 @@ Result<void> ForwardRenderFeature::AddPasses(
             .label = "Forward depth",
             .format = *desc_.targets.depth_format,
             .usage = rhi::TextureUsage::RenderAttachment | rhi::TextureUsage::TextureBinding,
+            .sample_count = desc_.targets.sample_count,
             .extent = rhi::ExtentMode::Swapchain(),
         });
         if (!created) {
@@ -152,16 +183,26 @@ Result<void> ForwardRenderFeature::AddPasses(
     }
     active_frame_->shadows = static_cast<bool>(shadow_depth);
 
+    std::vector<GraphResourceUse> opaque_resources{
+        {.resource = render_color, .access = GraphAccess::Write},
+        {.resource = depth,
+            .access = depth_prepass ? GraphAccess::ReadWrite : GraphAccess::Write},
+    };
+    std::vector<GraphResourceUse> transparent_resources{
+        {.resource = render_color, .access = GraphAccess::ReadWrite},
+        {.resource = depth, .access = GraphAccess::ReadWrite},
+    };
+    if (multisampled) {
+        opaque_resources.push_back({.resource = color, .access = GraphAccess::Write});
+        transparent_resources.push_back({.resource = color, .access = GraphAccess::Write});
+    }
+
     auto opaque_pass = graph.AddPass({
         .label = "Forward opaque",
-        .resources =
-            {
-                {.resource = color, .access = GraphAccess::Write},
-                {.resource = depth,
-                    .access = depth_prepass ? GraphAccess::ReadWrite : GraphAccess::Write},
-            },
+        .resources = std::move(opaque_resources),
         .colors = {{
-            .resource = color,
+            .resource = render_color,
+            .resolve = multisampled ? color : GraphResource{},
             .slot = 0,
             .config = {.load = rhi::LoadOp::Clear,
                 .store = rhi::StoreOp::Store,
@@ -198,13 +239,10 @@ Result<void> ForwardRenderFeature::AddPasses(
 
     auto transparent_pass = graph.AddPass({
         .label = "Forward transparent",
-        .resources =
-            {
-                {.resource = color, .access = GraphAccess::ReadWrite},
-                {.resource = depth, .access = GraphAccess::ReadWrite},
-            },
+        .resources = std::move(transparent_resources),
         .colors = {{
-            .resource = color,
+            .resource = render_color,
+            .resolve = multisampled ? color : GraphResource{},
             .slot = 0,
             .config = {.load = rhi::LoadOp::Load, .store = rhi::StoreOp::Store},
         }},

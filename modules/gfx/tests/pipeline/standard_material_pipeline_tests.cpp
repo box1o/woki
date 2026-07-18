@@ -35,6 +35,17 @@ TEST_CASE("Standard material pipeline builds opaque forward state") {
     REQUIRE(built->graphics.depth_stencil);
     REQUIRE(built->graphics.depth_stencil->depth_write_enabled == true);
     REQUIRE(built->key.pass == woki::gfx::RenderPassClass::ForwardOpaque);
+    REQUIRE(built->graphics.sample_count == 1);
+}
+
+TEST_CASE("Standard material pipeline carries multisample state") {
+    auto desc = MakeDesc();
+    desc.asset_id = woki::gfx::AssetId{"pipelines/pbr_opaque_msaa"};
+    desc.targets.sample_count = 4;
+    const auto built = woki::gfx::BuildStandardMaterialPipeline(desc);
+    REQUIRE(built);
+    REQUIRE(built->graphics.sample_count == 4);
+    REQUIRE(built->key.targets.sample_count == 4);
 }
 
 TEST_CASE("Standard material pipeline builds transparent blending") {

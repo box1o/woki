@@ -8,6 +8,7 @@ namespace woki::gfx {
 
 struct DepthPrepassFeatureDesc final {
     rhi::TextureFormat format{rhi::TextureFormat::Depth32Float};
+    u32 sample_count{1};
     f32 clear_depth{1.0F};
 };
 

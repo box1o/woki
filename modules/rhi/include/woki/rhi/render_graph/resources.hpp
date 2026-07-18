@@ -52,6 +52,7 @@ struct TransientDesc final {
     std::string label{};
     TextureFormat format{TextureFormat::Undefined};
     TextureUsage usage{};
+    u32 sample_count{1};
     ExtentMode extent{ExtentMode::Swapchain()};
 };
 

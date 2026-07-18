@@ -295,6 +295,63 @@ TEST_CASE("Render graph validates storage texture declarations") {
     REQUIRE_FALSE(graph.Compile());
 }
 
+TEST_CASE("Render graph tracks multisampled color resolves") {
+    woki::gfx::RenderGraph graph{};
+    const auto multisampled = graph.AddTransientTexture({
+        .label = "MSAA color",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage = woki::rhi::TextureUsage::RenderAttachment,
+        .sample_count = 4,
+    });
+    const auto resolved = graph.AddTransientTexture({
+        .label = "Resolved color",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage = woki::rhi::TextureUsage::RenderAttachment |
+                 woki::rhi::TextureUsage::TextureBinding,
+    });
+    REQUIRE(multisampled);
+    REQUIRE(resolved);
+    REQUIRE(graph.AddPass({
+        .label = "Resolve scene color",
+        .resources =
+            {
+                {.resource = *multisampled, .access = woki::gfx::GraphAccess::Write},
+                {.resource = *resolved, .access = woki::gfx::GraphAccess::Write},
+            },
+        .colors = {{.resource = *multisampled, .resolve = *resolved}},
+    }));
+
+    const auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->lifetimes.size() == 2);
+}
+
+TEST_CASE("Render graph rejects invalid multisample resolves") {
+    woki::gfx::RenderGraph graph{};
+    const auto source = graph.AddTransientTexture({
+        .label = "Single-sampled source",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::RenderAttachment,
+    });
+    const auto target = graph.AddTransientTexture({
+        .label = "Resolve target",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::RenderAttachment,
+    });
+    REQUIRE(source);
+    REQUIRE(target);
+    REQUIRE(graph.AddPass({
+        .label = "Invalid resolve",
+        .resources =
+            {
+                {.resource = *source, .access = woki::gfx::GraphAccess::Write},
+                {.resource = *target, .access = woki::gfx::GraphAccess::Write},
+            },
+        .colors = {{.resource = *source, .resolve = *target}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+}
+
 TEST_CASE("Render graph rejects unused transient resources") {
     woki::gfx::RenderGraph graph{};
     REQUIRE(graph.AddTransientBuffer({

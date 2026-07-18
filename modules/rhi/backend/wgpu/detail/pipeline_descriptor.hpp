@@ -181,7 +181,10 @@ struct RenderPipelineTypedDescriptorStorage final {
             native.depthStencil = &depth_stencil->native;
         }
         if (desc.multisample != nullptr) {
-            multisample = *static_cast<const WGPUMultisampleState*>(desc.multisample);
+            multisample.count = desc.multisample->count;
+            multisample.mask = desc.multisample->mask;
+            multisample.alphaToCoverageEnabled =
+                desc.multisample->alpha_to_coverage_enabled ? WGPU_TRUE : WGPU_FALSE;
             native.multisample = multisample;
         }
         if (desc.fragment != nullptr) {

@@ -149,6 +149,18 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
                 native_pass.Color(
                     color.slot, native_resources[color.resource.Index()], color.config);
             }
+            if (color.resolve) {
+                const auto* resolve = graph.Resource(color.resolve);
+                if (resolve == nullptr || resolve->kind != GraphResourceKind::Texture) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Graph color resolve references an invalid texture");
+                }
+                if (resolve->origin == GraphResourceOrigin::PerFrame) {
+                    native_pass.Resolve(color.slot, per_frame_slots[color.resolve.Index()]);
+                } else {
+                    native_pass.Resolve(color.slot, native_resources[color.resolve.Index()]);
+                }
+            }
         }
         if (pass->depth) {
             const auto* resource = graph.Resource(pass->depth->resource);

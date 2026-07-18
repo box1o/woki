@@ -82,7 +82,7 @@ using render_graph::detail::TransientPoolKey;
     native_desc.usage = desc.usage;
     native_desc.dimension = TextureDimension::e2D;
     native_desc.mip_level_count = 1;
-    native_desc.sample_count = 1;
+    native_desc.sample_count = desc.sample_count;
     return device.CreateTexture(native_desc);
 }
 
@@ -94,6 +94,7 @@ using render_graph::detail::TransientPoolKey;
         .usage = desc.usage,
         .width = size.width,
         .height = size.height,
+        .sample_count = desc.sample_count,
     };
 }
 
@@ -334,6 +335,28 @@ PassBuilder& PassBuilder::Color(
     return *this;
 }
 
+PassBuilder& PassBuilder::Resolve(const u32 slot, const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    auto& colors = owner_->blueprint_.passes[pass_index_].colors;
+    const auto output = std::ranges::find(colors, slot, &ColorOutput::slot);
+    WOKI_ASSERT(output != colors.end());
+    output->resolve_resource_id = resource.id_;
+    return *this;
+}
+
+PassBuilder& PassBuilder::Resolve(const u32 slot, const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    auto& colors = owner_->blueprint_.passes[pass_index_].colors;
+    const auto output = std::ranges::find(colors, slot, &ColorOutput::slot);
+    WOKI_ASSERT(output != colors.end());
+    output->resolve_resource_id = resource.id_;
+    return *this;
+}
+
 PassBuilder& PassBuilder::Depth(const Resource resource, DepthAttachmentConfig config) {
     WOKI_ASSERT(owner_ != nullptr);
     WOKI_ASSERT(resource);
@@ -545,6 +568,9 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
         const PassRecord& pass = blueprint_.passes[pass_index];
         for (const auto& color : pass.colors) {
             use_resource(color.resource_id, pass_index);
+            if (color.resolve_resource_id != kInvalidGraphResource) {
+                use_resource(color.resolve_resource_id, pass_index);
+            }
         }
         if (pass.depth) {
             use_resource(pass.depth->resource_id, pass_index);
@@ -575,6 +601,19 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
     }
 
     for (const ResourceRecord& resource : blueprint_.resources) {
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Texture &&
+            resource.transient.sample_count == 0) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                "RenderGraph transient texture sample count must be nonzero");
+        }
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Texture &&
+            resource.transient.sample_count > 1 &&
+            (HasFlag(resource.transient.usage, TextureUsage::StorageBinding) ||
+                HasFlag(resource.transient.usage, TextureUsage::CopySrc) ||
+                HasFlag(resource.transient.usage, TextureUsage::CopyDst))) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph multisampled texture cannot use storage or copy usages");
+        }
         if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Buffer &&
             (resource.transient_buffer.size == 0 ||
                 resource.transient_buffer.usage == BufferUsage::None)) {
@@ -589,6 +628,47 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
     }
 
     for (const PassRecord& pass : blueprint_.passes) {
+        for (const auto& color : pass.colors) {
+            if (color.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[color.resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color attachment references an invalid texture");
+            }
+            if (color.resolve_resource_id == kInvalidGraphResource) {
+                continue;
+            }
+            if (color.resolve_resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[color.resolve_resource_id].type != ResourceType::Texture ||
+                color.resolve_resource_id == color.resource_id) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve references an invalid texture");
+            }
+            const auto& source = blueprint_.resources[color.resource_id];
+            const auto& target = blueprint_.resources[color.resolve_resource_id];
+            if (source.kind == ResourceKind::Transient && source.transient.sample_count <= 1) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve source must be multisampled");
+            }
+            if (source.kind == ResourceKind::Transient &&
+                !HasFlag(source.transient.usage, TextureUsage::RenderAttachment)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph resolve source requires RenderAttachment usage");
+            }
+            if (target.kind == ResourceKind::Transient && target.transient.sample_count != 1) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve target must be single-sampled");
+            }
+            if (target.kind == ResourceKind::Transient &&
+                !HasFlag(target.transient.usage, TextureUsage::RenderAttachment)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph resolve target requires RenderAttachment usage");
+            }
+            if (source.kind == ResourceKind::Transient && target.kind == ResourceKind::Transient &&
+                source.transient.format != target.transient.format) {
+                return Err(ErrorCode::GraphicsInvalidFormat,
+                    "RenderGraph color resolve formats must match");
+            }
+        }
         for (const auto& input : pass.buffers) {
             if (input.resource_id >= blueprint_.resources.size() ||
                 blueprint_.resources[input.resource_id].type != ResourceType::Buffer) {
@@ -997,9 +1077,18 @@ Result<void> RenderGraph::ExecuteRenderPass(const u32 pass_index, CommandEncoder
             return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing color attachment view");
         }
+        TextureView* resolve_target = nullptr;
+        if (color.resolve_resource_id != kInvalidGraphResource) {
+            resolve_target = resolve(color.resolve_resource_id);
+            if (resolve_target == nullptr) {
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
+                    "RenderGraph pass '" + pass.debug_name + "' missing color resolve view");
+            }
+        }
 
         color_attachments[color.slot] = RenderPassColorAttachmentDesc{
             .view = view,
+            .resolve_target = resolve_target,
             .load_op = color.config.load,
             .store_op = color.config.store,
             .clear_value = color.config.clear,

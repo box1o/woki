@@ -76,6 +76,7 @@ struct GraphResourceUse final {
 
 struct GraphColorOutput final {
     GraphResource resource{};
+    GraphResource resolve{};
     u32 slot{0};
     rhi::ColorAttachmentConfig config{};
 };

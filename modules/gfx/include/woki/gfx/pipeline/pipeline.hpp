@@ -37,6 +37,7 @@ struct GraphicsPipelineDesc final {
     std::vector<ColorTarget> color_targets{};
     rhi::PrimitiveStateDesc primitive{};
     std::optional<rhi::DepthStencilStateDesc> depth_stencil{};
+    u32 sample_count{1};
     bool depth_fragment{false};
 };
 

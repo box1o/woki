@@ -26,11 +26,23 @@ namespace {
         return Err(ErrorCode::ValidationInvalidState,
             "Non-imported graph resource cannot contain a resource handle");
     }
-    if (desc.kind == GraphResourceKind::Texture && desc.origin == GraphResourceOrigin::Transient &&
-        (desc.transient.format == rhi::TextureFormat::Undefined ||
-            desc.transient.usage == rhi::TextureUsage::None)) {
-        return Err(ErrorCode::ValidationInvalidState,
-            "Transient graph texture requires a format and usage");
+    if (desc.kind == GraphResourceKind::Texture && desc.origin == GraphResourceOrigin::Transient) {
+        if (desc.transient.format == rhi::TextureFormat::Undefined ||
+            desc.transient.usage == rhi::TextureUsage::None) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Transient graph texture requires a format and usage");
+        }
+        if (desc.transient.sample_count == 0) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                "Transient graph texture sample count must be nonzero");
+        }
+        if (desc.transient.sample_count > 1 &&
+            (HasFlag(desc.transient.usage, rhi::TextureUsage::StorageBinding) ||
+                HasFlag(desc.transient.usage, rhi::TextureUsage::CopySrc) ||
+                HasFlag(desc.transient.usage, rhi::TextureUsage::CopyDst))) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Multisampled graph textures cannot use storage or copy usages");
+        }
     }
     if (desc.kind == GraphResourceKind::Buffer && desc.origin == GraphResourceOrigin::Transient &&
         (desc.transient_buffer.size == 0 ||
@@ -199,6 +211,43 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
             color_slots.push_back(color.slot);
             if (auto status = validate_attachment(color.resource, true); !status) {
                 return Err(status.error());
+            }
+            if (color.resolve) {
+                if (color.resolve == color.resource) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Render graph color resolve must use a distinct texture");
+                }
+                if (auto status = validate_attachment(color.resolve, true); !status) {
+                    return Err(status.error());
+                }
+                const auto& source = resources_[color.resource.Index()];
+                const auto& target = resources_[color.resolve.Index()];
+                if (source.origin == GraphResourceOrigin::Transient &&
+                    source.transient.sample_count <= 1) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Render graph color resolve source must be multisampled");
+                }
+                if (source.origin == GraphResourceOrigin::Transient &&
+                    !HasFlag(source.transient.usage, rhi::TextureUsage::RenderAttachment)) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Render graph resolve source requires RenderAttachment usage");
+                }
+                if (target.origin == GraphResourceOrigin::Transient &&
+                    target.transient.sample_count != 1) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Render graph color resolve target must be single-sampled");
+                }
+                if (target.origin == GraphResourceOrigin::Transient &&
+                    !HasFlag(target.transient.usage, rhi::TextureUsage::RenderAttachment)) {
+                    return Err(ErrorCode::ValidationInvalidState,
+                        "Render graph resolve target requires RenderAttachment usage");
+                }
+                if (source.origin == GraphResourceOrigin::Transient &&
+                    target.origin == GraphResourceOrigin::Transient &&
+                    source.transient.format != target.transient.format) {
+                    return Err(ErrorCode::GraphicsInvalidFormat,
+                        "Render graph color resolve formats must match");
+                }
             }
         }
         if (pass.depth) {
