@@ -4,7 +4,10 @@
 
 TEST_CASE("Render graph derives resource dependencies and lifetimes") {
     woki::gfx::RenderGraph graph{};
-    auto color = graph.AddResource({.label = "HDR color"});
+    auto color = graph.AddTransientTexture({.label = "HDR color",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage =
+            woki::rhi::TextureUsage::RenderAttachment | woki::rhi::TextureUsage::TextureBinding});
     REQUIRE(color);
 
     auto geometry = graph.AddPass({
@@ -43,7 +46,9 @@ TEST_CASE("Render graph permits imported resources to be read first") {
 
 TEST_CASE("Render graph rejects transient resources read before a write") {
     woki::gfx::RenderGraph graph{};
-    auto transient = graph.AddResource({.label = "Transient"});
+    auto transient = graph.AddTransientTexture({.label = "Transient",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::TextureBinding});
     REQUIRE(transient);
     REQUIRE(graph.AddPass({
         .label = "Invalid reader",
@@ -66,7 +71,10 @@ TEST_CASE("Render graph detects explicit dependency cycles") {
 
 TEST_CASE("Render graph rejects duplicate resource declarations in a pass") {
     woki::gfx::RenderGraph graph{};
-    auto target = graph.AddResource({.label = "Target"});
+    auto target = graph.AddTransientTexture({.label = "Target",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage =
+            woki::rhi::TextureUsage::RenderAttachment | woki::rhi::TextureUsage::TextureBinding});
     REQUIRE(target);
     REQUIRE(graph.AddPass({
         .label = "Duplicate",
@@ -78,4 +86,33 @@ TEST_CASE("Render graph rejects duplicate resource declarations in a pass") {
     }));
 
     REQUIRE_FALSE(graph.Compile());
+}
+
+TEST_CASE("Render graph validates attachment access declarations") {
+    woki::gfx::RenderGraph graph{};
+    auto color = graph.AddPerFrameTexture("Output");
+    REQUIRE(color);
+    REQUIRE(graph.AddPass({
+        .label = "Invalid output",
+        .resources = {{.resource = *color, .access = woki::gfx::GraphAccess::Read}},
+        .colors = {{.resource = *color}},
+    }));
+
+    REQUIRE_FALSE(graph.Compile());
+}
+
+TEST_CASE("Render graph accepts executable per-frame color outputs") {
+    woki::gfx::RenderGraph graph{};
+    auto color = graph.AddPerFrameTexture("Output");
+    REQUIRE(color);
+    REQUIRE(graph.AddPass({
+        .label = "Output pass",
+        .resources = {{.resource = *color, .access = woki::gfx::GraphAccess::Write}},
+        .colors = {{.resource = *color}},
+        .execute = [](woki::rhi::RenderPassContext&) { return woki::Ok(); },
+    }));
+
+    auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->passes.size() == 1);
 }

@@ -13,7 +13,10 @@ public:
     [[nodiscard]] woki::Result<void> AddPasses(woki::gfx::RenderGraph& graph,
         woki::gfx::RenderGraphBlackboard& blackboard,
         const woki::gfx::RenderFeatureContext&) override {
-        auto color = graph.AddResource({.label = "Frame color"});
+        auto color = graph.AddTransientTexture({.label = "Frame color",
+            .format = woki::rhi::TextureFormat::RGBA16Float,
+            .usage = woki::rhi::TextureUsage::RenderAttachment |
+                     woki::rhi::TextureUsage::TextureBinding});
         if (!color) {
             return woki::Err(color.error());
         }

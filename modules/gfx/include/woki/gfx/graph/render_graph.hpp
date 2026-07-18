@@ -2,10 +2,14 @@
 
 #include "../resource/resource_types.hpp"
 
+#include <functional>
 #include <limits>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <woki/rhi/render_graph.hpp>
 
 namespace woki::gfx {
 
@@ -37,6 +41,12 @@ enum class GraphResourceKind : u8 {
     Texture,
 };
 
+enum class GraphResourceOrigin : u8 {
+    Transient = 0,
+    Imported,
+    PerFrame,
+};
+
 enum class GraphAccess : u8 {
     Read = 0,
     Write,
@@ -48,7 +58,9 @@ using ImportedGraphResource = std::variant<std::monostate, BufferHandle, Texture
 struct GraphResourceDesc final {
     std::string label{};
     GraphResourceKind kind{GraphResourceKind::Texture};
+    GraphResourceOrigin origin{GraphResourceOrigin::Transient};
     ImportedGraphResource imported{};
+    rhi::TransientDesc transient{};
 };
 
 struct GraphResourceUse final {
@@ -56,10 +68,30 @@ struct GraphResourceUse final {
     GraphAccess access{GraphAccess::Read};
 };
 
+struct GraphColorOutput final {
+    GraphResource resource{};
+    u32 slot{0};
+    rhi::ColorAttachmentConfig config{};
+};
+
+struct GraphDepthOutput final {
+    GraphResource resource{};
+    rhi::DepthAttachmentConfig config{};
+};
+
+struct GraphSampleInput final {
+    GraphResource resource{};
+    rhi::SampleMode mode{rhi::SampleMode::ColorTexture};
+};
+
 struct GraphPassDesc final {
     std::string label{};
     std::vector<GraphResourceUse> resources{};
     std::vector<GraphPass> depends_on{};
+    std::vector<GraphColorOutput> colors{};
+    std::optional<GraphDepthOutput> depth{};
+    std::vector<GraphSampleInput> samples{};
+    std::function<Result<void>(rhi::RenderPassContext&)> execute{};
 };
 
 struct GraphResourceLifetime final {
@@ -81,6 +113,8 @@ struct CompiledRenderGraph final {
 class RenderGraph final {
 public:
     [[nodiscard]] Result<GraphResource> AddResource(const GraphResourceDesc& desc);
+    [[nodiscard]] Result<GraphResource> AddTransientTexture(rhi::TransientDesc desc);
+    [[nodiscard]] Result<GraphResource> AddPerFrameTexture(std::string label);
     [[nodiscard]] Result<GraphResource> Import(BufferHandle buffer, std::string label = {});
     [[nodiscard]] Result<GraphResource> Import(TextureHandle texture, std::string label = {});
     [[nodiscard]] Result<GraphPass> AddPass(const GraphPassDesc& desc);

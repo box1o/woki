@@ -3,13 +3,13 @@
 #include "context.hpp"
 #include "resources.hpp"
 
-#include <woki/core.hpp>
-#include <woki/rhi/forward.hpp>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <woki/core.hpp>
+#include <woki/rhi/forward.hpp>
 
 namespace woki::rhi::render_graph::detail {
 
@@ -65,8 +65,8 @@ struct PassRecord final {
     std::optional<DepthOutput> depth{};
     std::vector<SampleInput> samples{};
     std::vector<CopyOperation> copies{};
-    std::function<void(RenderPassContext&)> render_execute{};
-    std::function<void(CopyPassContext&)> copy_execute{};
+    std::function<Result<void>(RenderPassContext&)> render_execute{};
+    std::function<Result<void>(CopyPassContext&)> copy_execute{};
     void* user_data{nullptr};
 };
 

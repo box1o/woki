@@ -68,6 +68,15 @@ Result<DrawEncodingStats> EncodeDraws(rhi::RenderPassEncoder& pass, const Resolv
         }
     }
 
+    return EncodePreparedDraws(pass, draws, bindings);
+}
+
+Result<DrawEncodingStats> EncodePreparedDraws(rhi::RenderPassEncoder& pass,
+    const ResolvedDrawList& draws, DrawBindingEncoder* const bindings) {
+    if (auto validation = Validate(draws); !validation) {
+        return Err(validation.error());
+    }
+
     DrawEncodingStats stats{};
     const rhi::RenderPipeline* active_pipeline = nullptr;
     const rhi::Buffer* active_index = nullptr;

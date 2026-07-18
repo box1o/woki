@@ -13,17 +13,17 @@ namespace woki::rhi {
 namespace {
 
 using render_graph::detail::ColorOutput;
+using render_graph::detail::CopyOperation;
 using render_graph::detail::DepthOutput;
 using render_graph::detail::FramebufferRecord;
 using render_graph::detail::GraphBlueprint;
+using render_graph::detail::PassKind;
 using render_graph::detail::PassRecord;
+using render_graph::detail::PooledTransientTexture;
 using render_graph::detail::ResourceKind;
 using render_graph::detail::ResourceRecord;
-using render_graph::detail::CopyOperation;
-using render_graph::detail::PooledTransientTexture;
-using render_graph::detail::TransientPoolKey;
-using render_graph::detail::PassKind;
 using render_graph::detail::SampleInput;
+using render_graph::detail::TransientPoolKey;
 
 [[nodiscard]] Extent3D ResolveExtent(const ExtentMode& mode, const u32 width, const u32 height) {
     switch (mode.kind) {
@@ -128,18 +128,14 @@ TextureView& RenderPassContext::depth() {
     return *depth_;
 }
 
-bool RenderPassContext::has_depth() const noexcept {
-    return depth_ != nullptr;
-}
+bool RenderPassContext::has_depth() const noexcept { return depth_ != nullptr; }
 
 TextureView& RenderPassContext::sample(const u32 slot) {
     WOKI_ASSERT(slot < samples_.size() && samples_[slot] != nullptr);
     return *samples_[slot];
 }
 
-u32 RenderPassContext::sample_count() const noexcept {
-    return static_cast<u32>(samples_.size());
-}
+u32 RenderPassContext::sample_count() const noexcept { return static_cast<u32>(samples_.size()); }
 
 BindGroup* RenderPassContext::GetOrCreateBindGroup(
     const std::string_view key, std::function<scope<BindGroup>()> factory) {
@@ -230,14 +226,16 @@ Result<void> CopyPassContext::CopyAll() {
         return Err(ErrorCode::InvalidState, "CopyPassContext has no encoder");
     }
     if (sources_.size() != destinations_.size()) {
-        return Err(ErrorCode::ValidationInvalidState, "CopyPassContext source/destination mismatch");
+        return Err(
+            ErrorCode::ValidationInvalidState, "CopyPassContext source/destination mismatch");
     }
 
     for (size_t i = 0; i < sources_.size(); ++i) {
         Texture* source = sources_[i];
         Texture* destination = destinations_[i];
         if (source == nullptr || destination == nullptr) {
-            return Err(ErrorCode::GraphicsResourceCreationFailed, "CopyPassContext missing texture");
+            return Err(
+                ErrorCode::GraphicsResourceCreationFailed, "CopyPassContext missing texture");
         }
 
         const Extent3D copy_size{
@@ -381,8 +379,7 @@ Framebuffer FramebufferBuilder::Build() {
 
 // --- RenderGraphBuilder ---
 
-RenderGraphBuilder::RenderGraphBuilder(Device& device)
-    : device_(&device) {}
+RenderGraphBuilder::RenderGraphBuilder(Device& device) : device_(&device) {}
 
 PerFrameSlot RenderGraphBuilder::PerFrame() {
     PerFrameSlot slot{};
@@ -437,21 +434,18 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
     for (const PassRecord& pass : blueprint_.passes) {
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             if (pass.copies.empty()) {
-                return Err(
-                    ErrorCode::ValidationInvalidState,
+                return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph copy pass '" + pass.debug_name + "' has no Copy operations");
             }
             if (!pass.copy_execute) {
-                return Err(
-                    ErrorCode::ValidationInvalidState,
+                return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph copy pass '" + pass.debug_name + "' has no Execute callback");
             }
             continue;
         }
 
         if (!pass.render_execute) {
-            return Err(
-                ErrorCode::ValidationInvalidState,
+            return Err(ErrorCode::ValidationInvalidState,
                 "RenderGraph pass '" + pass.debug_name + "' has no Execute callback");
         }
     }
@@ -481,22 +475,13 @@ u32 RenderGraphBuilder::AllocatePass(const std::string_view debug_name) {
 // --- RenderGraph ---
 
 Result<scope<RenderGraph>> RenderGraph::Create(
-    Device& device,
-    GraphBlueprint blueprint,
-    const u32 width,
-    const u32 height) {
+    Device& device, GraphBlueprint blueprint, const u32 width, const u32 height) {
     return Ok(scope<RenderGraph>(new RenderGraph(device, std::move(blueprint), width, height)));
 }
 
 RenderGraph::RenderGraph(
-    Device& device,
-    GraphBlueprint blueprint,
-    const u32 width,
-    const u32 height)
-    : device_(&device),
-      blueprint_(std::move(blueprint)),
-      width_(width),
-      height_(height) {
+    Device& device, GraphBlueprint blueprint, const u32 width, const u32 height)
+    : device_(&device), blueprint_(std::move(blueprint)), width_(width), height_(height) {
     runtime_resources_.resize(blueprint_.resources.size());
     for (size_t i = 0; i < blueprint_.resources.size(); ++i) {
         runtime_resources_[i].blueprint = blueprint_.resources[i];
@@ -574,7 +559,8 @@ Result<void> RenderGraph::AcquireTransientResource(
     pooled.texture = std::move(*texture);
     pooled.view = pooled.texture->CreateView(view_desc);
     if (IsDepthFormat(record.transient.format)) {
-        pooled.depth_sample_view = pooled.texture->CreateView(MakeDepthSampleViewDesc(record.transient));
+        pooled.depth_sample_view =
+            pooled.texture->CreateView(MakeDepthSampleViewDesc(record.transient));
     }
     pooled.in_use = true;
 
@@ -635,7 +621,8 @@ TextureView* RenderGraph::ResolveView(const u32 resource_id) {
 TextureView* RenderGraph::ResolveSampleView(const u32 resource_id, const SampleMode mode) {
     if (mode == SampleMode::DepthTexture && resource_id < runtime_resources_.size()) {
         RuntimeResource& runtime = runtime_resources_[resource_id];
-        if (runtime.blueprint.kind == ResourceKind::Transient && runtime.pool_index < transient_pool_.size()) {
+        if (runtime.blueprint.kind == ResourceKind::Transient &&
+            runtime.pool_index < transient_pool_.size()) {
             TextureView* depth_view = transient_pool_[runtime.pool_index].depth_sample_view.get();
             if (depth_view != nullptr) {
                 return depth_view;
@@ -645,11 +632,8 @@ TextureView* RenderGraph::ResolveSampleView(const u32 resource_id, const SampleM
     return ResolveView(resource_id);
 }
 
-Result<void> RenderGraph::ExecuteRenderPass(
-    const u32 pass_index,
-    CommandEncoder& encoder,
-    const u32 width,
-    const u32 height,
+Result<void> RenderGraph::ExecuteRenderPass(const u32 pass_index, CommandEncoder& encoder,
+    const u32 width, const u32 height,
     const std::unordered_map<u32, TextureView*>& per_frame_views) {
     const PassRecord& pass = blueprint_.passes[pass_index];
 
@@ -660,7 +644,8 @@ Result<void> RenderGraph::ExecuteRenderPass(
         if (resource_id < runtime_resources_.size()) {
             RuntimeResource& runtime = runtime_resources_[resource_id];
             if (runtime.blueprint.kind == ResourceKind::PerFrame) {
-                if (const auto it = per_frame_views.find(resource_id); it != per_frame_views.end()) {
+                if (const auto it = per_frame_views.find(resource_id);
+                    it != per_frame_views.end()) {
                     return it->second;
                 }
                 return runtime.per_frame_view;
@@ -684,10 +669,9 @@ Result<void> RenderGraph::ExecuteRenderPass(
         for (const auto& [slot, resource_id] : framebuffer.colors) {
             TextureView* view = resolve(resource_id);
             if (view == nullptr) {
-                return Err(
-                    ErrorCode::GraphicsResourceCreationFailed,
-                    "RenderGraph pass '" + pass.debug_name + "' missing color view for slot "
-                        + std::to_string(slot));
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
+                    "RenderGraph pass '" + pass.debug_name + "' missing color view for slot " +
+                        std::to_string(slot));
             }
 
             Color clear_value{0.f, 0.f, 0.f, 1.f};
@@ -706,8 +690,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
         if (framebuffer.depth_resource_id != kInvalidGraphResource) {
             TextureView* depth_view = resolve(framebuffer.depth_resource_id);
             if (depth_view == nullptr) {
-                return Err(
-                    ErrorCode::GraphicsResourceCreationFailed,
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
                     "RenderGraph pass '" + pass.debug_name + "' missing depth view");
             }
 
@@ -733,8 +716,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
     for (const ColorOutput& color : pass.colors) {
         TextureView* view = resolve(color.resource_id);
         if (view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing color attachment view");
         }
 
@@ -749,8 +731,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
     if (pass.depth.has_value()) {
         TextureView* depth_view = resolve(pass.depth->resource_id);
         if (depth_view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing depth attachment view");
         }
 
@@ -764,8 +745,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
     }
 
     if (color_attachments.empty() && !depth_attachment.has_value()) {
-        return Err(
-            ErrorCode::ValidationInvalidState,
+        return Err(ErrorCode::ValidationInvalidState,
             "RenderGraph pass '" + pass.debug_name + "' has no render targets");
     }
 
@@ -797,23 +777,19 @@ Result<void> RenderGraph::ExecuteRenderPass(
     for (const SampleInput& sample : pass.samples) {
         TextureView* view = ResolveSampleView(sample.resource_id, sample.mode);
         if (view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing sample view");
         }
         context.samples_.push_back(view);
     }
 
-    pass.render_execute(context);
+    auto executed = pass.render_execute(context);
     pass_encoder->get()->End();
-    return Ok();
+    return executed;
 }
 
 Result<void> RenderGraph::ExecuteCopyPass(
-    const u32 pass_index,
-    CommandEncoder& encoder,
-    const u32 width,
-    const u32 height) {
+    const u32 pass_index, CommandEncoder& encoder, const u32 width, const u32 height) {
     const PassRecord& pass = blueprint_.passes[pass_index];
 
     CopyPassContext context{};
@@ -829,16 +805,14 @@ Result<void> RenderGraph::ExecuteCopyPass(
         Texture* source = ResolveTexture(copy.src_resource_id);
         Texture* destination = ResolveTexture(copy.dst_resource_id);
         if (source == nullptr || destination == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph copy pass '" + pass.debug_name + "' missing texture");
         }
         context.sources_.push_back(source);
         context.destinations_.push_back(destination);
     }
 
-    pass.copy_execute(context);
-    return Ok();
+    return pass.copy_execute(context);
 }
 
 RenderGraphFrame RenderGraph::BeginFrame(Device& device, const u32 width, const u32 height) {
@@ -847,7 +821,7 @@ RenderGraphFrame RenderGraph::BeginFrame(Device& device, const u32 width, const 
     }
 
     RenderGraphFrame frame(*this, device, width, height);
-    auto encoder = device.CreateCommandEncoder({ .label = "RenderGraphFrame" });
+    auto encoder = device.CreateCommandEncoder({.label = "RenderGraphFrame"});
     if (encoder) {
         frame.encoder_ = std::move(*encoder);
     }
@@ -882,22 +856,18 @@ Result<void> RenderGraphFrame::Execute() {
         const PassRecord& pass = graph_->blueprint_.passes[pass_index];
         Result<void> result = Ok();
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
-            result = graph_->ExecuteCopyPass(
-                static_cast<u32>(pass_index), *encoder_, width_, height_);
+            result =
+                graph_->ExecuteCopyPass(static_cast<u32>(pass_index), *encoder_, width_, height_);
         } else {
             result = graph_->ExecuteRenderPass(
-                static_cast<u32>(pass_index),
-                *encoder_,
-                width_,
-                height_,
-                per_frame_views_);
+                static_cast<u32>(pass_index), *encoder_, width_, height_, per_frame_views_);
         }
         if (!result) {
             return result;
         }
     }
 
-    auto command_buffer = encoder_->Finish({ .label = "RenderGraphSubmit" });
+    auto command_buffer = encoder_->Finish({.label = "RenderGraphSubmit"});
     if (!command_buffer) {
         return Err(command_buffer.error());
     }

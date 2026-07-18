@@ -9,12 +9,32 @@ namespace woki::gfx {
 namespace {
 
 [[nodiscard]] bool IsImported(const GraphResourceDesc& resource) {
-    return !std::holds_alternative<std::monostate>(resource.imported);
+    return resource.origin != GraphResourceOrigin::Transient;
 }
 
 [[nodiscard]] Result<void> ValidateResource(const GraphResourceDesc& desc) {
     if (desc.label.empty()) {
         return Err(ErrorCode::ValidationNullValue, "Render graph resource requires a label");
+    }
+    if (desc.kind == GraphResourceKind::Buffer && desc.origin != GraphResourceOrigin::Imported) {
+        return Err(ErrorCode::GraphicsUnsupportedApi,
+            "Only imported buffers are supported by the render graph");
+    }
+    if (desc.origin == GraphResourceOrigin::Imported &&
+        std::holds_alternative<std::monostate>(desc.imported)) {
+        return Err(
+            ErrorCode::ValidationNullValue, "Imported graph resource requires a resource handle");
+    }
+    if (desc.origin != GraphResourceOrigin::Imported &&
+        !std::holds_alternative<std::monostate>(desc.imported)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Non-imported graph resource cannot contain a resource handle");
+    }
+    if (desc.origin == GraphResourceOrigin::Transient &&
+        (desc.transient.format == rhi::TextureFormat::Undefined ||
+            desc.transient.usage == rhi::TextureUsage::None)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Transient graph texture requires a format and usage");
     }
     if (const auto* buffer = std::get_if<BufferHandle>(&desc.imported)) {
         if (desc.kind != GraphResourceKind::Buffer || !*buffer) {
@@ -54,20 +74,42 @@ Result<GraphResource> RenderGraph::AddResource(const GraphResourceDesc& desc) {
     return Ok(handle);
 }
 
+Result<GraphResource> RenderGraph::AddTransientTexture(rhi::TransientDesc desc) {
+    const std::string label = desc.label;
+    return AddResource({
+        .label = label,
+        .kind = GraphResourceKind::Texture,
+        .origin = GraphResourceOrigin::Transient,
+        .transient = std::move(desc),
+    });
+}
+
+Result<GraphResource> RenderGraph::AddPerFrameTexture(std::string label) {
+    return AddResource({
+        .label = std::move(label),
+        .kind = GraphResourceKind::Texture,
+        .origin = GraphResourceOrigin::PerFrame,
+    });
+}
+
 Result<GraphResource> RenderGraph::Import(BufferHandle buffer, std::string label) {
     if (label.empty()) {
         label = "Imported buffer";
     }
-    return AddResource(
-        {.label = std::move(label), .kind = GraphResourceKind::Buffer, .imported = buffer});
+    return AddResource({.label = std::move(label),
+        .kind = GraphResourceKind::Buffer,
+        .origin = GraphResourceOrigin::Imported,
+        .imported = buffer});
 }
 
 Result<GraphResource> RenderGraph::Import(TextureHandle texture, std::string label) {
     if (label.empty()) {
         label = "Imported texture";
     }
-    return AddResource(
-        {.label = std::move(label), .kind = GraphResourceKind::Texture, .imported = texture});
+    return AddResource({.label = std::move(label),
+        .kind = GraphResourceKind::Texture,
+        .origin = GraphResourceOrigin::Imported,
+        .imported = texture});
 }
 
 Result<GraphPass> RenderGraph::AddPass(const GraphPassDesc& desc) {
@@ -100,6 +142,46 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
         const auto& pass = passes_[pass_index];
         std::vector<u32> used_resources{};
         used_resources.reserve(pass.resources.size());
+
+        const auto validate_attachment = [&](const GraphResource resource,
+                                             const bool requires_write) -> Result<void> {
+            if (!resource || resource.Index() >= resources_.size() ||
+                resources_[resource.Index()].kind != GraphResourceKind::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph attachment references an invalid texture");
+            }
+            const auto use =
+                std::ranges::find(pass.resources, resource, &GraphResourceUse::resource);
+            if (use == pass.resources.end() ||
+                (requires_write && use->access == GraphAccess::Read) ||
+                (!requires_write && use->access == GraphAccess::Write)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph attachment access does not match its pass declaration");
+            }
+            return Ok();
+        };
+
+        std::vector<u32> color_slots{};
+        for (const auto& color : pass.colors) {
+            if (std::ranges::find(color_slots, color.slot) != color_slots.end()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph pass contains a duplicate color slot");
+            }
+            color_slots.push_back(color.slot);
+            if (auto status = validate_attachment(color.resource, true); !status) {
+                return Err(status.error());
+            }
+        }
+        if (pass.depth) {
+            if (auto status = validate_attachment(pass.depth->resource, true); !status) {
+                return Err(status.error());
+            }
+        }
+        for (const auto& sample : pass.samples) {
+            if (auto status = validate_attachment(sample.resource, false); !status) {
+                return Err(status.error());
+            }
+        }
 
         for (const GraphPass dependency : pass.depends_on) {
             if (!dependency || dependency.Index() >= passes_.size() ||

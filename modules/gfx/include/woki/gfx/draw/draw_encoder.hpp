@@ -24,5 +24,7 @@ struct DrawEncodingStats final {
 [[nodiscard]] Result<void> Validate(const ResolvedDrawList& draws);
 [[nodiscard]] Result<DrawEncodingStats> EncodeDraws(rhi::RenderPassEncoder& pass,
     const ResolvedDrawList& draws, DrawBindingEncoder* bindings = nullptr);
+[[nodiscard]] Result<DrawEncodingStats> EncodePreparedDraws(rhi::RenderPassEncoder& pass,
+    const ResolvedDrawList& draws, DrawBindingEncoder* bindings = nullptr);
 
 } // namespace woki::gfx
