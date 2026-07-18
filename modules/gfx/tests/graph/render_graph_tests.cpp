@@ -352,6 +352,99 @@ TEST_CASE("Render graph rejects invalid multisample resolves") {
     REQUIRE_FALSE(graph.Compile());
 }
 
+TEST_CASE("Render graph schedules texture copy passes between producers and consumers") {
+    woki::gfx::RenderGraph graph{};
+    const auto source = graph.AddTransientTexture({
+        .label = "Rendered image",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage = woki::rhi::TextureUsage::RenderAttachment |
+                 woki::rhi::TextureUsage::CopySrc,
+    });
+    const auto destination = graph.AddTransientTexture({
+        .label = "History image",
+        .format = woki::rhi::TextureFormat::RGBA16Float,
+        .usage = woki::rhi::TextureUsage::CopyDst |
+                 woki::rhi::TextureUsage::TextureBinding,
+    });
+    REQUIRE(source);
+    REQUIRE(destination);
+    const auto producer = graph.AddPass({
+        .label = "Render image",
+        .resources = {{.resource = *source, .access = woki::gfx::GraphAccess::Write}},
+        .colors = {{.resource = *source}},
+    });
+    const auto copy = graph.AddPass({
+        .label = "Store history",
+        .kind = woki::gfx::GraphPassKind::Copy,
+        .resources =
+            {
+                {.resource = *source, .access = woki::gfx::GraphAccess::Read},
+                {.resource = *destination, .access = woki::gfx::GraphAccess::Write},
+            },
+        .copies = {{.source = *source, .destination = *destination}},
+    });
+    const auto consumer = graph.AddPass({
+        .label = "Read history",
+        .resources = {{.resource = *destination, .access = woki::gfx::GraphAccess::Read}},
+        .samples = {{.resource = *destination}},
+    });
+    REQUIRE(producer);
+    REQUIRE(copy);
+    REQUIRE(consumer);
+
+    const auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->passes[1].dependencies == std::vector{*producer});
+    REQUIRE(compiled->passes[2].dependencies == std::vector{*copy});
+    REQUIRE(compiled->lifetimes.size() == 2);
+    REQUIRE(compiled->lifetimes[0].last_pass == 1);
+    REQUIRE(compiled->lifetimes[1].first_pass == 1);
+}
+
+TEST_CASE("Render graph validates texture copy usage and access") {
+    woki::gfx::RenderGraph graph{};
+    const auto source = graph.AddTransientTexture({
+        .label = "Source without copy usage",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::RenderAttachment,
+    });
+    const auto destination = graph.AddTransientTexture({
+        .label = "Destination without copy usage",
+        .format = woki::rhi::TextureFormat::RGBA8Unorm,
+        .usage = woki::rhi::TextureUsage::TextureBinding,
+    });
+    REQUIRE(source);
+    REQUIRE(destination);
+    REQUIRE(graph.AddPass({
+        .label = "Invalid copy usages",
+        .kind = woki::gfx::GraphPassKind::Copy,
+        .resources =
+            {
+                {.resource = *source, .access = woki::gfx::GraphAccess::Read},
+                {.resource = *destination, .access = woki::gfx::GraphAccess::Write},
+            },
+        .copies = {{.source = *source, .destination = *destination}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+
+    graph.Clear();
+    const auto per_frame = graph.AddPerFrameTexture("Swapchain output");
+    const auto imported = graph.Import(woki::gfx::TextureHandle::FromParts(1, 1));
+    REQUIRE(per_frame);
+    REQUIRE(imported);
+    REQUIRE(graph.AddPass({
+        .label = "Invalid per-frame copy",
+        .kind = woki::gfx::GraphPassKind::Copy,
+        .resources =
+            {
+                {.resource = *imported, .access = woki::gfx::GraphAccess::Read},
+                {.resource = *per_frame, .access = woki::gfx::GraphAccess::Write},
+            },
+        .copies = {{.source = *imported, .destination = *per_frame}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+}
+
 TEST_CASE("Render graph rejects unused transient resources") {
     woki::gfx::RenderGraph graph{};
     REQUIRE(graph.AddTransientBuffer({

@@ -141,6 +141,13 @@ compute readers through the same resource dependency compiler, enabling image fi
 effects to publish textures for later sampling. Compute passes cannot declare render attachments or
 render-sample inputs.
 
+`GraphPassKind::Copy` schedules whole-texture transfers between managed transient or imported
+textures. Source and destination access declarations participate in normal graph ordering and
+lifetime analysis, while both graph layers validate copy usage flags and reject incompatible or
+multisampled textures. The default callback copies every declared pair; a custom `CopyPassContext`
+callback can encode a specialized transfer. This path supports history buffers and capture/export
+staging without bypassing graph ownership.
+
 ## Pipeline and diagnostics API
 
 `BuildStandardMaterialPipeline` derives consistent raster, blend, depth, attachment, and resolver-key

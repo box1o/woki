@@ -173,13 +173,30 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
     for (u32 pass_index = 0; pass_index < passes_.size(); ++pass_index) {
         const auto& pass = passes_[pass_index];
         if (pass.kind == GraphPassKind::Compute &&
-            (!pass.colors.empty() || pass.depth || !pass.samples.empty())) {
+            (!pass.colors.empty() || pass.depth || !pass.samples.empty() ||
+                !pass.copies.empty())) {
             return Err(ErrorCode::ValidationInvalidState,
-                "Compute graph passes cannot declare render attachments or sampled render inputs");
+                "Compute graph pass has render or copy-only declarations");
         }
         if (pass.kind != GraphPassKind::Compute && !pass.storage_textures.empty()) {
             return Err(ErrorCode::ValidationInvalidState,
                 "Storage texture inputs are only supported by compute graph passes");
+        }
+        if (pass.kind == GraphPassKind::Render && !pass.copies.empty()) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Render graph passes cannot declare texture copies");
+        }
+        if ((pass.kind == GraphPassKind::Render && (pass.compute_execute || pass.copy_execute)) ||
+            (pass.kind == GraphPassKind::Compute && (pass.execute || pass.copy_execute))) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Render graph pass callback does not match its kind");
+        }
+        if (pass.kind == GraphPassKind::Copy &&
+            (!pass.colors.empty() || pass.depth || !pass.samples.empty() ||
+                !pass.buffers.empty() || !pass.storage_textures.empty() || pass.execute ||
+                pass.compute_execute || pass.copies.empty())) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Copy graph pass has an invalid contract");
         }
         std::vector<u32> used_resources{};
         used_resources.reserve(pass.resources.size());
@@ -301,6 +318,43 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
                     &GraphResourceUse::resource) == pass.resources.end()) {
                 return Err(ErrorCode::ValidationInvalidState,
                     "Render graph storage texture is missing its access declaration");
+            }
+        }
+        for (const auto& copy : pass.copies) {
+            if (!copy.source || !copy.destination || copy.source == copy.destination ||
+                copy.source.Index() >= resources_.size() ||
+                copy.destination.Index() >= resources_.size()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph texture copy references invalid resources");
+            }
+            const auto& source = resources_[copy.source.Index()];
+            const auto& destination = resources_[copy.destination.Index()];
+            if (source.kind != GraphResourceKind::Texture ||
+                destination.kind != GraphResourceKind::Texture ||
+                source.origin == GraphResourceOrigin::PerFrame ||
+                destination.origin == GraphResourceOrigin::PerFrame) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph copies require managed texture resources");
+            }
+            const auto source_use =
+                std::ranges::find(pass.resources, copy.source, &GraphResourceUse::resource);
+            const auto destination_use =
+                std::ranges::find(pass.resources, copy.destination, &GraphResourceUse::resource);
+            if (source_use == pass.resources.end() || source_use->access == GraphAccess::Write ||
+                destination_use == pass.resources.end() ||
+                destination_use->access == GraphAccess::Read) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph texture copy access declarations are invalid");
+            }
+            if (source.origin == GraphResourceOrigin::Transient &&
+                !HasFlag(source.transient.usage, rhi::TextureUsage::CopySrc)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Transient texture copy source requires CopySrc usage");
+            }
+            if (destination.origin == GraphResourceOrigin::Transient &&
+                !HasFlag(destination.transient.usage, rhi::TextureUsage::CopyDst)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Transient texture copy destination requires CopyDst usage");
             }
         }
 

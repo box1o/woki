@@ -56,6 +56,7 @@ enum class GraphAccess : u8 {
 enum class GraphPassKind : u8 {
     Render = 0,
     Compute,
+    Copy,
 };
 
 using ImportedGraphResource = std::variant<std::monostate, BufferHandle, TextureHandle>;
@@ -99,6 +100,11 @@ struct GraphStorageTextureInput final {
     GraphResource resource{};
 };
 
+struct GraphTextureCopy final {
+    GraphResource source{};
+    GraphResource destination{};
+};
+
 struct GraphPassDesc final {
     std::string label{};
     GraphPassKind kind{GraphPassKind::Render};
@@ -109,8 +115,10 @@ struct GraphPassDesc final {
     std::vector<GraphSampleInput> samples{};
     std::vector<GraphBufferInput> buffers{};
     std::vector<GraphStorageTextureInput> storage_textures{};
+    std::vector<GraphTextureCopy> copies{};
     std::function<Result<void>(rhi::RenderPassContext&)> execute{};
     std::function<Result<void>(rhi::ComputePassContext&)> compute_execute{};
+    std::function<Result<void>(rhi::CopyPassContext&)> copy_execute{};
 };
 
 struct GraphResourceLifetime final {

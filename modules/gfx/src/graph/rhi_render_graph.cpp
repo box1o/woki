@@ -208,10 +208,29 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
                 native_pass.StorageTexture(native_resources[texture.resource.Index()]);
             }
         }
+        for (const auto& copy : pass->copies) {
+            const auto* source = graph.Resource(copy.source);
+            const auto* destination = graph.Resource(copy.destination);
+            if (source == nullptr || destination == nullptr ||
+                source->kind != GraphResourceKind::Texture ||
+                destination->kind != GraphResourceKind::Texture ||
+                source->origin == GraphResourceOrigin::PerFrame ||
+                destination->origin == GraphResourceOrigin::PerFrame) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Graph texture copy references an invalid managed texture");
+            }
+            native_pass.Copy(native_resources[copy.source.Index()],
+                native_resources[copy.destination.Index()]);
+        }
         if (pass->kind == GraphPassKind::Compute) {
             const auto callback = pass->compute_execute;
             native_pass.Execute([callback](rhi::ComputePassContext& context) -> Result<void> {
                 return callback(context);
+            });
+        } else if (pass->kind == GraphPassKind::Copy) {
+            const auto callback = pass->copy_execute;
+            native_pass.Execute([callback](rhi::CopyPassContext& context) -> Result<void> {
+                return callback ? callback(context) : context.CopyAll();
             });
         } else {
             const auto callback = pass->execute;

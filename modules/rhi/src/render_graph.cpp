@@ -247,12 +247,23 @@ Result<void> CopyPassContext::CopyAll() {
             return Err(
                 ErrorCode::GraphicsResourceCreationFailed, "CopyPassContext missing texture");
         }
+        if (!HasFlag(source->GetUsage(), TextureUsage::CopySrc) ||
+            !HasFlag(destination->GetUsage(), TextureUsage::CopyDst)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "CopyPassContext textures are missing copy usage flags");
+        }
+        if (source->GetFormat() != destination->GetFormat() ||
+            source->GetDimension() != destination->GetDimension() ||
+            source->GetWidth() != destination->GetWidth() ||
+            source->GetHeight() != destination->GetHeight() ||
+            source->GetDepthOrArrayLayers() != destination->GetDepthOrArrayLayers() ||
+            source->GetSampleCount() != 1 || destination->GetSampleCount() != 1) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "CopyPassContext requires matching single-sampled textures");
+        }
 
-        const Extent3D copy_size{
-            std::max(1u, width_),
-            std::max(1u, height_),
-            1,
-        };
+        const Extent3D copy_size{source->GetWidth(), source->GetHeight(),
+            source->GetDepthOrArrayLayers()};
         if (auto result = encoder_->CopyTextureToTexture(
                 MakeCopyInfo(*source), MakeCopyInfo(*destination), copy_size);
             !result) {
@@ -693,6 +704,33 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
                 !HasFlag(resource.owned_texture->GetUsage(), TextureUsage::StorageBinding)) {
                 return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph owned storage texture requires StorageBinding usage");
+            }
+        }
+        for (const auto& copy : pass.copies) {
+            if (copy.src_resource_id >= blueprint_.resources.size() ||
+                copy.dst_resource_id >= blueprint_.resources.size() ||
+                copy.src_resource_id == copy.dst_resource_id ||
+                blueprint_.resources[copy.src_resource_id].type != ResourceType::Texture ||
+                blueprint_.resources[copy.dst_resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph copy pass references invalid textures");
+            }
+            const auto& source = blueprint_.resources[copy.src_resource_id];
+            const auto& destination = blueprint_.resources[copy.dst_resource_id];
+            const auto source_usage = source.kind == ResourceKind::Transient
+                                          ? source.transient.usage
+                                          : source.owned_texture != nullptr
+                                                ? source.owned_texture->GetUsage()
+                                                : TextureUsage::None;
+            const auto destination_usage = destination.kind == ResourceKind::Transient
+                                               ? destination.transient.usage
+                                               : destination.owned_texture != nullptr
+                                                     ? destination.owned_texture->GetUsage()
+                                                     : TextureUsage::None;
+            if (!HasFlag(source_usage, TextureUsage::CopySrc) ||
+                !HasFlag(destination_usage, TextureUsage::CopyDst)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph copy textures are missing copy usage flags");
             }
         }
         if (pass.kind == PassKind::Compute) {
