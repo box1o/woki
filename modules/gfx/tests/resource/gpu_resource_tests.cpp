@@ -35,8 +35,6 @@ TEST_CASE("Texture resource descriptions validate GPU properties") {
 
     REQUIRE(woki::gfx::Validate(desc).has_value());
 
-    desc.generate_mipmaps = true;
-    REQUIRE_FALSE(woki::gfx::Validate(desc).has_value());
     desc.gpu.mip_level_count = 11;
     REQUIRE(woki::gfx::Validate(desc).has_value());
 }

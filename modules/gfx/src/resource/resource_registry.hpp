@@ -115,6 +115,16 @@ public:
 
     [[nodiscard]] std::size_t Size() const noexcept { return pool_.Size(); }
 
+    template <typename Function> void Each(Function&& function) {
+        pool_.Each(
+            [&](const Handle handle, Entry& entry) { std::invoke(function, handle, entry); });
+    }
+
+    template <typename Function> void Each(Function&& function) const {
+        pool_.Each(
+            [&](const Handle handle, const Entry& entry) { std::invoke(function, handle, entry); });
+    }
+
 private:
     ResourcePool<Entry, Tag> pool_{};
     std::unordered_map<AssetId, Handle> assets_{};

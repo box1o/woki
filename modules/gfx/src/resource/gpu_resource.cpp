@@ -33,14 +33,6 @@ Result<void> Validate(const TextureResourceDesc& desc) {
     if (desc.gpu.usage == rhi::TextureUsage::None) {
         return Err(ErrorCode::ValidationInvalidState, "Texture requires at least one usage flag");
     }
-    if (desc.generate_mipmaps && desc.gpu.mip_level_count < 2) {
-        return Err(ErrorCode::ValidationInvalidState,
-            "Mipmap generation requires more than one mip level");
-    }
-    if (desc.generate_mipmaps && !rhi::HasFlag(desc.gpu.usage, rhi::TextureUsage::TextureBinding)) {
-        return Err(
-            ErrorCode::ValidationInvalidState, "Mipmap generation requires texture-binding usage");
-    }
     if (desc.lifetime == ResourceLifetime::Transient && desc.retain_cpu_copy) {
         return Err(
             ErrorCode::ValidationInvalidState, "Transient textures cannot retain a CPU copy");
@@ -58,6 +50,12 @@ Result<void> Validate(const TextureResourceDesc& desc) {
         if (subresource.bytes_per_row == 0 || subresource.rows_per_image == 0) {
             return Err(ErrorCode::ValidationOutOfRange,
                 "Texture subresource layout must specify row strides");
+        }
+        const u64 required_size = static_cast<u64>(subresource.bytes_per_row) *
+                                  static_cast<u64>(subresource.rows_per_image);
+        if (required_size > subresource.data.size()) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                "Texture subresource data is smaller than its declared layout");
         }
     }
     return Ok();

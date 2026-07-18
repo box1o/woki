@@ -39,7 +39,6 @@ struct TextureResourceDesc final {
     std::vector<TextureSubresourceData> initial_data{};
     ResourceLifetime lifetime{ResourceLifetime::Persistent};
     bool retain_cpu_copy{false};
-    bool generate_mipmaps{false};
 };
 
 struct SamplerResourceDesc final {
