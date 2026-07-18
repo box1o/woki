@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../lighting/light.hpp"
 #include "../resource/resource_types.hpp"
 
 #include <memory>
@@ -54,6 +55,7 @@ struct RenderSnapshot final {
     u64 sequence{0};
     std::vector<ExtractedObject> objects{};
     std::vector<DrawPacket> draws{};
+    std::vector<ExtractedLight> lights{};
 };
 
 void SortDrawPackets(std::span<DrawPacket> draws);
@@ -74,9 +76,15 @@ public:
     [[nodiscard]] bool Contains(RenderObjectHandle object) const noexcept;
     [[nodiscard]] const RenderObjectDesc* Resolve(RenderObjectHandle object) const noexcept;
 
+    [[nodiscard]] Result<LightHandle> CreateLight(const LightDesc& desc);
+    [[nodiscard]] Result<void> UpdateLight(LightHandle light, const LightDesc& desc);
+    [[nodiscard]] bool RemoveLight(LightHandle light);
+    [[nodiscard]] const LightDesc* ResolveLight(LightHandle light) const noexcept;
+
     [[nodiscard]] Result<RenderSnapshot> Extract(u64 layer_mask = ~0ULL);
 
     [[nodiscard]] std::size_t Size() const noexcept;
+    [[nodiscard]] std::size_t LightCount() const noexcept;
     void Clear();
 
 private:

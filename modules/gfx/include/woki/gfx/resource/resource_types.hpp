@@ -6,6 +6,7 @@ namespace woki::gfx {
 
 struct BufferTag;
 struct MaterialTag;
+struct LightTag;
 struct MeshTag;
 struct PipelineTag;
 struct RenderObjectTag;
@@ -15,6 +16,7 @@ struct TextureTag;
 
 using BufferHandle = ResourceHandle<BufferTag>;
 using MaterialHandle = ResourceHandle<MaterialTag>;
+using LightHandle = ResourceHandle<LightTag>;
 using MeshHandle = ResourceHandle<MeshTag>;
 using PipelineHandle = ResourceHandle<PipelineTag>;
 using RenderObjectHandle = ResourceHandle<RenderObjectTag>;

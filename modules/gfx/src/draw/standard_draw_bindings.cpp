@@ -12,6 +12,10 @@ namespace {
     if (!interface.parameters.empty()) {
         groups.push_back(interface.parameter_group);
     }
+    if (interface.uses_lighting &&
+        std::ranges::find(groups, interface.lighting_group) == groups.end()) {
+        groups.push_back(interface.lighting_group);
+    }
     for (const auto& resource : interface.resources) {
         if (std::ranges::find(groups, resource.group) == groups.end()) {
             groups.push_back(resource.group);
@@ -81,6 +85,23 @@ Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding
                 .buffer = buffer,
                 .offset = uniform_slice->offset,
                 .size = uniform_slice->size,
+            });
+        }
+        if (shader->interface.uses_lighting && group == shader->interface.lighting_group) {
+            if (!lighting_) {
+                return Err(ErrorCode::ValidationNullValue,
+                    "Lighting shader requires a frame lighting allocation");
+            }
+            rhi::Buffer* buffer = resources_->Resolve(lighting_->buffer);
+            if (buffer == nullptr) {
+                return Err(ErrorCode::FailedToAcquireResource,
+                    "Frame lighting buffer is no longer active");
+            }
+            entries.push_back({
+                .binding = shader->interface.lighting_binding,
+                .buffer = buffer,
+                .offset = lighting_->offset,
+                .size = lighting_->size,
             });
         }
         for (const auto& binding : shader->interface.resources) {
@@ -159,6 +180,17 @@ void StandardDrawBindings::Encode(
 std::size_t StandardDrawBindings::MaterialBindingCount() const noexcept {
     return materials_.size();
 }
+
+Result<void> StandardDrawBindings::SetLighting(const std::span<const std::byte> data) {
+    auto allocation = uniforms_->Write(data);
+    if (!allocation) {
+        return Err(allocation.error());
+    }
+    lighting_ = *allocation;
+    return Ok();
+}
+
+void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 
 void StandardDrawBindings::Clear() noexcept { materials_.clear(); }
 

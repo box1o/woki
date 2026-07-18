@@ -6,6 +6,7 @@
 #include "gfx/features.hpp"
 #include "gfx/frames.hpp"
 #include "gfx/graphs.hpp"
+#include "gfx/lighting.hpp"
 #include "gfx/materials.hpp"
 #include "gfx/meshes.hpp"
 #include "gfx/pipelines.hpp"

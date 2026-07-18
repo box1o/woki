@@ -29,6 +29,8 @@ public:
     void Encode(rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, u32 draw_index) override;
 
     [[nodiscard]] std::size_t MaterialBindingCount() const noexcept;
+    [[nodiscard]] Result<void> SetLighting(std::span<const std::byte> data);
+    void ClearLighting() noexcept;
     void Clear() noexcept;
 
 private:
@@ -53,6 +55,7 @@ private:
     FrameUniformBuffer* uniforms_{nullptr};
     StandardDrawBindingsDesc desc_{};
     std::vector<MaterialBinding> materials_{};
+    std::optional<UniformBufferSlice> lighting_{};
 };
 
 } // namespace woki::gfx

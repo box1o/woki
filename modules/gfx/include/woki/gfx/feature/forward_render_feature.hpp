@@ -2,6 +2,7 @@
 
 #include "../draw/standard_draw_bindings.hpp"
 #include "../graph/render_feature.hpp"
+#include "../lighting/light.hpp"
 
 namespace woki::gfx {
 
@@ -14,6 +15,8 @@ struct ForwardRenderFeatureDesc final {
     RenderTargetSignature targets{};
     rhi::Color clear_color{0.02, 0.02, 0.025, 1.0};
     f32 clear_depth{1.0F};
+    math::vec3f ambient_light{0.02F};
+    u32 maximum_lights{256};
 };
 
 class ForwardRenderFeature final : public RenderFeature {

@@ -33,3 +33,14 @@ TEST_CASE("Shader resources cannot overlap the material parameter block") {
 
     REQUIRE_FALSE(woki::gfx::Validate(interface));
 }
+
+TEST_CASE("Shader lighting cannot overlap material bindings") {
+    woki::gfx::ShaderInterfaceDesc interface{
+        .uses_lighting = true,
+        .lighting_group = 1,
+        .lighting_binding = 2,
+        .resources = {{.name = woki::StringId{"albedo"}, .group = 1, .binding = 2}},
+    };
+
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}

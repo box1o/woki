@@ -81,6 +81,17 @@ Result<void> ForwardRenderFeature::AddPasses(
         .bindings = bindings_,
     });
     bindings_->Clear();
+    bindings_->ClearLighting();
+    auto lighting =
+        PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);
+    if (!lighting) {
+        active_frame_.reset();
+        return Err(lighting.error());
+    }
+    if (auto lighting_binding = bindings_->SetLighting(lighting->bytes); !lighting_binding) {
+        active_frame_.reset();
+        return Err(lighting_binding.error());
+    }
     ResolvedDrawList all_draws{};
     all_draws.draws.reserve(
         active_frame_->opaque.draws.size() + active_frame_->transparent.draws.size());

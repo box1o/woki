@@ -57,6 +57,7 @@ public:
     MeshManager* meshes_{nullptr};
     MaterialManager* materials_{nullptr};
     detail::ResourcePool<RenderObjectDesc, RenderObjectTag> objects{};
+    detail::ResourcePool<LightDesc, LightTag> lights{};
     u64 next_sequence{1};
 };
 
@@ -91,6 +92,31 @@ bool RenderScene::Contains(const RenderObjectHandle object) const noexcept {
 
 const RenderObjectDesc* RenderScene::Resolve(const RenderObjectHandle object) const noexcept {
     return impl_->objects.TryGet(object);
+}
+
+Result<LightHandle> RenderScene::CreateLight(const LightDesc& desc) {
+    if (auto validation = Validate(desc); !validation) {
+        return Err(validation.error());
+    }
+    return Ok(impl_->lights.Emplace(desc));
+}
+
+Result<void> RenderScene::UpdateLight(const LightHandle light, const LightDesc& desc) {
+    auto* current = impl_->lights.TryGet(light);
+    if (current == nullptr) {
+        return Err(ErrorCode::FailedToAcquireResource, "Light handle is not active");
+    }
+    if (auto validation = Validate(desc); !validation) {
+        return Err(validation.error());
+    }
+    *current = desc;
+    return Ok();
+}
+
+bool RenderScene::RemoveLight(const LightHandle light) { return impl_->lights.Remove(light); }
+
+const LightDesc* RenderScene::ResolveLight(const LightHandle light) const noexcept {
+    return impl_->lights.TryGet(light);
 }
 
 Result<RenderSnapshot> RenderScene::Extract(const u64 layer_mask) {
@@ -144,11 +170,40 @@ Result<RenderSnapshot> RenderScene::Extract(const u64 layer_mask) {
     if (!status) {
         return Err(status.error());
     }
+    snapshot.lights.reserve(impl_->lights.Size());
+    impl_->lights.Each([&](const LightHandle handle, const LightDesc& light) {
+        if (!light.enabled || (light.layer_mask & layer_mask) == 0) {
+            return;
+        }
+        snapshot.lights.push_back({
+            .light = handle,
+            .type = light.type,
+            .color = light.color,
+            .intensity = light.intensity,
+            .position = light.position,
+            .range = light.type == LightType::Directional ? 0.0F : light.range,
+            .direction =
+                light.type == LightType::Point ? math::vec3f{} : light.direction.normalized(),
+            .inner_cone = light.type == LightType::Spot ? light.inner_cone : 0.0F,
+            .outer_cone = light.type == LightType::Spot ? light.outer_cone : 0.0F,
+            .casts_shadows = light.casts_shadows,
+        });
+    });
+    std::ranges::sort(snapshot.lights, [](const ExtractedLight& lhs, const ExtractedLight& rhs) {
+        if (lhs.type != rhs.type) {
+            return lhs.type < rhs.type;
+        }
+        return lhs.light < rhs.light;
+    });
     SortDrawPackets(snapshot.draws);
     return Ok(std::move(snapshot));
 }
 
 std::size_t RenderScene::Size() const noexcept { return impl_->objects.Size(); }
-void RenderScene::Clear() { impl_->objects.Clear(); }
+std::size_t RenderScene::LightCount() const noexcept { return impl_->lights.Size(); }
+void RenderScene::Clear() {
+    impl_->objects.Clear();
+    impl_->lights.Clear();
+}
 
 } // namespace woki::gfx

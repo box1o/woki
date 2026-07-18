@@ -20,6 +20,13 @@ Result<void> Validate(const ShaderInterfaceDesc& desc) {
     if (!desc.parameters.empty()) {
         bindings.insert((static_cast<u64>(desc.parameter_group) << 32U) | desc.parameter_binding);
     }
+    if (desc.uses_lighting) {
+        const u64 lighting = (static_cast<u64>(desc.lighting_group) << 32U) | desc.lighting_binding;
+        if (!bindings.insert(lighting).second) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Shader lighting and parameter bindings cannot overlap");
+        }
+    }
     for (const auto& resource : desc.resources) {
         if (resource.name.Empty()) {
             return Err(ErrorCode::ValidationNullValue, "Shader interface resource requires a name");
