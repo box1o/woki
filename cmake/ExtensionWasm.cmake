@@ -1,8 +1,6 @@
 # Wasm guest extension build (outputs extension.wasm next to the project sources).
 #
-# Usage (ExtensionProject.cmake must be included before project()):
-#   include(${WOKI_REPO_ROOT}/cmake/ExtensionProject.cmake)
-#   project(woki_extension LANGUAGES CXX)
+# Usage:
 #   include(${WOKI_REPO_ROOT}/cmake/ExtensionWasm.cmake)
 #   add_wokiext(src/plugin.cpp)
 #

@@ -37,15 +37,6 @@ void WriteFile(const fs::path& path, std::string_view contents) {
     return manifest;
 }
 
-[[nodiscard]] fs::path ExpectedPath(const fs::path& path) {
-    std::error_code error;
-    fs::path normalized = fs::weakly_canonical(path, error);
-    if (error) {
-        normalized = path.lexically_normal();
-    }
-    return normalized;
-}
-
 } // namespace
 
 TEST_CASE("Extension package layout resolves canonical roots") {
@@ -59,8 +50,9 @@ TEST_CASE("Extension package layout resolves canonical roots") {
     REQUIRE(layout->install_root.filename() == manifest.id);
     REQUIRE(layout->manifest == layout->install_root / "manifest.yaml");
     REQUIRE(layout->wasm == layout->install_root / "extension.wasm");
-    REQUIRE(layout->data_root == ExpectedPath(root / "ext-data" / manifest.id));
-    REQUIRE(layout->cache_root == ExpectedPath(root / "cache" / "woki" / "ext" / manifest.id));
+    REQUIRE(layout->data_root == (root / "ext-data" / manifest.id).lexically_normal());
+    REQUIRE(
+        layout->cache_root == (root / "cache" / "woki" / "ext" / manifest.id).lexically_normal());
 }
 
 TEST_CASE("Extension package layout validates existing manifest and wasm") {
@@ -121,7 +113,7 @@ permissions:
 
     auto installed = woki::ext::InstallUnpackedPackage(source, roots);
     REQUIRE(installed.has_value());
-    REQUIRE(installed->install_root == ExpectedPath(roots.extensions / "woki.hello"));
+    REQUIRE(installed->install_root == (roots.extensions / "woki.hello").lexically_normal());
     REQUIRE(fs::is_regular_file(installed->manifest));
     REQUIRE(fs::is_regular_file(installed->wasm));
     REQUIRE(fs::is_regular_file(installed->install_root / "assets" / "icon.txt"));
@@ -331,7 +323,7 @@ permissions:
 
     auto installed = woki::ext::InstallArchive(archive_path, roots);
     REQUIRE(installed.has_value());
-    REQUIRE(installed->install_root == ExpectedPath(roots.extensions / "woki.hello"));
+    REQUIRE(installed->install_root == (roots.extensions / "woki.hello").lexically_normal());
     REQUIRE(fs::is_regular_file(installed->manifest));
     REQUIRE(fs::is_regular_file(installed->wasm));
     REQUIRE(fs::is_regular_file(installed->install_root / "assets" / "icon.txt"));

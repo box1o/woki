@@ -167,15 +167,6 @@ function(_woki_wasmtime_download_prebuilt)
         message(STATUS "Wasmtime: using cached archive ${_archive_path}")
     endif()
 
-    file(GLOB_RECURSE _wasmtime_headers "${_extract_dir}/wasmtime.h")
-    if(EXISTS "${_extract_marker}" AND NOT _wasmtime_headers)
-        message(STATUS "Wasmtime: stale extract marker, re-extracting ${_archive}")
-        file(REMOVE "${_extract_marker}")
-        file(REMOVE_RECURSE "${_extract_dir}")
-        file(MAKE_DIRECTORY "${_extract_dir}")
-        unset(_wasmtime_headers)
-    endif()
-
     if(NOT EXISTS "${_extract_marker}")
         message(STATUS "Wasmtime: extracting ${_archive}")
         file(MAKE_DIRECTORY "${_extract_dir}")
@@ -195,11 +186,13 @@ function(_woki_wasmtime_download_prebuilt)
         if(NOT _tar_result EQUAL 0)
             message(FATAL_ERROR "Wasmtime: failed to extract ${_archive}")
         endif()
+        file(WRITE "${_extract_marker}" "${_tag}")
     endif()
 
-    if(NOT _wasmtime_headers)
-        file(GLOB_RECURSE _wasmtime_headers "${_extract_dir}/wasmtime.h")
-    endif()
+    file(GLOB_RECURSE _wasmtime_headers
+        "${_extract_dir}/*/include/wasmtime.h"
+        "${_extract_dir}/include/wasmtime.h"
+    )
     if(NOT _wasmtime_headers)
         message(FATAL_ERROR "Wasmtime: extracted archive is missing include/wasmtime.h")
     endif()
@@ -213,7 +206,6 @@ function(_woki_wasmtime_download_prebuilt)
         file(COPY "${_prefix}/lib" DESTINATION "${_extract_dir}")
     endif()
 
-    file(WRITE "${_extract_marker}" "${_tag}")
     message(STATUS "Wasmtime: prebuilt C API installed under ${_extract_dir}")
 endfunction()
 

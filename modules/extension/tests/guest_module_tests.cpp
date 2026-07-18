@@ -2,8 +2,6 @@
 
 #include <woki/ext/ext.hpp>
 
-#include "wasm_test_compiler.hpp"
-
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -63,11 +61,14 @@ __attribute__((export_name("ext_on_event"))) void ext_on_event(unsigned t, unsig
 __attribute__((export_name("ext_on_unload"))) void ext_on_unload(void) {}
 )c");
 
-    REQUIRE(woki_test_compile_wasm(
-        source.string(),
-        wasm.string(),
-        "--export=ext_api_version --export=ext_init --export=ext_on_tick "
-        "--export=ext_on_event --export=ext_on_unload"));
+    const std::string command =
+        "clang --target=wasm32-unknown-unknown -nostdlib -fno-builtin "
+        "-Wl,--no-entry -Wl,--export-memory "
+        "-Wl,--export=ext_api_version -Wl,--export=ext_init -Wl,--export=ext_on_tick "
+        "-Wl,--export=ext_on_event -Wl,--export=ext_on_unload "
+        "-o " +
+        wasm.string() + " " + source.string();
+    REQUIRE(std::system(command.c_str()) == 0);
 
     auto info = woki::ext::wasm::InspectGuestModule(wasm);
     REQUIRE(info.has_value());
