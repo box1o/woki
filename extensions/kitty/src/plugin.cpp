@@ -8,9 +8,7 @@ namespace {
 [[nodiscard]] bool CommandIs(const char* id, uint32_t len, const char* lit, uint32_t lit_len) {
     if (id == nullptr || len != lit_len) {
         return false;
-    }
-    for (uint32_t i = 0; i < len; ++i) {
-        if (id[i] != lit[i]) {
+    } for (uint32_t i = 0; i < len; ++i) { if (id[i] != lit[i]) {
             return false;
         }
     }
