@@ -8,7 +8,8 @@
 namespace woki::gfx {
 namespace {
 
-[[nodiscard]] ShaderInterfaceDesc StandardInterface(const bool lighting, const bool skinning) {
+[[nodiscard]] ShaderInterfaceDesc StandardInterface(
+    const bool lighting, const bool skinning, const bool shadows) {
     ShaderInterfaceDesc interface{
         .uses_object_transform = true,
         .object_group = 0,
@@ -19,6 +20,8 @@ namespace {
         .uses_lighting = lighting,
         .lighting_group = 2,
         .lighting_binding = 0,
+        .uses_shadows = shadows,
+        .shadow_group = 2,
     };
     if (lighting) {
         interface.parameters = {
@@ -81,16 +84,21 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
     const bool pbr = shader != StandardShader::Unlit;
     const bool skinned = shader == StandardShader::PbrSkinned;
     const bool textured = shader == StandardShader::PbrTextured;
+    const bool shadowed = shader == StandardShader::PbrShadowed;
     const std::string name =
-        skinned ? "pbr_skinned_forward"
-                : (textured ? "pbr_textured_forward" : (pbr ? "pbr_forward" : "unlit"));
+        skinned
+            ? "pbr_skinned_forward"
+            : (textured ? "pbr_textured_forward"
+                        : (shadowed ? "pbr_shadowed_forward" : (pbr ? "pbr_forward" : "unlit")));
     const std::string source_path = (root_ / (name + ".wgsl")).generic_string();
     ShaderDesc result{
         .asset_id = AssetId{skinned    ? "woki/shaders/pbr_skinned"
                             : textured ? "woki/shaders/pbr_textured"
+                            : shadowed ? "woki/shaders/pbr_shadowed"
                                        : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
         .label = skinned    ? "Woki PBR Skinned"
                  : textured ? "Woki PBR Textured"
+                 : shadowed ? "Woki PBR Shadowed"
                             : (pbr ? "Woki PBR" : "Woki Unlit"),
         .sources =
             {
@@ -101,7 +109,7 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
                     .entry_point = "fragment_main",
                     .source_path = source_path},
             },
-        .interface = StandardInterface(pbr, skinned),
+        .interface = StandardInterface(pbr, skinned, shadowed),
         .hot_reload = true,
     };
     if (textured) {

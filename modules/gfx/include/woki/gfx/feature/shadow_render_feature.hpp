@@ -2,18 +2,19 @@
 
 #include "../draw/standard_draw_bindings.hpp"
 #include "../graph/render_feature.hpp"
+#include "../lighting/shadow.hpp"
 
 namespace woki::gfx {
-
-namespace render_outputs {
-inline const StringId kShadowDepth{"render.shadow_depth"};
-} // namespace render_outputs
 
 struct ShadowRenderFeatureDesc final {
     RenderView light_view{};
     rhi::TextureFormat format{rhi::TextureFormat::Depth32Float};
     u32 resolution{2048};
     f32 clear_depth{1.0F};
+    f32 depth_bias{0.001F};
+    f32 normal_bias{0.002F};
+    f32 strength{1.0F};
+    u32 light_index{0};
 };
 
 [[nodiscard]] Result<void> Validate(const ShadowRenderFeatureDesc& desc);

@@ -49,3 +49,14 @@ TEST_CASE("Standard shader library describes textured PBR resources") {
     REQUIRE(shader.interface.resources.size() == 6);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes shadowed PBR frame bindings") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::PbrShadowed);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/pbr_shadowed"});
+    REQUIRE(shader.interface.uses_lighting);
+    REQUIRE(shader.interface.uses_shadows);
+    REQUIRE(shader.interface.shadow_group == shader.interface.lighting_group);
+    REQUIRE(woki::gfx::Validate(shader));
+}

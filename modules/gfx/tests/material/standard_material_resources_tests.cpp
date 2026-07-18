@@ -11,5 +11,6 @@ TEST_CASE("Standard material resources require every fallback") {
     resources.normal = woki::gfx::TextureHandle::FromParts(2, 1);
     resources.metallic_roughness = woki::gfx::TextureHandle::FromParts(3, 1);
     resources.sampler = woki::gfx::SamplerHandle::FromParts(0, 1);
+    resources.shadow_sampler = woki::gfx::SamplerHandle::FromParts(1, 1);
     REQUIRE(resources.Valid());
 }

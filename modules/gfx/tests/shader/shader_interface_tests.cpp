@@ -70,3 +70,19 @@ TEST_CASE("Shader object transforms use a dedicated bind group") {
 
     REQUIRE_FALSE(woki::gfx::Validate(interface));
 }
+
+TEST_CASE("Shader frame data uses a dedicated bind group") {
+    const woki::gfx::ShaderInterfaceDesc interface{
+        .parameter_group = 2,
+        .uses_lighting = true,
+        .lighting_group = 2,
+        .parameters = {{.name = woki::StringId{"roughness"}}},
+    };
+
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}
+
+TEST_CASE("Shader shadows require lighting frame bindings") {
+    const woki::gfx::ShaderInterfaceDesc interface{.uses_shadows = true};
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}

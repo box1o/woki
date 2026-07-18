@@ -1,5 +1,6 @@
 #include <woki/gfx/shader/shader_interface.hpp>
 
+#include <array>
 #include <unordered_set>
 
 namespace woki::gfx {
@@ -52,10 +53,29 @@ Result<void> Validate(const ShaderInterfaceDesc& desc) {
             return Err(ErrorCode::ValidationInvalidState,
                 "Shader skinning requires a dedicated bind group");
         }
+        if (!desc.parameters.empty() && desc.lighting_group == desc.parameter_group) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Shader frame data requires a dedicated bind group");
+        }
         const u64 lighting = (static_cast<u64>(desc.lighting_group) << 32U) | desc.lighting_binding;
         if (!bindings.insert(lighting).second) {
             return Err(ErrorCode::ValidationInvalidState,
                 "Shader lighting and parameter bindings cannot overlap");
+        }
+    }
+    if (desc.uses_shadows) {
+        if (!desc.uses_lighting || desc.shadow_group != desc.lighting_group) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Shadow shaders require lighting and a shared frame bind group");
+        }
+        const std::array<u32, 3> shadow_bindings{
+            desc.shadow_data_binding, desc.shadow_texture_binding, desc.shadow_sampler_binding};
+        for (const u32 binding : shadow_bindings) {
+            const u64 slot = (static_cast<u64>(desc.shadow_group) << 32U) | binding;
+            if (!bindings.insert(slot).second) {
+                return Err(
+                    ErrorCode::ValidationInvalidState, "Shader shadow bindings must be unique");
+            }
         }
     }
     for (const auto& resource : desc.resources) {
@@ -73,6 +93,10 @@ Result<void> Validate(const ShaderInterfaceDesc& desc) {
         if (desc.uses_skinning && resource.group == desc.skin_group) {
             return Err(ErrorCode::ValidationInvalidState,
                 "Shader skinning requires a dedicated bind group");
+        }
+        if (desc.uses_lighting && resource.group == desc.lighting_group) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Shader frame data requires a dedicated bind group");
         }
         if (!bindings.insert(slot).second) {
             return Err(ErrorCode::ValidationInvalidState,

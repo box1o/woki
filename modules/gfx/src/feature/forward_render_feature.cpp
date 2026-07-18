@@ -6,6 +6,7 @@ struct ForwardRenderFeature::PassData final {
     ResolvedDrawList opaque{};
     ResolvedDrawList transparent{};
     StandardDrawBindings* bindings{nullptr};
+    bool shadows{false};
 };
 
 ForwardRenderFeature::ForwardRenderFeature(const ForwardRenderFeatureDesc& desc,
@@ -79,8 +80,10 @@ Result<void> ForwardRenderFeature::AddPasses(
         .opaque = std::move(*opaque),
         .transparent = std::move(*transparent),
         .bindings = bindings_,
+        .shadows = false,
     });
     bindings_->ClearLighting();
+    bindings_->ClearShadow();
     bindings_->SetView(context.view);
     auto lighting =
         PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);
@@ -91,6 +94,19 @@ Result<void> ForwardRenderFeature::AddPasses(
     if (auto lighting_binding = bindings_->SetLighting(lighting->bytes); !lighting_binding) {
         active_frame_.reset();
         return Err(lighting_binding.error());
+    }
+    const GraphResource shadow_depth = blackboard.Find(render_outputs::kShadowDepth);
+    const auto* shadow_data = blackboard.FindData<ShadowFrameData>(render_outputs::kShadowData);
+    if (static_cast<bool>(shadow_depth) != (shadow_data != nullptr)) {
+        active_frame_.reset();
+        return Err(ErrorCode::ValidationInvalidState,
+            "Forward renderer requires shadow depth and metadata together");
+    }
+    if (shadow_data) {
+        if (auto shadow_binding = bindings_->SetShadow(*shadow_data); !shadow_binding) {
+            active_frame_.reset();
+            return shadow_binding;
+        }
     }
     ResolvedDrawList all_draws{};
     all_draws.draws.reserve(
@@ -103,6 +119,7 @@ Result<void> ForwardRenderFeature::AddPasses(
         active_frame_.reset();
         return bindings;
     }
+    active_frame_->shadows = static_cast<bool>(shadow_depth);
 
     auto opaque_pass = graph.AddPass({
         .label = "Forward opaque",
@@ -126,10 +143,18 @@ Result<void> ForwardRenderFeature::AddPasses(
                     .clear = desc_.clear_depth,
                     .write = true},
             },
+        .samples = shadow_depth ? std::vector<GraphSampleInput>{{.resource = shadow_depth,
+                                      .mode = rhi::SampleMode::DepthTexture}}
+                                : std::vector<GraphSampleInput>{},
         .execute = [this](rhi::RenderPassContext& pass) -> Result<void> {
             const auto frame = active_frame_;
             if (!frame) {
                 return Err(ErrorCode::InvalidState, "Forward opaque pass has no active frame data");
+            }
+            if (auto prepared = frame->bindings->PrepareFrame(
+                    pass, frame->opaque, frame->shadows ? std::optional<u32>{0} : std::nullopt);
+                !prepared) {
+                return prepared;
             }
             auto encoded = EncodePreparedDraws(pass.encoder(), frame->opaque, frame->bindings);
             return encoded ? Ok() : Err(encoded.error());
@@ -159,11 +184,19 @@ Result<void> ForwardRenderFeature::AddPasses(
                     .clear = desc_.clear_depth,
                     .write = false},
             },
+        .samples = shadow_depth ? std::vector<GraphSampleInput>{{.resource = shadow_depth,
+                                      .mode = rhi::SampleMode::DepthTexture}}
+                                : std::vector<GraphSampleInput>{},
         .execute = [this](rhi::RenderPassContext& pass) -> Result<void> {
             const auto frame = active_frame_;
             if (!frame) {
                 return Err(
                     ErrorCode::InvalidState, "Forward transparent pass has no active frame data");
+            }
+            if (auto prepared = frame->bindings->PrepareFrame(pass, frame->transparent,
+                    frame->shadows ? std::optional<u32>{0} : std::nullopt);
+                !prepared) {
+                return prepared;
             }
             auto encoded = EncodePreparedDraws(pass.encoder(), frame->transparent, frame->bindings);
             return encoded ? Ok() : Err(encoded.error());

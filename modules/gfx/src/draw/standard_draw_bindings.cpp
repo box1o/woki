@@ -18,10 +18,6 @@ struct alignas(16) GpuObjectData final {
     if (!interface.parameters.empty()) {
         groups.push_back(interface.parameter_group);
     }
-    if (interface.uses_lighting &&
-        std::ranges::find(groups, interface.lighting_group) == groups.end()) {
-        groups.push_back(interface.lighting_group);
-    }
     for (const auto& resource : interface.resources) {
         if (std::ranges::find(groups, resource.group) == groups.end()) {
             groups.push_back(resource.group);
@@ -74,6 +70,12 @@ StandardDrawBindings::ObjectBinding* StandardDrawBindings::Find(
     return iterator != bindings.end() ? &*iterator : nullptr;
 }
 
+StandardDrawBindings::FrameBinding* StandardDrawBindings::FindFrame(
+    const rhi::RenderPipeline* pipeline) noexcept {
+    const auto iterator = std::ranges::find(frames_, pipeline, &FrameBinding::pipeline);
+    return iterator != frames_.end() ? &*iterator : nullptr;
+}
+
 Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding(
     const ResolvedDraw& draw, const RenderPassClass pass) {
     const ShaderDesc* shader = shaders_->Description(draw.material.shader);
@@ -120,23 +122,6 @@ Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding
                 .buffer = buffer,
                 .offset = uniform_slice->offset,
                 .size = uniform_slice->size,
-            });
-        }
-        if (shader->interface.uses_lighting && group == shader->interface.lighting_group) {
-            if (!lighting_) {
-                return Err(ErrorCode::ValidationNullValue,
-                    "Lighting shader requires a frame lighting allocation");
-            }
-            rhi::Buffer* buffer = resources_->Resolve(lighting_->buffer);
-            if (buffer == nullptr) {
-                return Err(ErrorCode::FailedToAcquireResource,
-                    "Frame lighting buffer is no longer active");
-            }
-            entries.push_back({
-                .binding = shader->interface.lighting_binding,
-                .buffer = buffer,
-                .offset = lighting_->offset,
-                .size = lighting_->size,
             });
         }
         for (const auto& binding : shader->interface.resources) {
@@ -322,6 +307,9 @@ void StandardDrawBindings::Encode(
     for (const auto& group : binding->groups) {
         pass.SetBindGroup(group.group, group.binding.get());
     }
+    if (auto* frame = FindFrame(draw.pipeline)) {
+        pass.SetBindGroup(frame->group, frame->binding.get());
+    }
     if (const auto* object = Find(objects_, draw.pipeline, draw.packet.object)) {
         pass.SetBindGroup(object->group, object->binding.get());
     }
@@ -347,14 +335,90 @@ Result<void> StandardDrawBindings::SetLighting(const std::span<const std::byte> 
     return Ok();
 }
 
+Result<void> StandardDrawBindings::SetShadow(const ShadowFrameData& data) {
+    auto allocation = uniforms_->Write(std::as_bytes(std::span{&data, 1}));
+    if (!allocation) {
+        return Err(allocation.error());
+    }
+    shadow_ = *allocation;
+    return Ok();
+}
+
+Result<void> StandardDrawBindings::PrepareFrame(rhi::RenderPassContext& context,
+    const ResolvedDrawList& draws, const std::optional<u32> shadow_sample) {
+    for (const auto& draw : draws.draws) {
+        if (FindFrame(draw.pipeline) != nullptr) {
+            continue;
+        }
+        const ShaderDesc* shader = shaders_->Description(draw.material.shader);
+        if (shader == nullptr) {
+            return Err(
+                ErrorCode::FailedToAcquireResource, "Frame binding shader is no longer active");
+        }
+        if (!shader->interface.uses_lighting) {
+            continue;
+        }
+        if (!lighting_) {
+            return Err(ErrorCode::ValidationNullValue,
+                "Lighting shader requires a frame lighting allocation");
+        }
+        rhi::Buffer* lighting_buffer = resources_->Resolve(lighting_->buffer);
+        auto layout = draw.pipeline->GetBindGroupLayout(shader->interface.lighting_group);
+        if (lighting_buffer == nullptr || !layout) {
+            return Err(ErrorCode::FailedToAcquireResource,
+                "Frame lighting binding resources are unavailable");
+        }
+        std::vector<rhi::BindGroupEntryDesc> entries{{
+            .binding = shader->interface.lighting_binding,
+            .buffer = lighting_buffer,
+            .offset = lighting_->offset,
+            .size = lighting_->size,
+        }};
+        if (shader->interface.uses_shadows) {
+            if (!shadow_ || !shadow_sample || *shadow_sample >= context.sample_count()) {
+                return Err(ErrorCode::ValidationNullValue,
+                    "Shadow shader requires frame shadow data and a sampled depth input");
+            }
+            rhi::Buffer* shadow_buffer = resources_->Resolve(shadow_->buffer);
+            rhi::Sampler* sampler = resources_->Resolve(desc_.defaults.shadow_sampler);
+            if (shadow_buffer == nullptr || sampler == nullptr) {
+                return Err(ErrorCode::FailedToAcquireResource,
+                    "Frame shadow binding resources are unavailable");
+            }
+            entries.push_back({.binding = shader->interface.shadow_data_binding,
+                .buffer = shadow_buffer,
+                .offset = shadow_->offset,
+                .size = shadow_->size});
+            entries.push_back({.binding = shader->interface.shadow_texture_binding,
+                .texture_view = &context.sample(*shadow_sample)});
+            entries.push_back(
+                {.binding = shader->interface.shadow_sampler_binding, .sampler = sampler});
+        }
+        auto group = device_->CreateBindGroup({
+            .layout = layout.get(),
+            .entries = entries,
+            .label = draw.material.label + ".Frame",
+        });
+        if (!group) {
+            return Err(group.error());
+        }
+        frames_.push_back({.pipeline = draw.pipeline,
+            .group = shader->interface.lighting_group,
+            .binding = std::move(*group)});
+    }
+    return Ok();
+}
+
 void StandardDrawBindings::SetView(const RenderView& view) noexcept { view_ = view; }
 
 void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
+void StandardDrawBindings::ClearShadow() noexcept { shadow_.reset(); }
 
 void StandardDrawBindings::Clear() noexcept {
     materials_.clear();
     objects_.clear();
     skins_.clear();
+    frames_.clear();
     snapshot_sequence_ = 0;
 }
 

@@ -13,6 +13,12 @@ Result<void> Validate(const ShadowRenderFeatureDesc& desc) {
         return Err(
             ErrorCode::ValidationOutOfRange, "Shadow clear depth must be finite and normalized");
     }
+    if (!std::isfinite(desc.depth_bias) || desc.depth_bias < 0.0F ||
+        !std::isfinite(desc.normal_bias) || desc.normal_bias < 0.0F ||
+        !std::isfinite(desc.strength) || desc.strength < 0.0F || desc.strength > 1.0F) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Shadow bias must be nonnegative and strength must be normalized");
+    }
     return Ok();
 }
 
@@ -36,6 +42,11 @@ Result<void> ShadowRenderFeature::AddPasses(
     RenderGraph& graph, RenderGraphBlackboard& blackboard, const RenderFeatureContext& context) {
     if (auto validation = Validate(desc_); !validation) {
         return validation;
+    }
+    if (desc_.light_index >= context.snapshot.lights.size() ||
+        !context.snapshot.lights[desc_.light_index].casts_shadows) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Shadow renderer requires a valid shadow-casting light index");
     }
     auto shadow_queue = BuildRenderQueue(
         context.snapshot, {.phase = DrawPhase::Opaque, .shadow_casters_only = true});
@@ -68,6 +79,15 @@ Result<void> ShadowRenderFeature::AddPasses(
         if (auto published = blackboard.Publish(render_outputs::kShadowDepth, depth); !published) {
             return published;
         }
+    }
+    if (auto published = blackboard.PublishData(render_outputs::kShadowData,
+            ShadowFrameData{.light_view_projection = desc_.light_view.view_projection,
+                .depth_bias = desc_.depth_bias,
+                .normal_bias = desc_.normal_bias,
+                .strength = desc_.strength,
+                .light_index = desc_.light_index});
+        !published) {
+        return published;
     }
 
     bindings_->SetView(desc_.light_view);

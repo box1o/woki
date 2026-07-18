@@ -25,7 +25,7 @@ namespace {
 } // namespace
 
 bool StandardMaterialResources::Valid() const noexcept {
-    return white && black && normal && metallic_roughness && sampler;
+    return white && black && normal && metallic_roughness && sampler && shadow_sampler;
 }
 
 Result<StandardMaterialResources> CreateStandardMaterialResources(GpuResourceManager& resources) {
@@ -63,11 +63,26 @@ Result<StandardMaterialResources> CreateStandardMaterialResources(GpuResourceMan
     if (!sampler) {
         return Err(sampler.error());
     }
+    auto shadow_sampler = resources.CreateSampler({
+        .asset_id = AssetId{"woki/samplers/shadow_comparison"},
+        .gpu = {.address_mode_u = rhi::AddressMode::ClampToEdge,
+            .address_mode_v = rhi::AddressMode::ClampToEdge,
+            .address_mode_w = rhi::AddressMode::ClampToEdge,
+            .mag_filter = rhi::FilterMode::Linear,
+            .min_filter = rhi::FilterMode::Linear,
+            .mipmap_filter = rhi::MipmapFilterMode::Nearest,
+            .compare = rhi::CompareFunction::LessEqual,
+            .label = "Woki shadow comparison sampler"},
+    });
+    if (!shadow_sampler) {
+        return Err(shadow_sampler.error());
+    }
     return Ok(StandardMaterialResources{.white = *white,
         .black = *black,
         .normal = *normal,
         .metallic_roughness = *metallic_roughness,
-        .sampler = *sampler});
+        .sampler = *sampler,
+        .shadow_sampler = *shadow_sampler});
 }
 
 } // namespace woki::gfx

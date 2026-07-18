@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../graph/render_feature.hpp"
+#include "../lighting/shadow.hpp"
 #include "../material/standard_material_resources.hpp"
 #include "../resource/frame_uniform_buffer.hpp"
 #include "../shader/shader_manager.hpp"
@@ -33,8 +34,12 @@ public:
 
     [[nodiscard]] std::size_t MaterialBindingCount() const noexcept;
     [[nodiscard]] Result<void> SetLighting(std::span<const std::byte> data);
+    [[nodiscard]] Result<void> SetShadow(const ShadowFrameData& data);
+    [[nodiscard]] Result<void> PrepareFrame(rhi::RenderPassContext& context,
+        const ResolvedDrawList& draws, std::optional<u32> shadow_sample = {});
     void SetView(const RenderView& view) noexcept;
     void ClearLighting() noexcept;
+    void ClearShadow() noexcept;
     void Clear() noexcept;
 
 private:
@@ -56,12 +61,19 @@ private:
         scope<rhi::BindGroup> binding{};
     };
 
+    struct FrameBinding final {
+        const rhi::RenderPipeline* pipeline{nullptr};
+        u32 group{0};
+        scope<rhi::BindGroup> binding{};
+    };
+
     [[nodiscard]] Result<MaterialBinding> BuildBinding(
         const ResolvedDraw& draw, RenderPassClass pass);
     [[nodiscard]] MaterialBinding* Find(
         const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
     [[nodiscard]] ObjectBinding* Find(std::vector<ObjectBinding>& bindings,
         const rhi::RenderPipeline* pipeline, RenderObjectHandle object) noexcept;
+    [[nodiscard]] FrameBinding* FindFrame(const rhi::RenderPipeline* pipeline) noexcept;
 
     rhi::Device* device_{nullptr};
     GpuResourceManager* resources_{nullptr};
@@ -71,7 +83,9 @@ private:
     std::vector<MaterialBinding> materials_{};
     std::vector<ObjectBinding> objects_{};
     std::vector<ObjectBinding> skins_{};
+    std::vector<FrameBinding> frames_{};
     std::optional<UniformBufferSlice> lighting_{};
+    std::optional<UniformBufferSlice> shadow_{};
     RenderView view_{};
     u64 snapshot_sequence_{0};
 };

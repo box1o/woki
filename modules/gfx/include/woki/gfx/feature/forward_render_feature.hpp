@@ -3,6 +3,7 @@
 #include "../draw/standard_draw_bindings.hpp"
 #include "../graph/render_feature.hpp"
 #include "../lighting/light.hpp"
+#include "../lighting/shadow.hpp"
 
 namespace woki::gfx {
 

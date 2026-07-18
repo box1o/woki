@@ -10,6 +10,7 @@ struct StandardMaterialResources final {
     TextureHandle normal{};
     TextureHandle metallic_roughness{};
     SamplerHandle sampler{};
+    SamplerHandle shadow_sampler{};
 
     [[nodiscard]] bool Valid() const noexcept;
 };
