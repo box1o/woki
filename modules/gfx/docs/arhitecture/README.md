@@ -116,7 +116,10 @@ resources are available.
 Graph resources include textures and buffers with transient, imported, and per-frame ownership.
 Buffer inputs have explicit access declarations, participate in the same dependency and lifetime
 analysis as textures, and are exposed to pass callbacks by stable input index. Transient buffers are
-allocated and reused by the RHI graph; per-frame buffers are bound by the caller. This path supports
+allocated and reused by the RHI graph; per-frame buffers are bound by the caller. Compatible
+transient textures and buffers alias the same native allocation only when their derived pass-lifetime
+intervals do not overlap. Diagnostics expose physical transient texture and buffer allocation counts
+so graph memory behavior remains observable. This path supports
 future GPU-driven visibility, indirect draws, compute-produced data, and external UI geometry without
 bypassing graph scheduling.
 

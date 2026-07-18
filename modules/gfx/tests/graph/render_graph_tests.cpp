@@ -229,3 +229,14 @@ TEST_CASE("Render graph rejects render attachments on compute passes") {
     }));
     REQUIRE_FALSE(graph.Compile());
 }
+
+TEST_CASE("Render graph rejects unused transient resources") {
+    woki::gfx::RenderGraph graph{};
+    REQUIRE(graph.AddTransientBuffer({
+        .label = "Unused",
+        .size = 256,
+        .usage = woki::rhi::BufferUsage::Storage,
+    }));
+
+    REQUIRE_FALSE(graph.Compile());
+}

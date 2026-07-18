@@ -502,12 +502,59 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
         return Err(ErrorCode::ValidationOutOfRange, "RenderGraph compile requires non-zero size");
     }
 
+    const auto use_resource = [this](const u32 resource_id, const u32 pass_index) {
+        if (resource_id >= blueprint_.resources.size()) {
+            return;
+        }
+        auto& resource = blueprint_.resources[resource_id];
+        resource.first_pass = resource.first_pass == kInvalidGraphResource
+                                  ? pass_index
+                                  : std::min(resource.first_pass, pass_index);
+        resource.last_pass = resource.last_pass == kInvalidGraphResource
+                                 ? pass_index
+                                 : std::max(resource.last_pass, pass_index);
+    };
+    for (u32 pass_index = 0; pass_index < blueprint_.passes.size(); ++pass_index) {
+        const PassRecord& pass = blueprint_.passes[pass_index];
+        for (const auto& color : pass.colors) {
+            use_resource(color.resource_id, pass_index);
+        }
+        if (pass.depth) {
+            use_resource(pass.depth->resource_id, pass_index);
+        }
+        for (const auto& sample : pass.samples) {
+            use_resource(sample.resource_id, pass_index);
+        }
+        for (const auto& buffer : pass.buffers) {
+            use_resource(buffer.resource_id, pass_index);
+        }
+        for (const auto& copy : pass.copies) {
+            use_resource(copy.src_resource_id, pass_index);
+            use_resource(copy.dst_resource_id, pass_index);
+        }
+        if (pass.framebuffer_id && *pass.framebuffer_id < blueprint_.framebuffers.size()) {
+            const auto& framebuffer = blueprint_.framebuffers[*pass.framebuffer_id];
+            for (const auto& [slot, resource_id] : framebuffer.colors) {
+                (void)slot;
+                use_resource(resource_id, pass_index);
+            }
+            if (framebuffer.depth_resource_id != kInvalidGraphResource) {
+                use_resource(framebuffer.depth_resource_id, pass_index);
+            }
+        }
+    }
+
     for (const ResourceRecord& resource : blueprint_.resources) {
         if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Buffer &&
             (resource.transient_buffer.size == 0 ||
                 resource.transient_buffer.usage == BufferUsage::None)) {
             return Err(ErrorCode::ValidationInvalidState,
                 "RenderGraph transient buffer requires size and usage");
+        }
+        if (resource.kind == ResourceKind::Transient &&
+            resource.first_pass == kInvalidGraphResource) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph transient resources must be used by at least one pass");
         }
     }
 
@@ -591,13 +638,18 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
     width_ = width;
     height_ = height;
 
-    for (RuntimeResource& runtime : runtime_resources_) {
-        if (runtime.blueprint.kind != ResourceKind::Transient) {
-            continue;
+    std::vector<RuntimeResource*> transients{};
+    for (auto& runtime : runtime_resources_) {
+        if (runtime.blueprint.kind == ResourceKind::Transient) {
+            transients.push_back(&runtime);
         }
-        auto result = runtime.blueprint.type == ResourceType::Buffer
-                          ? AcquireTransientBuffer(runtime)
-                          : AcquireTransientResource(runtime, width, height);
+    }
+    std::ranges::sort(transients, {},
+        [](const RuntimeResource* runtime) { return runtime->blueprint.first_pass; });
+    for (RuntimeResource* runtime : transients) {
+        auto result = runtime->blueprint.type == ResourceType::Buffer
+                          ? AcquireTransientBuffer(*runtime)
+                          : AcquireTransientResource(*runtime, width, height);
         if (!result) {
             return result;
         }
@@ -619,10 +671,10 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
 
 void RenderGraph::ReleaseTransientPool() {
     for (PooledTransientTexture& entry : transient_pool_) {
-        entry.in_use = false;
+        entry.last_pass = kInvalidGraphResource;
     }
     for (auto& entry : transient_buffer_pool_) {
-        entry.in_use = false;
+        entry.last_pass = kInvalidGraphResource;
     }
 
     for (RuntimeResource& runtime : runtime_resources_) {
@@ -643,8 +695,10 @@ Result<void> RenderGraph::AcquireTransientBuffer(RuntimeResource& runtime) {
     }
     for (u32 index = 0; index < transient_buffer_pool_.size(); ++index) {
         auto& entry = transient_buffer_pool_[index];
-        if (!entry.in_use && entry.desc.size == desc.size && entry.desc.usage == desc.usage) {
-            entry.in_use = true;
+        if (entry.desc.size == desc.size && entry.desc.usage == desc.usage &&
+            (entry.last_pass == kInvalidGraphResource ||
+                entry.last_pass < runtime.blueprint.first_pass)) {
+            entry.last_pass = runtime.blueprint.last_pass;
             runtime.pool_index = index;
             runtime.buffer.reset();
             return Ok();
@@ -659,7 +713,8 @@ Result<void> RenderGraph::AcquireTransientBuffer(RuntimeResource& runtime) {
         return Err(buffer.error());
     }
     runtime.pool_index = static_cast<u32>(transient_buffer_pool_.size());
-    transient_buffer_pool_.push_back({.desc = desc, .buffer = std::move(*buffer), .in_use = true});
+    transient_buffer_pool_.push_back(
+        {.desc = desc, .buffer = std::move(*buffer), .last_pass = runtime.blueprint.last_pass});
     return Ok();
 }
 
@@ -670,11 +725,12 @@ Result<void> RenderGraph::AcquireTransientResource(
 
     for (u32 pool_index = 0; pool_index < transient_pool_.size(); ++pool_index) {
         PooledTransientTexture& entry = transient_pool_[pool_index];
-        if (entry.in_use || entry.key != key) {
+        if (entry.key != key ||
+            (entry.last_pass != kInvalidGraphResource && entry.last_pass >= record.first_pass)) {
             continue;
         }
 
-        entry.in_use = true;
+        entry.last_pass = record.last_pass;
         runtime.pool_index = pool_index;
         runtime.texture.reset();
         runtime.view.reset();
@@ -696,7 +752,7 @@ Result<void> RenderGraph::AcquireTransientResource(
         pooled.depth_sample_view =
             pooled.texture->CreateView(MakeDepthSampleViewDesc(record.transient));
     }
-    pooled.in_use = true;
+    pooled.last_pass = record.last_pass;
 
     runtime.pool_index = static_cast<u32>(transient_pool_.size());
     transient_pool_.push_back(std::move(pooled));
@@ -710,6 +766,14 @@ Result<void> RenderGraph::RebuildForResize(const u32 width, const u32 height) {
 
     ReleaseTransientPool();
     return AllocateRuntimeResources(width, height);
+}
+
+std::size_t RenderGraph::TransientTextureAllocationCount() const noexcept {
+    return transient_pool_.size();
+}
+
+std::size_t RenderGraph::TransientBufferAllocationCount() const noexcept {
+    return transient_buffer_pool_.size();
 }
 
 Texture* RenderGraph::ResolveTexture(const u32 resource_id) {

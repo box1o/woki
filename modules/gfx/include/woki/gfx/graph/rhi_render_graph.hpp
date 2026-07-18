@@ -40,6 +40,8 @@ public:
     [[nodiscard]] Result<RhiRenderGraphFrame> BeginFrame(
         rhi::Device& device, u32 width, u32 height);
     [[nodiscard]] Result<void> RebuildForResize(u32 width, u32 height);
+    [[nodiscard]] std::size_t TransientTextureAllocationCount() const noexcept;
+    [[nodiscard]] std::size_t TransientBufferAllocationCount() const noexcept;
 
 private:
     friend Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph&,

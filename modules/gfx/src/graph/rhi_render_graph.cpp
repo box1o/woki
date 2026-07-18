@@ -66,6 +66,14 @@ Result<void> ExecutableRenderGraph::RebuildForResize(const u32 width, const u32 
     return Ok();
 }
 
+std::size_t ExecutableRenderGraph::TransientTextureAllocationCount() const noexcept {
+    return graph_ ? graph_->TransientTextureAllocationCount() : 0;
+}
+
+std::size_t ExecutableRenderGraph::TransientBufferAllocationCount() const noexcept {
+    return graph_ ? graph_->TransientBufferAllocationCount() : 0;
+}
+
 Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
     const CompiledRenderGraph& compiled, rhi::Device& device, GpuResourceManager& resources,
     const u32 width, const u32 height) {

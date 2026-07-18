@@ -329,6 +329,9 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
                 .first_pass = *first,
                 .last_pass = last,
             });
+        } else if (resources_[resource].origin == GraphResourceOrigin::Transient) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Transient graph resources must be used by at least one pass");
         }
     }
     return Ok(std::move(compiled));

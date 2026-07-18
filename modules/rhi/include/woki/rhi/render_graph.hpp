@@ -50,6 +50,8 @@ public:
 
     [[nodiscard]] RenderGraphFrame BeginFrame(Device& device, u32 width, u32 height);
     [[nodiscard]] Result<void> RebuildForResize(u32 width, u32 height);
+    [[nodiscard]] std::size_t TransientTextureAllocationCount() const noexcept;
+    [[nodiscard]] std::size_t TransientBufferAllocationCount() const noexcept;
 
 private:
     friend class RenderGraphBuilder;

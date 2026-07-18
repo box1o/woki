@@ -66,6 +66,8 @@ struct RendererResourceStats final {
     u64 pipelines{0};
     u64 materials{0};
     u64 retired{0};
+    u64 graph_transient_textures{0};
+    u64 graph_transient_buffers{0};
 };
 
 struct RendererDiagnostics final {

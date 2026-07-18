@@ -203,6 +203,8 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         .materials = materials_->Size(),
         .retired = resources_->RetiredCount() + shaders_->RetiredCount() +
                    pipelines_->RetiredCount() + materials_->RetiredCount(),
+        .graph_transient_textures = graph_->TransientTextureAllocationCount(),
+        .graph_transient_buffers = graph_->TransientBufferAllocationCount(),
     };
     return Ok(result);
 }

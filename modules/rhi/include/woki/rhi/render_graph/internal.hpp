@@ -31,6 +31,8 @@ struct ResourceRecord final {
     TransientBufferDesc transient_buffer{};
     Texture* owned_texture{nullptr};
     Buffer* owned_buffer{nullptr};
+    u32 first_pass{kInvalidGraphResource};
+    u32 last_pass{kInvalidGraphResource};
 };
 
 struct FramebufferRecord final {
@@ -99,13 +101,13 @@ struct PooledTransientTexture final {
     scope<Texture> texture{};
     scope<TextureView> view{};
     scope<TextureView> depth_sample_view{};
-    bool in_use{false};
+    u32 last_pass{kInvalidGraphResource};
 };
 
 struct PooledTransientBuffer final {
     TransientBufferDesc desc{};
     scope<Buffer> buffer{};
-    bool in_use{false};
+    u32 last_pass{kInvalidGraphResource};
 };
 
 struct GraphBlueprint final {
