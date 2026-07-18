@@ -4,6 +4,7 @@
 #include "resource/gpu_resource.hpp"
 #include "resource/gpu_resource_manager.hpp"
 #include "resource/frame_upload_arena.hpp"
+#include "resource/frame_uniform_buffer.hpp"
 #include "resource/resource_handle.hpp"
 #include "resource/resource_id.hpp"
 #include "resource/resource_metadata.hpp"

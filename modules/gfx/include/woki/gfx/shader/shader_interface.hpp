@@ -40,6 +40,8 @@ struct ShaderResourceBindingDesc final {
 };
 
 struct ShaderInterfaceDesc final {
+    u32 parameter_group{1};
+    u32 parameter_binding{0};
     std::vector<ShaderParameterDesc> parameters{};
     std::vector<ShaderResourceBindingDesc> resources{};
 };

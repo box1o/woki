@@ -30,6 +30,8 @@ public:
     [[nodiscard]] const rhi::Buffer* Resolve(BufferHandle handle) const noexcept;
     [[nodiscard]] rhi::Texture* Resolve(TextureHandle handle) noexcept;
     [[nodiscard]] const rhi::Texture* Resolve(TextureHandle handle) const noexcept;
+    [[nodiscard]] rhi::TextureView* ResolveView(TextureHandle handle) noexcept;
+    [[nodiscard]] const rhi::TextureView* ResolveView(TextureHandle handle) const noexcept;
     [[nodiscard]] rhi::Sampler* Resolve(SamplerHandle handle) noexcept;
     [[nodiscard]] const rhi::Sampler* Resolve(SamplerHandle handle) const noexcept;
 

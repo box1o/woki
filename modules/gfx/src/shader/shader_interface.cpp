@@ -17,6 +17,9 @@ Result<void> Validate(const ShaderInterfaceDesc& desc) {
     }
 
     std::unordered_set<u64> bindings{};
+    if (!desc.parameters.empty()) {
+        bindings.insert((static_cast<u64>(desc.parameter_group) << 32U) | desc.parameter_binding);
+    }
     for (const auto& resource : desc.resources) {
         if (resource.name.Empty()) {
             return Err(ErrorCode::ValidationNullValue, "Shader interface resource requires a name");

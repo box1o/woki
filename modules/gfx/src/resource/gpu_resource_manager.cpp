@@ -18,6 +18,7 @@ struct BufferRecord final {
 
 struct TextureRecord final {
     scope<rhi::Texture> gpu{};
+    scope<rhi::TextureView> view{};
     TextureResourceDesc desc{};
 };
 
@@ -46,9 +47,14 @@ public:
     detail::ResourceRegistry<TextureRecord, TextureTag> textures{};
     detail::ResourceRegistry<SamplerRecord, SamplerTag> samplers{};
 
+    struct RetiredTexture final {
+        scope<rhi::Texture> gpu{};
+        scope<rhi::TextureView> view{};
+    };
+
     struct RetiredResource final {
         u64 after_submission{0};
-        std::variant<scope<rhi::Buffer>, scope<rhi::Texture>, scope<rhi::Sampler>> gpu{};
+        std::variant<scope<rhi::Buffer>, RetiredTexture, scope<rhi::Sampler>> gpu{};
     };
     std::vector<RetiredResource> retired{};
 };
@@ -125,8 +131,15 @@ Result<TextureHandle> GpuResourceManager::CreateTexture(const TextureResourceDes
         stored_desc.initial_data.clear();
         stored_desc.initial_data.shrink_to_fit();
     }
+    auto view = (*gpu)->CreateView({.label = desc.gpu.label + ".DefaultView"});
+    if (!view) {
+        (*gpu)->Destroy();
+        return Err(
+            ErrorCode::GraphicsTextureCreationFailed, "Failed to create the texture default view");
+    }
     return Ok(impl_->textures.Create(desc.asset_id, desc.gpu.label, ResourceState::Resident,
-        TextureRecord{.gpu = std::move(*gpu), .desc = std::move(stored_desc)}));
+        TextureRecord{
+            .gpu = std::move(*gpu), .view = std::move(view), .desc = std::move(stored_desc)}));
 }
 
 Result<SamplerHandle> GpuResourceManager::CreateSampler(const SamplerResourceDesc& desc) {
@@ -177,6 +190,16 @@ const rhi::Texture* GpuResourceManager::Resolve(const TextureHandle handle) cons
     return record == nullptr ? nullptr : record->gpu.get();
 }
 
+rhi::TextureView* GpuResourceManager::ResolveView(const TextureHandle handle) noexcept {
+    auto* record = impl_->textures.TryGetValue(handle);
+    return record == nullptr ? nullptr : record->view.get();
+}
+
+const rhi::TextureView* GpuResourceManager::ResolveView(const TextureHandle handle) const noexcept {
+    const auto* record = impl_->textures.TryGetValue(handle);
+    return record == nullptr ? nullptr : record->view.get();
+}
+
 rhi::Sampler* GpuResourceManager::Resolve(const SamplerHandle handle) noexcept {
     auto* record = impl_->samplers.TryGetValue(handle);
     return record == nullptr ? nullptr : record->gpu.get();
@@ -216,6 +239,7 @@ bool GpuResourceManager::Destroy(const TextureHandle handle) {
     if (record == nullptr) {
         return false;
     }
+    record->view.reset();
     record->gpu->Destroy();
     return impl_->textures.Remove(handle);
 }
@@ -238,7 +262,8 @@ bool GpuResourceManager::Retire(const TextureHandle handle, const u64 after_subm
     if (record == nullptr) {
         return false;
     }
-    impl_->retired.push_back({after_submission, std::move(record->gpu)});
+    impl_->retired.push_back({after_submission,
+        Impl::RetiredTexture{.gpu = std::move(record->gpu), .view = std::move(record->view)}});
     return impl_->textures.Remove(handle);
 }
 
@@ -259,10 +284,12 @@ void GpuResourceManager::Collect(const u64 completed_submission) {
 
         std::visit(
             [](auto& gpu) {
-                using Resource = std::remove_cvref_t<decltype(*gpu)>;
-                if constexpr (std::same_as<Resource, rhi::Buffer> ||
-                              std::same_as<Resource, rhi::Texture>) {
+                using Retired = std::remove_cvref_t<decltype(gpu)>;
+                if constexpr (std::same_as<Retired, scope<rhi::Buffer>>) {
                     gpu->Destroy();
+                } else if constexpr (std::same_as<Retired, Impl::RetiredTexture>) {
+                    gpu.view.reset();
+                    gpu.gpu->Destroy();
                 }
             },
             retired.gpu);
@@ -280,7 +307,10 @@ std::size_t GpuResourceManager::RetiredCount() const noexcept { return impl_->re
 
 void GpuResourceManager::Clear() {
     impl_->buffers.Each([](BufferHandle, auto& entry) { entry.value.gpu->Destroy(); });
-    impl_->textures.Each([](TextureHandle, auto& entry) { entry.value.gpu->Destroy(); });
+    impl_->textures.Each([](TextureHandle, auto& entry) {
+        entry.value.view.reset();
+        entry.value.gpu->Destroy();
+    });
     impl_->buffers.Clear();
     impl_->textures.Clear();
     impl_->samplers.Clear();
