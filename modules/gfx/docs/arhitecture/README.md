@@ -23,19 +23,28 @@ Shared resources are cached by content or normalized descriptors. Replaced GPU v
 
 ![Shader hot-reload flow](shader-hot-reload.svg)
 
-Shader changes compile asynchronously and are validated before becoming active. A complete replacement is committed at a frame boundary. Compilation or validation failures preserve the previous working shader and pipelines.
+Shader files and recursive includes are tracked by dependency. At the beginning of a frame, changed
+shaders are synchronously recompiled and their dependent pipelines are rebuilt. A failed shader
+compile preserves the previous shader modules; diagnostics report reload and pipeline-rebuild
+failures. Transactional replacement of an entire multi-shader set is not implemented yet.
 
 ## Frame lifecycle
 
 ![Renderer frame lifecycle](frame-lifecycle.svg)
 
-Scene changes are committed before an immutable frame snapshot is created. Animation, extraction, visibility, draw preparation, and uploads run as jobs. The render graph then orders passes, manages transient resources, records commands, and submits the frame.
+Scene extraction creates an immutable frame snapshot. Optional bounding spheres are culled against a
+supplied frustum before opaque and transparent queues are built. Features prepare draw state and
+uploads synchronously, then the render graph orders passes, manages transient textures, records
+commands, and submits the frame.
 
 ## Draw resolution
 
 ![Draw-state resolution](draw-resolution.svg)
 
-Draw packets contain logical handles rather than raw RHI pointers. During execution, GFX resolves the active pipeline version, standardized binding groups, geometry slices, and draw parameters. A command-state cache avoids redundant GPU state changes.
+Draw packets contain logical handles rather than raw RHI pointers. Before graph execution, GFX
+resolves active pipelines, standardized binding groups, geometry slices, and draw parameters. The
+draw encoder avoids redundant pipeline, vertex-buffer, and index-buffer state changes while encoding
+contiguous batches.
 
 ## External render modules
 
@@ -45,15 +54,17 @@ The future UI renderer remains separate from GFX and uses these same generic fac
 
 ## Built-in shading
 
-`StandardShaderLibrary` describes file-backed, hot-reloadable unlit, forward PBR, and skinned
-forward PBR shaders. Shared WGSL files provide object transforms and lighting functions through the
-normal shader include system. Standard interfaces reserve independent binding groups for per-object
-data, material parameters, frame lighting, and skin palettes so independent render modules can use
-the same conventions without depending on built-in passes.
+`StandardShaderLibrary` describes file-backed, hot-reloadable unlit, numeric PBR, textured PBR,
+shadowed PBR, skinned PBR, and tone-mapping shaders. Shared WGSL files provide object transforms,
+BRDF functions, and lighting functions through the normal shader include system. Standard interfaces
+reserve independent binding groups for per-object data, material parameters, frame lighting/shadows,
+and skin palettes.
 
-The current PBR path implements numeric base color, emissive, metallic, and roughness parameters
-with directional, point, and spot lights. Texture maps, image-based lighting, and shadow sampling
-remain separate variants rather than optional bindings in the base shader.
+The PBR paths implement base color, emissive, metallic, roughness, normal, occlusion, and alpha-mask
+inputs with directional, point, and spot lights. Missing material maps bind deterministic 1x1
+fallback textures. A shadow feature renders a selected shadow-casting light into graph-owned depth;
+the shadowed PBR variant consumes that texture through pass-time frame bindings. Image-based lighting
+and cascaded/atlas shadows remain future extensions.
 
 ## Animation and skinning
 
@@ -65,3 +76,27 @@ per-draw storage data for skinned shader variants.
 
 Animation file import is intentionally outside GFX. Importers translate FBX, glTF, or other source
 formats into these runtime-neutral clip and skeleton structures.
+
+## Built-in render features
+
+- `ForwardRenderFeature` renders opaque and transparent queues to either the final output or an
+  offscreen HDR texture.
+- `ShadowRenderFeature` filters shadow casters and publishes fixed-resolution depth plus typed light
+  metadata through the graph blackboard.
+- `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline,
+  then republishes its per-frame output as the renderer result. The built-in tone-map shader is one
+  ready-to-use pipeline source.
+
+Feature metadata uses typed blackboard values, while textures remain declared graph resources. This
+keeps transient texture lifetimes inside the graph and creates dependent bind groups only when pass
+texture views are available.
+
+## Pipeline and diagnostics API
+
+`BuildStandardMaterialPipeline` derives consistent raster, blend, depth, attachment, and resolver-key
+state for forward, transparent, and depth-only material variants. `CreateStandardMaterialPipeline`
+creates and registers the result idempotently.
+
+Renderer diagnostics expose the last frame result, hot-reload failures, CPU timings for maintenance,
+planning, graph compilation, upload, execution, and total frame work, plus live and retired GFX
+resource counts. GPU timestamp queries are not integrated yet.
