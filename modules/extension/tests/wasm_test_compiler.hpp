@@ -73,6 +73,12 @@ inline std::string woki_test_wasm_compile_prefix() {
 }
 
 inline std::string woki_test_wasm_ld_path() {
+#ifdef WOKI_TEST_WASM_LD
+    return WOKI_TEST_WASM_LD;
+#endif
+    if (const char* from_env = std::getenv("WOKI_WASM_LD")) {
+        return from_env;
+    }
     const std::string bin_dir = woki_test_wasm_clang_dir();
     if (bin_dir.empty()) {
         return {};
@@ -131,10 +137,14 @@ inline bool woki_test_compile_wasm(
         return false;
     }
 
+    std::string linker_exports(export_flags);
+    for (size_t pos = 0; (pos = linker_exports.find("-Wl,", pos)) != std::string::npos;) {
+        linker_exports.erase(pos, 4);
+    }
+
     const std::string link = woki_test_wasm_compile_prefix() + wasm_ld + " -o \"" + wasm_path +
                              "\" \"" + obj_path.string() +
-                             "\" --no-entry --allow-undefined --export-memory " +
-                             std::string(export_flags);
+                             "\" --no-entry --allow-undefined --export-memory " + linker_exports;
 
     const bool ok = std::system(link.c_str()) == 0;
     std::error_code ec;
