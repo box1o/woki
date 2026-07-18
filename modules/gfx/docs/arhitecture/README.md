@@ -42,3 +42,26 @@ Draw packets contain logical handles rather than raw RHI pointers. During execut
 Independent render modules integrate through the generic render-feature API. They can manage their own shaders and pipelines, allocate dynamic buffers, register render-graph passes, and render to imported or offscreen targets without owning the RHI device or bypassing graph validation.
 
 The future UI renderer remains separate from GFX and uses these same generic facilities.
+
+## Built-in shading
+
+`StandardShaderLibrary` describes file-backed, hot-reloadable unlit, forward PBR, and skinned
+forward PBR shaders. Shared WGSL files provide object transforms and lighting functions through the
+normal shader include system. Standard interfaces reserve independent binding groups for per-object
+data, material parameters, frame lighting, and skin palettes so independent render modules can use
+the same conventions without depending on built-in passes.
+
+The current PBR path implements numeric base color, emissive, metallic, and roughness parameters
+with directional, point, and spot lights. Texture maps, image-based lighting, and shadow sampling
+remain separate variants rather than optional bindings in the base shader.
+
+## Animation and skinning
+
+Animation clips contain independent translation, rotation, and scale tracks over a validated
+parent-before-child skeleton. Evaluation supports looped and clamped playback and produces local,
+global, and inverse-bind-adjusted skin matrices. Render objects may carry an evaluated skin palette;
+scene extraction preserves it through immutable snapshots and the draw-binding layer uploads it as
+per-draw storage data for skinned shader variants.
+
+Animation file import is intentionally outside GFX. Importers translate FBX, glTF, or other source
+formats into these runtime-neutral clip and skeleton structures.
