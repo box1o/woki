@@ -33,18 +33,21 @@ public:
     ExecutableRenderGraph& operator=(const ExecutableRenderGraph&) = delete;
     ~ExecutableRenderGraph();
 
-    [[nodiscard]] RhiRenderGraphFrame BeginFrame(rhi::Device& device, u32 width, u32 height);
+    [[nodiscard]] Result<RhiRenderGraphFrame> BeginFrame(
+        rhi::Device& device, u32 width, u32 height);
     [[nodiscard]] Result<void> RebuildForResize(u32 width, u32 height);
 
 private:
     friend Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph&,
         const CompiledRenderGraph&, rhi::Device&, GpuResourceManager&, u32, u32);
 
-    ExecutableRenderGraph(
-        scope<rhi::RenderGraph> graph, std::vector<rhi::PerFrameSlot> per_frame_slots);
+    ExecutableRenderGraph(scope<rhi::RenderGraph> graph,
+        std::vector<rhi::PerFrameSlot> per_frame_slots, u32 width, u32 height);
 
     scope<rhi::RenderGraph> graph_{};
     std::vector<rhi::PerFrameSlot> per_frame_slots_{};
+    u32 width_{0};
+    u32 height_{0};
 };
 
 [[nodiscard]] Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,

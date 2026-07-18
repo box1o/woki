@@ -38,6 +38,7 @@ public:
         std::span<const std::byte> data, u64 alignment = 0);
     [[nodiscard]] Result<void> Flush();
     [[nodiscard]] Result<void> MarkSubmitted(u64 submission);
+    void AbortFrame() noexcept;
 
     [[nodiscard]] BufferHandle Buffer() const noexcept;
     [[nodiscard]] u64 Used() const noexcept;

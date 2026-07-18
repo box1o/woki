@@ -102,3 +102,18 @@ TEST_CASE("Removing a render feature transfers its ownership") {
     REQUIRE(removed->Name() == "Producer");
     REQUIRE(features.Size() == 0);
 }
+
+TEST_CASE("Render feature registry revisions track topology changes") {
+    woki::gfx::RenderFeatureRegistry features{};
+    const auto initial = features.Revision();
+    REQUIRE(features.Add(std::make_unique<ProducerFeature>()));
+    const auto added = features.Revision();
+    REQUIRE(added != initial);
+
+    REQUIRE(features.SetEnabled("Producer", false));
+    REQUIRE(features.Revision() != added);
+    const auto disabled = features.Revision();
+
+    REQUIRE(features.SetEnabled("Producer", false));
+    REQUIRE(features.Revision() == disabled);
+}

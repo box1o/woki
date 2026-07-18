@@ -89,6 +89,11 @@ Result<void> FrameUploadArena::MarkSubmitted(const u64 submission) {
     return Ok();
 }
 
+void FrameUploadArena::AbortFrame() noexcept {
+    cursor_ = 0;
+    active_ = false;
+}
+
 std::span<const std::byte> FrameUploadArena::PendingData() const noexcept {
     if (!active_ || cursor_ == 0) {
         return {};

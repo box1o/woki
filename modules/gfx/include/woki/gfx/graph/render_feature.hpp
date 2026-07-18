@@ -51,6 +51,7 @@ public:
     [[nodiscard]] const RenderFeature* Find(std::string_view name) const noexcept;
     [[nodiscard]] Result<void> SetEnabled(std::string_view name, bool enabled);
     [[nodiscard]] bool IsEnabled(std::string_view name) const noexcept;
+    [[nodiscard]] u64 Revision() const noexcept;
 
     [[nodiscard]] Result<RenderFeatureGraph> Build(const RenderFeatureContext& context);
 
@@ -67,6 +68,7 @@ private:
     [[nodiscard]] auto FindEntry(std::string_view name) const noexcept;
 
     std::vector<Entry> features_{};
+    u64 revision_{1};
 };
 
 } // namespace woki::gfx

@@ -94,6 +94,11 @@ Result<void> FrameUniformBuffer::MarkSubmitted(const u64 submission) {
     return arena_.MarkSubmitted(submission);
 }
 
+void FrameUniformBuffer::AbortFrame() noexcept {
+    arena_.AbortFrame();
+    flushed_ = false;
+}
+
 BufferHandle FrameUniformBuffer::Buffer() const noexcept { return buffer_; }
 u64 FrameUniformBuffer::Used() const noexcept { return arena_.Used(); }
 bool FrameUniformBuffer::FrameActive() const noexcept { return arena_.FrameActive(); }

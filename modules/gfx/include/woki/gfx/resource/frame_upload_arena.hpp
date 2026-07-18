@@ -27,6 +27,7 @@ public:
     [[nodiscard]] Result<FrameUploadAllocation> Write(
         std::span<const std::byte> data, u64 alignment = 0);
     [[nodiscard]] Result<void> MarkSubmitted(u64 submission);
+    void AbortFrame() noexcept;
 
     [[nodiscard]] std::span<const std::byte> PendingData() const noexcept;
     [[nodiscard]] u64 PendingOffset() const noexcept;

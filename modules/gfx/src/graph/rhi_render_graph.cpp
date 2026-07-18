@@ -17,19 +17,34 @@ Result<void> RhiRenderGraphFrame::Bind(const GraphResource resource, rhi::Textur
 
 Result<void> RhiRenderGraphFrame::Execute() { return frame_.Execute(); }
 
-ExecutableRenderGraph::ExecutableRenderGraph(
-    scope<rhi::RenderGraph> graph, std::vector<rhi::PerFrameSlot> per_frame_slots)
-    : graph_(std::move(graph)), per_frame_slots_(std::move(per_frame_slots)) {}
+ExecutableRenderGraph::ExecutableRenderGraph(scope<rhi::RenderGraph> graph,
+    std::vector<rhi::PerFrameSlot> per_frame_slots, const u32 width, const u32 height)
+    : graph_(std::move(graph)), per_frame_slots_(std::move(per_frame_slots)), width_(width),
+      height_(height) {}
 
 ExecutableRenderGraph::~ExecutableRenderGraph() = default;
 
-RhiRenderGraphFrame ExecutableRenderGraph::BeginFrame(
+Result<RhiRenderGraphFrame> ExecutableRenderGraph::BeginFrame(
     rhi::Device& device, const u32 width, const u32 height) {
-    return RhiRenderGraphFrame(graph_->BeginFrame(device, width, height), per_frame_slots_);
+    if (width == 0 || height == 0) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Executable render graph frame dimensions must be nonzero");
+    }
+    if (width != width_ || height != height_) {
+        if (auto rebuilt = RebuildForResize(width, height); !rebuilt) {
+            return Err(rebuilt.error());
+        }
+    }
+    return Ok(RhiRenderGraphFrame(graph_->BeginFrame(device, width, height), per_frame_slots_));
 }
 
 Result<void> ExecutableRenderGraph::RebuildForResize(const u32 width, const u32 height) {
-    return graph_->RebuildForResize(width, height);
+    if (auto result = graph_->RebuildForResize(width, height); !result) {
+        return result;
+    }
+    width_ = width;
+    height_ = height;
+    return Ok();
 }
 
 Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
@@ -118,7 +133,7 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
     if (!native) {
         return Err(native.error());
     }
-    return Ok(ExecutableRenderGraph(std::move(*native), std::move(per_frame_slots)));
+    return Ok(ExecutableRenderGraph(std::move(*native), std::move(per_frame_slots), width, height));
 }
 
 } // namespace woki::gfx

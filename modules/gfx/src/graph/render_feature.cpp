@@ -3,6 +3,14 @@
 #include <algorithm>
 
 namespace woki::gfx {
+namespace {
+
+[[nodiscard]] constexpr u64 NextRevision(const u64 revision) noexcept {
+    const u64 next = revision + 1;
+    return next == 0 ? 1 : next;
+}
+
+} // namespace
 
 Result<void> RenderGraphBlackboard::Publish(const StringId name, const GraphResource resource) {
     if (name.Empty() || !resource) {
@@ -47,6 +55,7 @@ Result<void> RenderFeatureRegistry::Add(std::unique_ptr<RenderFeature> feature) 
         return Err(ErrorCode::ValidationInvalidState, "Render feature name is already registered");
     }
     features_.push_back({.feature = std::move(feature)});
+    revision_ = NextRevision(revision_);
     return Ok();
 }
 
@@ -57,6 +66,7 @@ std::unique_ptr<RenderFeature> RenderFeatureRegistry::Remove(const std::string_v
     }
     auto feature = std::move(iterator->feature);
     features_.erase(iterator);
+    revision_ = NextRevision(revision_);
     return feature;
 }
 
@@ -75,7 +85,10 @@ Result<void> RenderFeatureRegistry::SetEnabled(const std::string_view name, cons
     if (iterator == features_.end()) {
         return Err(ErrorCode::FailedToAcquireResource, "Render feature is not registered");
     }
-    iterator->enabled = enabled;
+    if (iterator->enabled != enabled) {
+        iterator->enabled = enabled;
+        revision_ = NextRevision(revision_);
+    }
     return Ok();
 }
 
@@ -83,6 +96,8 @@ bool RenderFeatureRegistry::IsEnabled(const std::string_view name) const noexcep
     const auto iterator = FindEntry(name);
     return iterator != features_.end() && iterator->enabled;
 }
+
+u64 RenderFeatureRegistry::Revision() const noexcept { return revision_; }
 
 Result<RenderFeatureGraph> RenderFeatureRegistry::Build(const RenderFeatureContext& context) {
     RenderFeatureGraph result{};
@@ -104,6 +119,11 @@ Result<RenderFeatureGraph> RenderFeatureRegistry::Build(const RenderFeatureConte
 }
 
 std::size_t RenderFeatureRegistry::Size() const noexcept { return features_.size(); }
-void RenderFeatureRegistry::Clear() noexcept { features_.clear(); }
+void RenderFeatureRegistry::Clear() noexcept {
+    if (!features_.empty()) {
+        features_.clear();
+        revision_ = NextRevision(revision_);
+    }
+}
 
 } // namespace woki::gfx

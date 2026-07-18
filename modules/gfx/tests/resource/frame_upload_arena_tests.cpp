@@ -45,3 +45,18 @@ TEST_CASE("Frame upload arena reports segment exhaustion without advancing") {
     REQUIRE_FALSE(arena->Write(extra));
     REQUIRE(arena->Used() == 5);
 }
+
+TEST_CASE("Frame upload arena can abort an unsubmitted frame") {
+    auto arena = woki::gfx::FrameUploadArena::Create(
+        {.capacity_per_frame = 16, .frames_in_flight = 1, .default_alignment = 4});
+    REQUIRE(arena);
+    REQUIRE(arena->BeginFrame(0, 0));
+    const std::array data{std::byte{1}, std::byte{2}};
+    REQUIRE(arena->Write(data));
+
+    arena->AbortFrame();
+
+    REQUIRE_FALSE(arena->FrameActive());
+    REQUIRE(arena->Used() == 0);
+    REQUIRE(arena->BeginFrame(0, 0));
+}
