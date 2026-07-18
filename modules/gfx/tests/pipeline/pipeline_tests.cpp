@@ -37,4 +37,9 @@ TEST_CASE("Depth-only graphics pipelines are valid") {
     };
 
     REQUIRE(woki::gfx::Validate(desc).has_value());
+
+    desc.depth_fragment = true;
+    REQUIRE(woki::gfx::Validate(desc));
+    desc.color_targets.push_back({.format = woki::rhi::TextureFormat::RGBA8Unorm});
+    REQUIRE_FALSE(woki::gfx::Validate(desc));
 }

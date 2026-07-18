@@ -90,12 +90,13 @@ StandardDrawBindings::FrameBinding* StandardDrawBindings::FindFrame(
 
 Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding(
     const ResolvedDraw& draw, const RenderPassClass pass) {
-    const ShaderDesc* shader = shaders_->Description(draw.material.shader);
+    const ShaderDesc* shader = shaders_->Description(draw.shader);
     if (shader == nullptr) {
         return Err(ErrorCode::FailedToAcquireResource, "Draw binding shader is no longer active");
     }
     MaterialBinding result{.pipeline = draw.pipeline, .material = draw.packet.material};
-    if (pass == RenderPassClass::DepthOnly) {
+    if (pass == RenderPassClass::DepthOnly &&
+        draw.material.blend_mode != MaterialBlendMode::Masked) {
         return Ok(std::move(result));
     }
     auto layout = BuildMaterialParameterLayout(shader->interface.parameters);
@@ -214,7 +215,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
     objects_.reserve(objects_.size() + draws.draws.size());
     skins_.reserve(skins_.size() + draws.draws.size());
     for (const auto& draw : draws.draws) {
-        const ShaderDesc* shader = shaders_->Description(draw.material.shader);
+        const ShaderDesc* shader = shaders_->Description(draw.shader);
         if (shader == nullptr) {
             Clear();
             return Err(

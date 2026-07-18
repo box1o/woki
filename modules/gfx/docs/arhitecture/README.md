@@ -82,7 +82,10 @@ formats into these runtime-neutral clip and skeleton structures.
 - `ForwardRenderFeature` renders opaque and transparent queues to either the final output or an
   offscreen HDR texture.
 - `ShadowRenderFeature` filters shadow casters and publishes fixed-resolution depth plus typed light
-  metadata through the graph blackboard.
+  metadata through the graph blackboard. Opaque depth variants remain vertex-only. Masked materials
+  use a depth pipeline with `depth_fragment` enabled and the built-in `DepthMasked` implementation,
+  which samples only base-color alpha and applies the material cutoff so foliage and cutouts cast
+  correct silhouettes.
 - `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline.
   Each instance has a unique label and chooses either an intermediate transient output or the final
   per-frame output, allowing ordered chains such as bloom, color grading, and tone mapping. The
@@ -97,7 +100,9 @@ texture views are available.
 
 `BuildStandardMaterialPipeline` derives consistent raster, blend, depth, attachment, and resolver-key
 state for forward, transparent, and depth-only material variants. `CreateStandardMaterialPipeline`
-creates and registers the result idempotently.
+creates and registers the result idempotently. A pipeline may use a specialized
+`implementation_shader` while retaining the material's forward shader in its resolver key; draw
+bindings always follow the resolved implementation shader's interface.
 
 Renderer diagnostics expose the last frame result, hot-reload failures, CPU timings for maintenance,
 planning, graph compilation, upload, execution, and total frame work, plus live and retired GFX

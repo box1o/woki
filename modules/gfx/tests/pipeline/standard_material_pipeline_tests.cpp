@@ -59,3 +59,20 @@ TEST_CASE("Standard material pipeline builds depth-only variants") {
     REQUIRE(built->graphics.color_targets.empty());
     REQUIRE(built->graphics.depth_stencil);
 }
+
+TEST_CASE("Masked depth pipelines require and use a fragment implementation") {
+    auto desc = MakeDesc();
+    desc.asset_id = woki::gfx::AssetId{"pipelines/pbr_masked_depth"};
+    desc.blend_mode = woki::gfx::MaterialBlendMode::Masked;
+    desc.pass = woki::gfx::RenderPassClass::DepthOnly;
+    desc.targets.color_formats.clear();
+    REQUIRE_FALSE(woki::gfx::BuildStandardMaterialPipeline(desc));
+
+    desc.implementation_shader = woki::gfx::ShaderHandle::FromParts(1, 1);
+    desc.depth_fragment = true;
+    const auto built = woki::gfx::BuildStandardMaterialPipeline(desc);
+    REQUIRE(built);
+    REQUIRE(built->key.shader == desc.shader);
+    REQUIRE(built->graphics.shader == desc.implementation_shader);
+    REQUIRE(built->graphics.depth_fragment);
+}

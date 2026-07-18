@@ -82,3 +82,16 @@ TEST_CASE("Standard shader library describes environment PBR frame bindings") {
     REQUIRE(shader.interface.environment_group == shader.interface.lighting_group);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes alpha-tested depth bindings") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::DepthMasked);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/depth_masked"});
+    REQUIRE(shader.sources.front().source_path == "shaders/depth_masked.wgsl");
+    REQUIRE(shader.interface.uses_object_transform);
+    REQUIRE(shader.interface.parameters.size() == 2);
+    REQUIRE(shader.interface.resources.size() == 2);
+    REQUIRE_FALSE(shader.interface.uses_lighting);
+    REQUIRE(woki::gfx::Validate(shader));
+}

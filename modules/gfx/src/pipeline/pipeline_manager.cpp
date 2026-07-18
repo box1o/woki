@@ -61,6 +61,10 @@ Result<void> Validate(const GraphicsPipelineDesc& desc) {
     if (desc.depth_stencil && desc.depth_stencil->format == rhi::TextureFormat::Undefined) {
         return Err(ErrorCode::GraphicsInvalidFormat, "Depth target format must be specified");
     }
+    if (desc.depth_fragment && (!desc.depth_stencil || !desc.color_targets.empty())) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Depth fragment execution requires a depth-only pipeline");
+    }
     return Ok();
 }
 
@@ -73,8 +77,9 @@ public:
         const ShaderDesc* shader_desc = shaders_->Description(desc.shader);
         auto* vertex_module = shaders_->Resolve(desc.shader, ShaderStage::Vertex);
         auto* fragment_module = shaders_->Resolve(desc.shader, ShaderStage::Fragment);
+        const bool needs_fragment = !desc.color_targets.empty() || desc.depth_fragment;
         if (shader_desc == nullptr || vertex_module == nullptr ||
-            (!desc.color_targets.empty() && fragment_module == nullptr)) {
+            (needs_fragment && fragment_module == nullptr)) {
             return Err(ErrorCode::FailedToAcquireResource,
                 "Graphics pipeline is missing a required shader stage");
         }
@@ -123,7 +128,7 @@ public:
             .buffers = vertex_buffers,
         };
         std::optional<rhi::FragmentStateDesc> fragment{};
-        if (!desc.color_targets.empty()) {
+        if (needs_fragment) {
             WOKI_ASSERT(fragment_source != nullptr);
             fragment = rhi::FragmentStateDesc{
                 .module = fragment_module,

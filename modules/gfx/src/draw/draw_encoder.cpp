@@ -6,7 +6,7 @@ namespace woki::gfx {
 
 Result<void> Validate(const ResolvedDrawList& draws) {
     for (const auto& draw : draws.draws) {
-        if (draw.pipeline == nullptr || draw.index_buffer == nullptr ||
+        if (draw.pipeline == nullptr || !draw.shader || draw.index_buffer == nullptr ||
             draw.vertex_buffers.empty()) {
             return Err(ErrorCode::ValidationNullValue,
                 "Resolved draw requires pipeline and geometry resources");

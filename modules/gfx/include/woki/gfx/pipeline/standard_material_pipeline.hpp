@@ -9,6 +9,7 @@ struct StandardMaterialPipelineDesc final {
     AssetId asset_id{};
     std::string label{};
     ShaderHandle shader{};
+    ShaderHandle implementation_shader{};
     MaterialModel model{MaterialModel::PhysicallyBased};
     MaterialBlendMode blend_mode{MaterialBlendMode::Opaque};
     RenderPassClass pass{RenderPassClass::ForwardOpaque};
@@ -17,6 +18,7 @@ struct StandardMaterialPipelineDesc final {
     std::vector<VertexBufferLayout> vertex_buffers{};
     bool double_sided{false};
     bool depth_write{true};
+    bool depth_fragment{false};
 };
 
 struct StandardMaterialPipeline final {

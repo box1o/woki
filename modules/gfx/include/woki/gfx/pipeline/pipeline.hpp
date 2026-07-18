@@ -37,6 +37,7 @@ struct GraphicsPipelineDesc final {
     std::vector<ColorTarget> color_targets{};
     rhi::PrimitiveStateDesc primitive{};
     std::optional<rhi::DepthStencilStateDesc> depth_stencil{};
+    bool depth_fragment{false};
 };
 
 [[nodiscard]] Result<void> Validate(const GraphicsPipelineDesc& desc);

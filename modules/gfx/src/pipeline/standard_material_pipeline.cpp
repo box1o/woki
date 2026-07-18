@@ -24,6 +24,11 @@ Result<StandardMaterialPipeline> BuildStandardMaterialPipeline(
         return Err(ErrorCode::ValidationNullValue,
             "Standard material pipeline requires identity, label, shader, and vertex layout");
     }
+    if (desc.pass == RenderPassClass::DepthOnly && desc.blend_mode == MaterialBlendMode::Masked &&
+        (!desc.depth_fragment || !desc.implementation_shader)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Masked depth pipelines require a depth fragment implementation shader");
+    }
     const bool effective_depth_write =
         desc.depth_write && desc.blend_mode != MaterialBlendMode::Translucent;
     MaterialPipelineKey key{
@@ -43,11 +48,12 @@ Result<StandardMaterialPipeline> BuildStandardMaterialPipeline(
     GraphicsPipelineDesc graphics{
         .asset_id = desc.asset_id,
         .label = desc.label,
-        .shader = desc.shader,
+        .shader = desc.implementation_shader ? desc.implementation_shader : desc.shader,
         .vertex_buffers = desc.vertex_buffers,
         .primitive = {.topology = rhi::PrimitiveTopology::TriangleList,
             .front_face = rhi::FrontFace::CCW,
             .cull_mode = desc.double_sided ? rhi::CullMode::None : rhi::CullMode::Back},
+        .depth_fragment = desc.depth_fragment,
     };
     if (desc.pass != RenderPassClass::DepthOnly) {
         graphics.color_targets.reserve(desc.targets.color_formats.size());

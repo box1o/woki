@@ -67,7 +67,8 @@ Result<ResolvedDrawList> ResolveDraws(const PreparedDrawList& prepared,
 
     for (const auto& draw : prepared.draws) {
         const rhi::RenderPipeline* pipeline = pipelines.Resolve(draw.pipeline);
-        if (pipeline == nullptr) {
+        const GraphicsPipelineDesc* pipeline_desc = pipelines.Description(draw.pipeline);
+        if (pipeline == nullptr || pipeline_desc == nullptr) {
             return Err(
                 ErrorCode::FailedToAcquireResource, "Prepared draw pipeline is no longer active");
         }
@@ -82,6 +83,7 @@ Result<ResolvedDrawList> ResolveDraws(const PreparedDrawList& prepared,
             .transform = draw.transform,
             .skin_matrices = draw.skin_matrices,
             .pipeline = pipeline,
+            .shader = pipeline_desc->shader,
             .index_buffer = index_buffer,
             .index_format = draw.geometry.index_format,
             .material = draw.material,

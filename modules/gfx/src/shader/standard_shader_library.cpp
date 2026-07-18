@@ -113,6 +113,49 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
             .hot_reload = true,
         };
     }
+    if (shader == StandardShader::DepthMasked) {
+        const std::string source_path = (root_ / "depth_masked.wgsl").generic_string();
+        return {
+            .asset_id = AssetId{"woki/shaders/depth_masked"},
+            .label = "Woki Masked Depth",
+            .sources =
+                {
+                    {.stage = ShaderStage::Vertex,
+                        .entry_point = "vertex_main",
+                        .source_path = source_path},
+                    {.stage = ShaderStage::Fragment,
+                        .entry_point = "fragment_main",
+                        .source_path = source_path},
+                },
+            .interface =
+                {
+                    .uses_object_transform = true,
+                    .object_group = 0,
+                    .object_binding = 0,
+                    .parameter_group = 1,
+                    .parameter_binding = 0,
+                    .parameters =
+                        {
+                            {.name = material_parameters::kBaseColor,
+                                .type = ShaderValueType::Float32x4},
+                            {.name = material_parameters::kAlphaCutoff,
+                                .type = ShaderValueType::Float32},
+                        },
+                    .resources =
+                        {
+                            {.name = material_parameters::kBaseColorTexture,
+                                .type = ShaderResourceType::Texture2D,
+                                .group = 1,
+                                .binding = 1},
+                            {.name = material_parameters::kSampler,
+                                .type = ShaderResourceType::Sampler,
+                                .group = 1,
+                                .binding = 2},
+                        },
+                },
+            .hot_reload = true,
+        };
+    }
     const bool pbr = shader != StandardShader::Unlit;
     const bool skinned = shader == StandardShader::PbrSkinned;
     const bool textured = shader == StandardShader::PbrTextured;
