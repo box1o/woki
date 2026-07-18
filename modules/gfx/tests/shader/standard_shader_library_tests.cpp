@@ -126,3 +126,22 @@ TEST_CASE("Standard shader library describes full skinned PBR bindings") {
     REQUIRE(shader.interface.resources.size() == 6);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes skinned depth variants") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto opaque = library.Describe(woki::gfx::StandardShader::DepthSkinned);
+    REQUIRE(opaque.asset_id == woki::gfx::AssetId{"woki/shaders/depth_skinned"});
+    REQUIRE(opaque.sources.size() == 1);
+    REQUIRE(opaque.interface.uses_object_transform);
+    REQUIRE(opaque.interface.uses_skinning);
+    REQUIRE(opaque.interface.parameters.empty());
+    REQUIRE(woki::gfx::Validate(opaque));
+
+    const auto masked = library.Describe(woki::gfx::StandardShader::DepthMaskedSkinned);
+    REQUIRE(masked.asset_id == woki::gfx::AssetId{"woki/shaders/depth_masked_skinned"});
+    REQUIRE(masked.sources.size() == 2);
+    REQUIRE(masked.interface.uses_skinning);
+    REQUIRE(masked.interface.parameters.size() == 2);
+    REQUIRE(masked.interface.resources.size() == 2);
+    REQUIRE(woki::gfx::Validate(masked));
+}

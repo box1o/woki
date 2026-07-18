@@ -2,16 +2,13 @@
 #include "include/pbr_brdf.wgsl"
 #include "include/shadow_data.wgsl"
 #include "include/environment_data.wgsl"
+#include "include/skinning.wgsl"
 
 struct ObjectData {
     model: mat4x4<f32>,
     normal_matrix: mat4x4<f32>,
     view_projection: mat4x4<f32>,
     view_position: vec4<f32>,
-};
-
-struct SkinData {
-    joints: array<mat4x4<f32>>,
 };
 
 struct SkinnedMeshVertex {
@@ -30,20 +27,11 @@ struct SurfaceVertex {
 };
 
 @group(0) @binding(0) var<uniform> object: ObjectData;
-@group(3) @binding(0) var<storage, read> skin: SkinData;
-
 #include "include/pbr_full_surface.wgsl"
-
-fn skin_matrix(input: SkinnedMeshVertex) -> mat4x4<f32> {
-    return skin.joints[input.joints.x] * input.weights.x +
-        skin.joints[input.joints.y] * input.weights.y +
-        skin.joints[input.joints.z] * input.weights.z +
-        skin.joints[input.joints.w] * input.weights.w;
-}
 
 @vertex
 fn vertex_main(input: SkinnedMeshVertex) -> SurfaceVertex {
-    let deformation = skin_matrix(input);
+    let deformation = skin_matrix(input.joints, input.weights);
     let world_position = object.model * deformation * vec4<f32>(input.position, 1.0);
     let deformed_normal = deformation * vec4<f32>(input.normal, 0.0);
     var output: SurfaceVertex;

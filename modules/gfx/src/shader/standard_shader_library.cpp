@@ -150,48 +150,47 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
             .hot_reload = true,
         };
     }
-    if (shader == StandardShader::DepthMasked) {
-        const std::string source_path = (root_ / "depth_masked.wgsl").generic_string();
-        return {
-            .asset_id = AssetId{"woki/shaders/depth_masked"},
-            .label = "Woki Masked Depth",
-            .sources =
-                {
-                    {.stage = ShaderStage::Vertex,
-                        .entry_point = "vertex_main",
-                        .source_path = source_path},
-                    {.stage = ShaderStage::Fragment,
-                        .entry_point = "fragment_main",
-                        .source_path = source_path},
-                },
-            .interface =
-                {
-                    .uses_object_transform = true,
-                    .object_group = 0,
-                    .object_binding = 0,
-                    .parameter_group = 1,
-                    .parameter_binding = 0,
-                    .parameters =
-                        {
-                            {.name = material_parameters::kBaseColor,
-                                .type = ShaderValueType::Float32x4},
-                            {.name = material_parameters::kAlphaCutoff,
-                                .type = ShaderValueType::Float32},
-                        },
-                    .resources =
-                        {
-                            {.name = material_parameters::kBaseColorTexture,
-                                .type = ShaderResourceType::Texture2D,
-                                .group = 1,
-                                .binding = 1},
-                            {.name = material_parameters::kSampler,
-                                .type = ShaderResourceType::Sampler,
-                                .group = 1,
-                                .binding = 2},
-                        },
-                },
+    const bool masked_depth =
+        shader == StandardShader::DepthMasked || shader == StandardShader::DepthMaskedSkinned;
+    const bool skinned_depth =
+        shader == StandardShader::DepthSkinned || shader == StandardShader::DepthMaskedSkinned;
+    if (masked_depth || skinned_depth) {
+        const std::string file = masked_depth
+                                     ? (skinned_depth ? "depth_masked_skinned" : "depth_masked")
+                                     : "depth_skinned";
+        ShaderDesc result{
+            .asset_id = AssetId{masked_depth ? (skinned_depth ? "woki/shaders/depth_masked_skinned"
+                                                              : "woki/shaders/depth_masked")
+                                             : "woki/shaders/depth_skinned"},
+            .label = masked_depth
+                         ? (skinned_depth ? "Woki Masked Skinned Depth" : "Woki Masked Depth")
+                         : "Woki Skinned Depth",
+            .sources = {{.stage = ShaderStage::Vertex,
+                .entry_point = "vertex_main",
+                .source_path = (root_ / (file + ".wgsl")).generic_string()}},
+            .interface = {.uses_object_transform = true, .uses_skinning = skinned_depth},
             .hot_reload = true,
         };
+        if (masked_depth) {
+            result.sources.push_back({.stage = ShaderStage::Fragment,
+                .entry_point = "fragment_main",
+                .source_path = result.sources.front().source_path});
+            result.interface.parameters = {
+                {.name = material_parameters::kBaseColor, .type = ShaderValueType::Float32x4},
+                {.name = material_parameters::kAlphaCutoff, .type = ShaderValueType::Float32},
+            };
+            result.interface.resources = {
+                {.name = material_parameters::kBaseColorTexture,
+                    .type = ShaderResourceType::Texture2D,
+                    .group = 1,
+                    .binding = 1},
+                {.name = material_parameters::kSampler,
+                    .type = ShaderResourceType::Sampler,
+                    .group = 1,
+                    .binding = 2},
+            };
+        }
+        return result;
     }
     const SurfaceShaderInfo info = SurfaceInfo(shader);
     const std::string source_path = (root_ / (std::string(info.file) + ".wgsl")).generic_string();

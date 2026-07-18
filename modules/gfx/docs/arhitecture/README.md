@@ -73,6 +73,11 @@ geometry retains the complete material and lighting path. Its vertex contract is
 0, normal at 1, UV at 2, four joint indices at 3, and four weights at 4. The smaller variants remain
 useful for constrained passes and debugging. Cascaded and atlas shadows remain future extensions.
 
+Skinned shadow pipelines use `DepthSkinned` for opaque materials and `DepthMaskedSkinned` for cutout
+materials. Both consume the same joint palette and locations 3/4 as `PbrFullSkinned`; the masked
+variant additionally consumes UV location 2 and the minimal alpha material bindings. Consequently,
+shadow silhouettes follow the evaluated animation pose instead of the undeformed bind mesh.
+
 ## Animation and skinning
 
 Animation clips contain independent translation, rotation, and scale tracks over a validated
