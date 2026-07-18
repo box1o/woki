@@ -18,6 +18,27 @@ void Renderer::Collect(const u64 completed_submission) {
     materials_->Collect(completed_submission);
 }
 
+ShaderHotReloadReport Renderer::ProcessHotReload() {
+    ShaderHotReloadReport report{};
+    ShaderReloadBatch changes = shaders_->PollHotReload();
+    report.changed_files = static_cast<u32>(changes.changes.size());
+    report.affected_shaders = static_cast<u32>(changes.shaders.size());
+    for (const ShaderHandle shader : changes.shaders) {
+        if (auto reloaded = shaders_->Reload(shader, last_submission_); !reloaded) {
+            report.failures.push_back(reloaded.error());
+            continue;
+        }
+        ++report.reloaded_shaders;
+        if (auto rebuilt = pipelines_->RebuildForShader(shader, last_submission_); !rebuilt) {
+            report.failures.push_back(rebuilt.error());
+            continue;
+        }
+        ++report.rebuilt_shader_sets;
+    }
+    diagnostics_.last_hot_reload = report;
+    return report;
+}
+
 Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     if (desc.width == 0 || desc.height == 0 || desc.output == nullptr || desc.submission == 0) {
         return Err(ErrorCode::ValidationOutOfRange,
@@ -29,6 +50,7 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     }
 
     Collect(desc.completed_submission);
+    const ShaderHotReloadReport hot_reload = ProcessHotReload();
     if (auto begun = uniforms_->BeginFrame(desc.frame_number, desc.completed_submission); !begun) {
         return Err(begun.error());
     }
@@ -77,22 +99,33 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         abort();
         return Err(executed.error());
     }
+    const u64 uniform_bytes = uniforms_->Used();
     if (auto submitted = uniforms_->MarkSubmitted(desc.submission); !submitted) {
         return Err(submitted.error());
     }
     last_submission_ = desc.submission;
 
-    return Ok(RenderFrameResult{
+    const RenderFrameResult result{
         .snapshot_sequence = plan->snapshot.sequence,
         .submission = desc.submission,
         .opaque_draws = static_cast<u32>(plan->opaque_queue.draws.size()),
         .transparent_draws = static_cast<u32>(plan->transparent_queue.draws.size()),
+        .render_passes = static_cast<u32>(plan->feature_graph.compiled.passes.size()),
+        .shaders_reloaded = hot_reload.reloaded_shaders,
+        .shader_reload_failures = static_cast<u32>(hot_reload.failures.size()),
+        .uniform_bytes = uniform_bytes,
         .graph_rebuilt = graph_rebuilt,
-    });
+    };
+    ++diagnostics_.frames_rendered;
+    diagnostics_.graph_rebuilds += graph_rebuilt ? 1 : 0;
+    diagnostics_.total_draws += static_cast<u64>(result.opaque_draws) + result.transparent_draws;
+    diagnostics_.last_frame = result;
+    return Ok(result);
 }
 
 void Renderer::InvalidateGraph() noexcept { graph_revision_ = 0; }
 bool Renderer::HasCompiledGraph() const noexcept { return graph_.has_value(); }
 u64 Renderer::LastSubmission() const noexcept { return last_submission_; }
+const RendererDiagnostics& Renderer::Diagnostics() const noexcept { return diagnostics_; }
 
 } // namespace woki::gfx

@@ -26,7 +26,27 @@ struct RenderFrameResult final {
     u64 submission{0};
     u32 opaque_draws{0};
     u32 transparent_draws{0};
+    u32 render_passes{0};
+    u32 shaders_reloaded{0};
+    u32 shader_reload_failures{0};
+    u64 uniform_bytes{0};
     bool graph_rebuilt{false};
+};
+
+struct ShaderHotReloadReport final {
+    u32 changed_files{0};
+    u32 affected_shaders{0};
+    u32 reloaded_shaders{0};
+    u32 rebuilt_shader_sets{0};
+    std::vector<Error> failures{};
+};
+
+struct RendererDiagnostics final {
+    u64 frames_rendered{0};
+    u64 graph_rebuilds{0};
+    u64 total_draws{0};
+    std::optional<RenderFrameResult> last_frame{};
+    ShaderHotReloadReport last_hot_reload{};
 };
 
 class Renderer final {
@@ -36,10 +56,12 @@ public:
         RenderFeatureRegistry& features, FrameUniformBuffer& uniforms) noexcept;
 
     [[nodiscard]] Result<RenderFrameResult> Render(const RenderFrameDesc& desc);
+    [[nodiscard]] ShaderHotReloadReport ProcessHotReload();
 
     void InvalidateGraph() noexcept;
     [[nodiscard]] bool HasCompiledGraph() const noexcept;
     [[nodiscard]] u64 LastSubmission() const noexcept;
+    [[nodiscard]] const RendererDiagnostics& Diagnostics() const noexcept;
 
 private:
     void Collect(u64 completed_submission);
@@ -55,6 +77,7 @@ private:
     std::optional<ExecutableRenderGraph> graph_{};
     u64 graph_revision_{0};
     u64 last_submission_{0};
+    RendererDiagnostics diagnostics_{};
 };
 
 } // namespace woki::gfx
