@@ -50,9 +50,9 @@ TEST_CASE("Extension package layout resolves canonical roots") {
     REQUIRE(layout->install_root.filename() == manifest.id);
     REQUIRE(layout->manifest == layout->install_root / "manifest.yaml");
     REQUIRE(layout->wasm == layout->install_root / "extension.wasm");
-    REQUIRE(layout->data_root == (root / "ext-data" / manifest.id).lexically_normal());
+    REQUIRE(layout->data_root == fs::weakly_canonical(root / "ext-data" / manifest.id));
     REQUIRE(
-        layout->cache_root == (root / "cache" / "woki" / "ext" / manifest.id).lexically_normal());
+        layout->cache_root == fs::weakly_canonical(root / "cache" / "woki" / "ext" / manifest.id));
 }
 
 TEST_CASE("Extension package layout validates existing manifest and wasm") {
@@ -113,7 +113,7 @@ permissions:
 
     auto installed = woki::ext::InstallUnpackedPackage(source, roots);
     REQUIRE(installed.has_value());
-    REQUIRE(installed->install_root == (roots.extensions / "woki.hello").lexically_normal());
+    REQUIRE(installed->install_root == fs::weakly_canonical(roots.extensions / "woki.hello"));
     REQUIRE(fs::is_regular_file(installed->manifest));
     REQUIRE(fs::is_regular_file(installed->wasm));
     REQUIRE(fs::is_regular_file(installed->install_root / "assets" / "icon.txt"));
@@ -323,7 +323,7 @@ permissions:
 
     auto installed = woki::ext::InstallArchive(archive_path, roots);
     REQUIRE(installed.has_value());
-    REQUIRE(installed->install_root == (roots.extensions / "woki.hello").lexically_normal());
+    REQUIRE(installed->install_root == fs::weakly_canonical(roots.extensions / "woki.hello"));
     REQUIRE(fs::is_regular_file(installed->manifest));
     REQUIRE(fs::is_regular_file(installed->wasm));
     REQUIRE(fs::is_regular_file(installed->install_root / "assets" / "icon.txt"));
