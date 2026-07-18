@@ -12,6 +12,7 @@ enum class StandardShader : u8 {
     Unlit = 0,
     Pbr,
     PbrShadowed,
+    PbrEnvironment,
     PbrTextured,
     PbrSkinned,
     ToneMap,

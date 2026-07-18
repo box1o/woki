@@ -86,3 +86,8 @@ TEST_CASE("Shader shadows require lighting frame bindings") {
     const woki::gfx::ShaderInterfaceDesc interface{.uses_shadows = true};
     REQUIRE_FALSE(woki::gfx::Validate(interface));
 }
+
+TEST_CASE("Shader environments require lighting frame bindings") {
+    const woki::gfx::ShaderInterfaceDesc interface{.uses_environment = true};
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}

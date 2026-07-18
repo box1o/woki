@@ -78,6 +78,22 @@ Result<void> Validate(const ShaderInterfaceDesc& desc) {
             }
         }
     }
+    if (desc.uses_environment) {
+        if (!desc.uses_lighting || desc.environment_group != desc.lighting_group) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Environment shaders require lighting and a shared frame bind group");
+        }
+        const std::array<u32, 5> environment_bindings{desc.radiance_binding,
+            desc.irradiance_binding, desc.brdf_lut_binding, desc.environment_sampler_binding,
+            desc.environment_data_binding};
+        for (const u32 binding : environment_bindings) {
+            const u64 slot = (static_cast<u64>(desc.environment_group) << 32U) | binding;
+            if (!bindings.insert(slot).second) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Shader environment bindings must be unique");
+            }
+        }
+    }
     for (const auto& resource : desc.resources) {
         if (resource.name.Empty()) {
             return Err(ErrorCode::ValidationNullValue, "Shader interface resource requires a name");

@@ -1,5 +1,7 @@
 #include <woki/gfx/resource/gpu_resource.hpp>
 
+#include <algorithm>
+
 namespace woki::gfx {
 
 Result<void> Validate(const BufferResourceDesc& desc) {
@@ -36,6 +38,20 @@ Result<void> Validate(const TextureResourceDesc& desc) {
     if (desc.lifetime == ResourceLifetime::Transient && desc.retain_cpu_copy) {
         return Err(
             ErrorCode::ValidationInvalidState, "Transient textures cannot retain a CPU copy");
+    }
+    if ((desc.default_view.dimension == rhi::TextureViewDimension::Cube &&
+            desc.gpu.size.depth_or_array_layers != 6) ||
+        (desc.default_view.dimension == rhi::TextureViewDimension::CubeArray &&
+            desc.gpu.size.depth_or_array_layers % 6 != 0)) {
+        return Err(
+            ErrorCode::ValidationOutOfRange, "Cube texture views require complete six-layer faces");
+    }
+    if (desc.default_view.format != rhi::TextureFormat::Undefined &&
+        desc.default_view.format != desc.gpu.format &&
+        std::ranges::find(desc.gpu.view_formats, desc.default_view.format) ==
+            desc.gpu.view_formats.end()) {
+        return Err(ErrorCode::GraphicsInvalidFormat,
+            "Texture default view format is not compatible with the texture");
     }
 
     for (const auto& subresource : desc.initial_data) {

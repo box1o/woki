@@ -65,3 +65,15 @@ TEST_CASE("Sampler resource descriptions validate LOD and anisotropy") {
     desc.gpu.lod_max_clamp = 2.0F;
     REQUIRE_FALSE(woki::gfx::Validate(desc).has_value());
 }
+
+TEST_CASE("Cube texture views require six array layers") {
+    woki::gfx::TextureResourceDesc desc{};
+    desc.gpu.size = {.width = 16, .height = 16, .depth_or_array_layers = 5};
+    desc.gpu.format = woki::rhi::TextureFormat::RGBA16Float;
+    desc.gpu.usage = woki::rhi::TextureUsage::TextureBinding;
+    desc.default_view.dimension = woki::rhi::TextureViewDimension::Cube;
+    REQUIRE_FALSE(woki::gfx::Validate(desc));
+
+    desc.gpu.size.depth_or_array_layers = 6;
+    REQUIRE(woki::gfx::Validate(desc));
+}

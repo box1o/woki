@@ -9,7 +9,7 @@ namespace woki::gfx {
 namespace {
 
 [[nodiscard]] ShaderInterfaceDesc StandardInterface(
-    const bool lighting, const bool skinning, const bool shadows) {
+    const bool lighting, const bool skinning, const bool shadows, const bool environment) {
     ShaderInterfaceDesc interface{
         .uses_object_transform = true,
         .object_group = 0,
@@ -22,6 +22,8 @@ namespace {
         .lighting_binding = 0,
         .uses_shadows = shadows,
         .shadow_group = 2,
+        .uses_environment = environment,
+        .environment_group = 2,
     };
     if (lighting) {
         interface.parameters = {
@@ -115,21 +117,25 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
     const bool skinned = shader == StandardShader::PbrSkinned;
     const bool textured = shader == StandardShader::PbrTextured;
     const bool shadowed = shader == StandardShader::PbrShadowed;
+    const bool environment = shader == StandardShader::PbrEnvironment;
     const std::string name =
-        skinned
-            ? "pbr_skinned_forward"
-            : (textured ? "pbr_textured_forward"
-                        : (shadowed ? "pbr_shadowed_forward" : (pbr ? "pbr_forward" : "unlit")));
+        skinned ? "pbr_skinned_forward"
+                : (textured ? "pbr_textured_forward"
+                            : (shadowed ? "pbr_shadowed_forward"
+                                        : (environment ? "pbr_environment_forward"
+                                                       : (pbr ? "pbr_forward" : "unlit"))));
     const std::string source_path = (root_ / (name + ".wgsl")).generic_string();
     ShaderDesc result{
-        .asset_id = AssetId{skinned    ? "woki/shaders/pbr_skinned"
-                            : textured ? "woki/shaders/pbr_textured"
-                            : shadowed ? "woki/shaders/pbr_shadowed"
-                                       : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
-        .label = skinned    ? "Woki PBR Skinned"
-                 : textured ? "Woki PBR Textured"
-                 : shadowed ? "Woki PBR Shadowed"
-                            : (pbr ? "Woki PBR" : "Woki Unlit"),
+        .asset_id = AssetId{skinned       ? "woki/shaders/pbr_skinned"
+                            : textured    ? "woki/shaders/pbr_textured"
+                            : shadowed    ? "woki/shaders/pbr_shadowed"
+                            : environment ? "woki/shaders/pbr_environment"
+                                          : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
+        .label = skinned       ? "Woki PBR Skinned"
+                 : textured    ? "Woki PBR Textured"
+                 : shadowed    ? "Woki PBR Shadowed"
+                 : environment ? "Woki PBR Environment"
+                               : (pbr ? "Woki PBR" : "Woki Unlit"),
         .sources =
             {
                 {.stage = ShaderStage::Vertex,
@@ -139,7 +145,7 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
                     .entry_point = "fragment_main",
                     .source_path = source_path},
             },
-        .interface = StandardInterface(pbr, skinned, shadowed),
+        .interface = StandardInterface(pbr, skinned, shadowed, environment),
         .hot_reload = true,
     };
     if (textured) {

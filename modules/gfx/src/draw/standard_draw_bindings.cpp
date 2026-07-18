@@ -344,6 +344,20 @@ Result<void> StandardDrawBindings::SetShadow(const ShadowFrameData& data) {
     return Ok();
 }
 
+Result<void> StandardDrawBindings::SetEnvironment(const EnvironmentLighting& environment) {
+    if (auto validation = Validate(environment); !validation) {
+        return validation;
+    }
+    const GpuEnvironmentData data = PackEnvironment(environment);
+    auto allocation = uniforms_->Write(std::as_bytes(std::span{&data, 1}));
+    if (!allocation) {
+        return Err(allocation.error());
+    }
+    environment_ = environment;
+    environment_data_ = *allocation;
+    return Ok();
+}
+
 Result<void> StandardDrawBindings::PrepareFrame(rhi::RenderPassContext& context,
     const ResolvedDrawList& draws, const std::optional<u32> shadow_sample) {
     for (const auto& draw : draws.draws) {
@@ -394,6 +408,34 @@ Result<void> StandardDrawBindings::PrepareFrame(rhi::RenderPassContext& context,
             entries.push_back(
                 {.binding = shader->interface.shadow_sampler_binding, .sampler = sampler});
         }
+        if (shader->interface.uses_environment) {
+            if (!environment_ || !environment_data_) {
+                return Err(ErrorCode::ValidationNullValue,
+                    "Environment shader requires configured frame environment lighting");
+            }
+            rhi::TextureView* radiance = resources_->ResolveView(environment_->radiance);
+            rhi::TextureView* irradiance = resources_->ResolveView(environment_->irradiance);
+            rhi::TextureView* brdf_lut = resources_->ResolveView(environment_->brdf_lut);
+            rhi::Sampler* sampler = resources_->Resolve(environment_->sampler);
+            rhi::Buffer* data_buffer = resources_->Resolve(environment_data_->buffer);
+            if (radiance == nullptr || irradiance == nullptr || brdf_lut == nullptr ||
+                sampler == nullptr || data_buffer == nullptr) {
+                return Err(ErrorCode::FailedToAcquireResource,
+                    "Environment lighting resources are no longer active");
+            }
+            entries.push_back(
+                {.binding = shader->interface.radiance_binding, .texture_view = radiance});
+            entries.push_back(
+                {.binding = shader->interface.irradiance_binding, .texture_view = irradiance});
+            entries.push_back(
+                {.binding = shader->interface.brdf_lut_binding, .texture_view = brdf_lut});
+            entries.push_back(
+                {.binding = shader->interface.environment_sampler_binding, .sampler = sampler});
+            entries.push_back({.binding = shader->interface.environment_data_binding,
+                .buffer = data_buffer,
+                .offset = environment_data_->offset,
+                .size = environment_data_->size});
+        }
         auto group = device_->CreateBindGroup({
             .layout = layout.get(),
             .entries = entries,
@@ -413,6 +455,10 @@ void StandardDrawBindings::SetView(const RenderView& view) noexcept { view_ = vi
 
 void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 void StandardDrawBindings::ClearShadow() noexcept { shadow_.reset(); }
+void StandardDrawBindings::ClearEnvironment() noexcept {
+    environment_.reset();
+    environment_data_.reset();
+}
 
 void StandardDrawBindings::Clear() noexcept {
     materials_.clear();

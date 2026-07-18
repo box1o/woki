@@ -91,6 +91,7 @@ Result<void> ForwardRenderFeature::AddPasses(
     });
     bindings_->ClearLighting();
     bindings_->ClearShadow();
+    bindings_->ClearEnvironment();
     bindings_->SetView(context.view);
     auto lighting =
         PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);
@@ -113,6 +114,13 @@ Result<void> ForwardRenderFeature::AddPasses(
         if (auto shadow_binding = bindings_->SetShadow(*shadow_data); !shadow_binding) {
             active_frame_.reset();
             return shadow_binding;
+        }
+    }
+    if (desc_.environment) {
+        if (auto environment_binding = bindings_->SetEnvironment(*desc_.environment);
+            !environment_binding) {
+            active_frame_.reset();
+            return environment_binding;
         }
     }
     ResolvedDrawList all_draws{};

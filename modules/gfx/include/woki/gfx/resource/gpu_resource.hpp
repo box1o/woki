@@ -36,6 +36,7 @@ struct TextureSubresourceData final {
 struct TextureResourceDesc final {
     AssetId asset_id{};
     rhi::TextureDesc gpu{};
+    rhi::TextureViewDesc default_view{};
     std::vector<TextureSubresourceData> initial_data{};
     ResourceLifetime lifetime{ResourceLifetime::Persistent};
     bool retain_cpu_copy{false};

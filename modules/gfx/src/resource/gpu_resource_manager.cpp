@@ -131,7 +131,9 @@ Result<TextureHandle> GpuResourceManager::CreateTexture(const TextureResourceDes
         stored_desc.initial_data.clear();
         stored_desc.initial_data.shrink_to_fit();
     }
-    auto view = (*gpu)->CreateView({.label = desc.gpu.label + ".DefaultView"});
+    rhi::TextureViewDesc view_desc = desc.default_view;
+    view_desc.label = desc.gpu.label + ".DefaultView";
+    auto view = (*gpu)->CreateView(view_desc);
     if (!view) {
         (*gpu)->Destroy();
         return Err(

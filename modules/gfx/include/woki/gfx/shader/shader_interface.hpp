@@ -56,6 +56,13 @@ struct ShaderInterfaceDesc final {
     u32 shadow_data_binding{1};
     u32 shadow_texture_binding{2};
     u32 shadow_sampler_binding{3};
+    bool uses_environment{false};
+    u32 environment_group{0};
+    u32 radiance_binding{4};
+    u32 irradiance_binding{5};
+    u32 brdf_lut_binding{6};
+    u32 environment_sampler_binding{7};
+    u32 environment_data_binding{8};
     std::vector<ShaderParameterDesc> parameters{};
     std::vector<ShaderResourceBindingDesc> resources{};
 };

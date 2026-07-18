@@ -15,6 +15,7 @@ struct ForwardRenderFeatureDesc final {
     math::vec3f ambient_light{0.02F};
     u32 maximum_lights{256};
     bool offscreen_color{false};
+    std::optional<EnvironmentLighting> environment{};
 };
 
 class ForwardRenderFeature final : public RenderFeature {

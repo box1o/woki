@@ -71,3 +71,14 @@ TEST_CASE("Standard shader library describes tone mapping") {
     REQUIRE_FALSE(shader.interface.uses_object_transform);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes environment PBR frame bindings") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::PbrEnvironment);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/pbr_environment"});
+    REQUIRE(shader.interface.uses_lighting);
+    REQUIRE(shader.interface.uses_environment);
+    REQUIRE(shader.interface.environment_group == shader.interface.lighting_group);
+    REQUIRE(woki::gfx::Validate(shader));
+}

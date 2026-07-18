@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../graph/render_feature.hpp"
+#include "../lighting/environment.hpp"
 #include "../lighting/shadow.hpp"
 #include "../material/standard_material_resources.hpp"
 #include "../resource/frame_uniform_buffer.hpp"
@@ -35,11 +36,13 @@ public:
     [[nodiscard]] std::size_t MaterialBindingCount() const noexcept;
     [[nodiscard]] Result<void> SetLighting(std::span<const std::byte> data);
     [[nodiscard]] Result<void> SetShadow(const ShadowFrameData& data);
+    [[nodiscard]] Result<void> SetEnvironment(const EnvironmentLighting& environment);
     [[nodiscard]] Result<void> PrepareFrame(rhi::RenderPassContext& context,
         const ResolvedDrawList& draws, std::optional<u32> shadow_sample = {});
     void SetView(const RenderView& view) noexcept;
     void ClearLighting() noexcept;
     void ClearShadow() noexcept;
+    void ClearEnvironment() noexcept;
     void Clear() noexcept;
 
 private:
@@ -86,6 +89,8 @@ private:
     std::vector<FrameBinding> frames_{};
     std::optional<UniformBufferSlice> lighting_{};
     std::optional<UniformBufferSlice> shadow_{};
+    std::optional<UniformBufferSlice> environment_data_{};
+    std::optional<EnvironmentLighting> environment_{};
     RenderView view_{};
     u64 snapshot_sequence_{0};
 };
