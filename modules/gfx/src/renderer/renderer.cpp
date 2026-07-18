@@ -40,6 +40,7 @@ ShaderHotReloadReport Renderer::ProcessHotReload() {
 }
 
 Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
+    const auto frame_start = Clock::Now();
     if (desc.width == 0 || desc.height == 0 || desc.output == nullptr || desc.submission == 0) {
         return Err(ErrorCode::ValidationOutOfRange,
             "Renderer frame requires dimensions, an output view, and a submission identity");
@@ -49,20 +50,25 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
             ErrorCode::ValidationInvalidState, "Renderer submission identities must be monotonic");
     }
 
+    const auto maintenance_start = Clock::Now();
     Collect(desc.completed_submission);
     const ShaderHotReloadReport hot_reload = ProcessHotReload();
+    const auto maintenance_end = Clock::Now();
     if (auto begun = uniforms_->BeginFrame(desc.frame_number, desc.completed_submission); !begun) {
         return Err(begun.error());
     }
     const auto abort = [this]() { uniforms_->AbortFrame(); };
 
+    const auto planning_start = Clock::Now();
     auto plan = planner_.Prepare(desc.view, desc.layer_mask);
     if (!plan) {
         abort();
         return Err(plan.error());
     }
+    const auto planning_end = Clock::Now();
 
     bool graph_rebuilt = false;
+    const auto graph_compile_start = Clock::Now();
     if (!graph_ || graph_revision_ != features_->Revision()) {
         auto executable = CompileRhiRenderGraph(plan->feature_graph.graph,
             plan->feature_graph.compiled, *device_, *resources_, desc.width, desc.height);
@@ -74,11 +80,14 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         graph_revision_ = features_->Revision();
         graph_rebuilt = true;
     }
+    const auto graph_compile_end = Clock::Now();
 
+    const auto upload_start = Clock::Now();
     if (auto flushed = uniforms_->Flush(); !flushed) {
         abort();
         return Err(flushed.error());
     }
+    const auto upload_end = Clock::Now();
 
     const GraphResource output = plan->feature_graph.blackboard.Find(render_outputs::kColor);
     if (!output) {
@@ -86,6 +95,7 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         return Err(
             ErrorCode::FailedToAcquireResource, "Renderer graph did not publish its color output");
     }
+    const auto execution_start = Clock::Now();
     auto frame = graph_->BeginFrame(*device_, desc.width, desc.height);
     if (!frame) {
         abort();
@@ -103,6 +113,7 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     if (auto submitted = uniforms_->MarkSubmitted(desc.submission); !submitted) {
         return Err(submitted.error());
     }
+    const auto execution_end = Clock::Now();
     last_submission_ = desc.submission;
 
     const RenderFrameResult result{
@@ -120,6 +131,24 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     diagnostics_.graph_rebuilds += graph_rebuilt ? 1 : 0;
     diagnostics_.total_draws += static_cast<u64>(result.opaque_draws) + result.transparent_draws;
     diagnostics_.last_frame = result;
+    diagnostics_.last_timings = {
+        .maintenance_us = Clock::ToMicroseconds(maintenance_end - maintenance_start),
+        .planning_us = Clock::ToMicroseconds(planning_end - planning_start),
+        .graph_compile_us = Clock::ToMicroseconds(graph_compile_end - graph_compile_start),
+        .upload_us = Clock::ToMicroseconds(upload_end - upload_start),
+        .execution_us = Clock::ToMicroseconds(execution_end - execution_start),
+        .total_us = Clock::ToMicroseconds(execution_end - frame_start),
+    };
+    diagnostics_.resources = {
+        .buffers = resources_->BufferCount(),
+        .textures = resources_->TextureCount(),
+        .samplers = resources_->SamplerCount(),
+        .shaders = shaders_->Size(),
+        .pipelines = pipelines_->Size(),
+        .materials = materials_->Size(),
+        .retired = resources_->RetiredCount() + shaders_->RetiredCount() +
+                   pipelines_->RetiredCount() + materials_->RetiredCount(),
+    };
     return Ok(result);
 }
 

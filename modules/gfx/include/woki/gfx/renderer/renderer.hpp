@@ -42,11 +42,32 @@ struct ShaderHotReloadReport final {
     std::vector<Error> failures{};
 };
 
+struct RenderFrameTimings final {
+    u64 maintenance_us{0};
+    u64 planning_us{0};
+    u64 graph_compile_us{0};
+    u64 upload_us{0};
+    u64 execution_us{0};
+    u64 total_us{0};
+};
+
+struct RendererResourceStats final {
+    u64 buffers{0};
+    u64 textures{0};
+    u64 samplers{0};
+    u64 shaders{0};
+    u64 pipelines{0};
+    u64 materials{0};
+    u64 retired{0};
+};
+
 struct RendererDiagnostics final {
     u64 frames_rendered{0};
     u64 graph_rebuilds{0};
     u64 total_draws{0};
     std::optional<RenderFrameResult> last_frame{};
+    RenderFrameTimings last_timings{};
+    RendererResourceStats resources{};
     ShaderHotReloadReport last_hot_reload{};
 };
 
