@@ -2,16 +2,28 @@
 
 namespace woki::gfx {
 
-RhiRenderGraphFrame::RhiRenderGraphFrame(
-    rhi::RenderGraphFrame frame, std::vector<rhi::PerFrameSlot> per_frame_slots)
-    : frame_(std::move(frame)), per_frame_slots_(std::move(per_frame_slots)) {}
+RhiRenderGraphFrame::RhiRenderGraphFrame(rhi::RenderGraphFrame frame,
+    std::vector<rhi::PerFrameSlot> per_frame_slots, std::vector<GraphResourceKind> per_frame_kinds)
+    : frame_(std::move(frame)), per_frame_slots_(std::move(per_frame_slots)),
+      per_frame_kinds_(std::move(per_frame_kinds)) {}
 
 Result<void> RhiRenderGraphFrame::Bind(const GraphResource resource, rhi::TextureView& view) {
     if (!resource || resource.Index() >= per_frame_slots_.size() ||
-        !per_frame_slots_[resource.Index()]) {
+        !per_frame_slots_[resource.Index()] ||
+        per_frame_kinds_[resource.Index()] != GraphResourceKind::Texture) {
         return Err(ErrorCode::ValidationInvalidState, "Graph resource is not a per-frame texture");
     }
     frame_.Bind(per_frame_slots_[resource.Index()], &view);
+    return Ok();
+}
+
+Result<void> RhiRenderGraphFrame::Bind(const GraphResource resource, rhi::Buffer& buffer) {
+    if (!resource || resource.Index() >= per_frame_slots_.size() ||
+        !per_frame_slots_[resource.Index()] ||
+        per_frame_kinds_[resource.Index()] != GraphResourceKind::Buffer) {
+        return Err(ErrorCode::ValidationInvalidState, "Graph resource is not a per-frame buffer");
+    }
+    frame_.Bind(per_frame_slots_[resource.Index()], &buffer);
     return Ok();
 }
 
@@ -23,9 +35,10 @@ Result<void> RhiRenderGraphFrame::CaptureTimestamps(
 Result<void> RhiRenderGraphFrame::Execute() { return frame_.Execute(); }
 
 ExecutableRenderGraph::ExecutableRenderGraph(scope<rhi::RenderGraph> graph,
-    std::vector<rhi::PerFrameSlot> per_frame_slots, const u32 width, const u32 height)
-    : graph_(std::move(graph)), per_frame_slots_(std::move(per_frame_slots)), width_(width),
-      height_(height) {}
+    std::vector<rhi::PerFrameSlot> per_frame_slots, std::vector<GraphResourceKind> per_frame_kinds,
+    const u32 width, const u32 height)
+    : graph_(std::move(graph)), per_frame_slots_(std::move(per_frame_slots)),
+      per_frame_kinds_(std::move(per_frame_kinds)), width_(width), height_(height) {}
 
 ExecutableRenderGraph::~ExecutableRenderGraph() = default;
 
@@ -40,7 +53,8 @@ Result<RhiRenderGraphFrame> ExecutableRenderGraph::BeginFrame(
             return Err(rebuilt.error());
         }
     }
-    return Ok(RhiRenderGraphFrame(graph_->BeginFrame(device, width, height), per_frame_slots_));
+    return Ok(RhiRenderGraphFrame(
+        graph_->BeginFrame(device, width, height), per_frame_slots_, per_frame_kinds_));
 }
 
 Result<void> ExecutableRenderGraph::RebuildForResize(const u32 width, const u32 height) {
@@ -58,13 +72,33 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
     rhi::RenderGraphBuilder builder(device);
     std::vector<rhi::Resource> native_resources(graph.ResourceCount());
     std::vector<rhi::PerFrameSlot> per_frame_slots(graph.ResourceCount());
+    std::vector<GraphResourceKind> per_frame_kinds(
+        graph.ResourceCount(), GraphResourceKind::Texture);
 
     for (u32 index = 0; index < graph.ResourceCount(); ++index) {
         const auto* resource = graph.Resource(GraphResource::FromIndex(index));
         WOKI_ASSERT(resource != nullptr);
-        if (resource->kind != GraphResourceKind::Texture) {
-            return Err(ErrorCode::GraphicsUnsupportedApi,
-                "RHI render graph currently supports texture resources only");
+        per_frame_kinds[index] = resource->kind;
+        if (resource->kind == GraphResourceKind::Buffer) {
+            switch (resource->origin) {
+            case GraphResourceOrigin::Transient:
+                native_resources[index] = builder.TransientBuffer(resource->transient_buffer);
+                break;
+            case GraphResourceOrigin::Imported: {
+                const auto* handle = std::get_if<BufferHandle>(&resource->imported);
+                rhi::Buffer* buffer = handle == nullptr ? nullptr : resources.Resolve(*handle);
+                if (buffer == nullptr) {
+                    return Err(ErrorCode::FailedToAcquireResource,
+                        "Imported graph buffer is no longer active");
+                }
+                native_resources[index] = builder.Use(*buffer);
+                break;
+            }
+            case GraphResourceOrigin::PerFrame:
+                per_frame_slots[index] = builder.PerFrameBuffer();
+                break;
+            }
+            continue;
         }
         switch (resource->origin) {
         case GraphResourceOrigin::Transient:
@@ -128,6 +162,18 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
             }
             native_pass.Sample(native_resources[sample.resource.Index()], sample.mode);
         }
+        for (const auto& buffer : pass->buffers) {
+            const auto* resource = graph.Resource(buffer.resource);
+            if (resource == nullptr || resource->kind != GraphResourceKind::Buffer) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Graph pass buffer input references an invalid buffer");
+            }
+            if (resource->origin == GraphResourceOrigin::PerFrame) {
+                native_pass.Buffer(per_frame_slots[buffer.resource.Index()]);
+            } else {
+                native_pass.Buffer(native_resources[buffer.resource.Index()]);
+            }
+        }
         const auto callback = pass->execute;
         native_pass.Execute([callback](rhi::RenderPassContext& context) -> Result<void> {
             return callback(context);
@@ -138,7 +184,8 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
     if (!native) {
         return Err(native.error());
     }
-    return Ok(ExecutableRenderGraph(std::move(*native), std::move(per_frame_slots), width, height));
+    return Ok(ExecutableRenderGraph(
+        std::move(*native), std::move(per_frame_slots), std::move(per_frame_kinds), width, height));
 }
 
 } // namespace woki::gfx

@@ -19,10 +19,18 @@ enum class ResourceKind : u8 {
     PerFrame,
 };
 
+enum class ResourceType : u8 {
+    Texture = 0,
+    Buffer,
+};
+
 struct ResourceRecord final {
     ResourceKind kind{ResourceKind::Transient};
+    ResourceType type{ResourceType::Texture};
     TransientDesc transient{};
+    TransientBufferDesc transient_buffer{};
     Texture* owned_texture{nullptr};
+    Buffer* owned_buffer{nullptr};
 };
 
 struct FramebufferRecord final {
@@ -46,6 +54,10 @@ struct SampleInput final {
     SampleMode mode{SampleMode::ColorTexture};
 };
 
+struct BufferInput final {
+    u32 resource_id{kInvalidGraphResource};
+};
+
 enum class PassKind : u8 {
     Render,
     Copy,
@@ -64,6 +76,7 @@ struct PassRecord final {
     std::vector<ColorOutput> colors{};
     std::optional<DepthOutput> depth{};
     std::vector<SampleInput> samples{};
+    std::vector<BufferInput> buffers{};
     std::vector<CopyOperation> copies{};
     std::function<Result<void>(RenderPassContext&)> render_execute{};
     std::function<Result<void>(CopyPassContext&)> copy_execute{};
@@ -84,6 +97,12 @@ struct PooledTransientTexture final {
     scope<Texture> texture{};
     scope<TextureView> view{};
     scope<TextureView> depth_sample_view{};
+    bool in_use{false};
+};
+
+struct PooledTransientBuffer final {
+    TransientBufferDesc desc{};
+    scope<Buffer> buffer{};
     bool in_use{false};
 };
 

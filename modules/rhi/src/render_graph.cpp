@@ -22,6 +22,7 @@ using render_graph::detail::PassRecord;
 using render_graph::detail::PooledTransientTexture;
 using render_graph::detail::ResourceKind;
 using render_graph::detail::ResourceRecord;
+using render_graph::detail::ResourceType;
 using render_graph::detail::SampleInput;
 using render_graph::detail::TransientPoolKey;
 
@@ -136,6 +137,13 @@ TextureView& RenderPassContext::sample(const u32 slot) {
 }
 
 u32 RenderPassContext::sample_count() const noexcept { return static_cast<u32>(samples_.size()); }
+
+Buffer& RenderPassContext::buffer(const u32 slot) {
+    WOKI_ASSERT(slot < buffers_.size() && buffers_[slot] != nullptr);
+    return *buffers_[slot];
+}
+
+u32 RenderPassContext::buffer_count() const noexcept { return static_cast<u32>(buffers_.size()); }
 
 BindGroup* RenderPassContext::GetOrCreateBindGroup(
     const std::string_view key, std::function<scope<BindGroup>()> factory) {
@@ -333,6 +341,22 @@ PassBuilder& PassBuilder::Sample(const Resource resource, const SampleMode mode)
     return *this;
 }
 
+PassBuilder& PassBuilder::Buffer(const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].buffers.push_back({.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::Buffer(const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].buffers.push_back({.resource_id = resource.id_});
+    return *this;
+}
+
 PassBuilder& PassBuilder::Copy(const Resource src, const Resource dst) {
     WOKI_ASSERT(owner_ != nullptr);
     WOKI_ASSERT(src);
@@ -387,6 +411,13 @@ PerFrameSlot RenderGraphBuilder::PerFrame() {
     return slot;
 }
 
+PerFrameSlot RenderGraphBuilder::PerFrameBuffer() {
+    PerFrameSlot slot{};
+    slot.id_ = AllocateResource(
+        ResourceRecord{.kind = ResourceKind::PerFrame, .type = ResourceType::Buffer});
+    return slot;
+}
+
 Resource RenderGraphBuilder::Transient(TransientDesc desc) {
     Resource resource{};
     resource.id_ = AllocateResource(ResourceRecord{
@@ -396,11 +427,31 @@ Resource RenderGraphBuilder::Transient(TransientDesc desc) {
     return resource;
 }
 
+Resource RenderGraphBuilder::TransientBuffer(TransientBufferDesc desc) {
+    Resource resource{};
+    resource.id_ = AllocateResource(ResourceRecord{
+        .kind = ResourceKind::Transient,
+        .type = ResourceType::Buffer,
+        .transient_buffer = std::move(desc),
+    });
+    return resource;
+}
+
 Resource RenderGraphBuilder::Use(Texture& texture) {
     Resource resource{};
     resource.id_ = AllocateResource(ResourceRecord{
         .kind = ResourceKind::Owned,
         .owned_texture = &texture,
+    });
+    return resource;
+}
+
+Resource RenderGraphBuilder::Use(Buffer& buffer) {
+    Resource resource{};
+    resource.id_ = AllocateResource(ResourceRecord{
+        .kind = ResourceKind::Owned,
+        .type = ResourceType::Buffer,
+        .owned_buffer = &buffer,
     });
     return resource;
 }
@@ -431,7 +482,23 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
         return Err(ErrorCode::ValidationOutOfRange, "RenderGraph compile requires non-zero size");
     }
 
+    for (const ResourceRecord& resource : blueprint_.resources) {
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Buffer &&
+            (resource.transient_buffer.size == 0 ||
+                resource.transient_buffer.usage == BufferUsage::None)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph transient buffer requires size and usage");
+        }
+    }
+
     for (const PassRecord& pass : blueprint_.passes) {
+        for (const auto& input : pass.buffers) {
+            if (input.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[input.resource_id].type != ResourceType::Buffer) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph pass '" + pass.debug_name + "' references an invalid buffer");
+            }
+        }
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             if (pass.copies.empty()) {
                 return Err(ErrorCode::ValidationInvalidState,
@@ -476,7 +543,11 @@ u32 RenderGraphBuilder::AllocatePass(const std::string_view debug_name) {
 
 Result<scope<RenderGraph>> RenderGraph::Create(
     Device& device, GraphBlueprint blueprint, const u32 width, const u32 height) {
-    return Ok(scope<RenderGraph>(new RenderGraph(device, std::move(blueprint), width, height)));
+    auto graph = scope<RenderGraph>(new RenderGraph(device, std::move(blueprint), width, height));
+    if (auto allocated = graph->AllocateRuntimeResources(width, height); !allocated) {
+        return Err(allocated.error());
+    }
+    return Ok(std::move(graph));
 }
 
 RenderGraph::RenderGraph(
@@ -486,7 +557,6 @@ RenderGraph::RenderGraph(
     for (size_t i = 0; i < blueprint_.resources.size(); ++i) {
         runtime_resources_[i].blueprint = blueprint_.resources[i];
     }
-    (void)AllocateRuntimeResources(width, height);
 }
 
 Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 height) {
@@ -497,7 +567,10 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
         if (runtime.blueprint.kind != ResourceKind::Transient) {
             continue;
         }
-        if (auto result = AcquireTransientResource(runtime, width, height); !result) {
+        auto result = runtime.blueprint.type == ResourceType::Buffer
+                          ? AcquireTransientBuffer(runtime)
+                          : AcquireTransientResource(runtime, width, height);
+        if (!result) {
             return result;
         }
     }
@@ -505,7 +578,8 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
     for (RuntimeResource& runtime : runtime_resources_) {
         const ResourceRecord& record = runtime.blueprint;
 
-        if (record.kind == ResourceKind::Owned && record.owned_texture != nullptr) {
+        if (record.kind == ResourceKind::Owned && record.type == ResourceType::Texture &&
+            record.owned_texture != nullptr) {
             if (runtime.view == nullptr) {
                 runtime.view = record.owned_texture->CreateView({});
             }
@@ -519,14 +593,46 @@ void RenderGraph::ReleaseTransientPool() {
     for (PooledTransientTexture& entry : transient_pool_) {
         entry.in_use = false;
     }
+    for (auto& entry : transient_buffer_pool_) {
+        entry.in_use = false;
+    }
 
     for (RuntimeResource& runtime : runtime_resources_) {
         if (runtime.blueprint.kind == ResourceKind::Transient) {
             runtime.pool_index = kInvalidGraphResource;
             runtime.texture.reset();
             runtime.view.reset();
+            runtime.buffer.reset();
         }
     }
+}
+
+Result<void> RenderGraph::AcquireTransientBuffer(RuntimeResource& runtime) {
+    const auto& desc = runtime.blueprint.transient_buffer;
+    if (desc.size == 0 || desc.usage == BufferUsage::None) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "RenderGraph transient buffer requires size and usage");
+    }
+    for (u32 index = 0; index < transient_buffer_pool_.size(); ++index) {
+        auto& entry = transient_buffer_pool_[index];
+        if (!entry.in_use && entry.desc.size == desc.size && entry.desc.usage == desc.usage) {
+            entry.in_use = true;
+            runtime.pool_index = index;
+            runtime.buffer.reset();
+            return Ok();
+        }
+    }
+    auto buffer = device_->CreateBuffer({
+        .size = desc.size,
+        .usage = desc.usage,
+        .label = desc.label.empty() ? "RenderGraphTransientBuffer" : desc.label,
+    });
+    if (!buffer) {
+        return Err(buffer.error());
+    }
+    runtime.pool_index = static_cast<u32>(transient_buffer_pool_.size());
+    transient_buffer_pool_.push_back({.desc = desc, .buffer = std::move(*buffer), .in_use = true});
+    return Ok();
 }
 
 Result<void> RenderGraph::AcquireTransientResource(
@@ -584,6 +690,9 @@ Texture* RenderGraph::ResolveTexture(const u32 resource_id) {
     }
 
     RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Texture) {
+        return nullptr;
+    }
     switch (runtime.blueprint.kind) {
     case ResourceKind::Transient:
         if (runtime.pool_index < transient_pool_.size()) {
@@ -604,6 +713,9 @@ TextureView* RenderGraph::ResolveView(const u32 resource_id) {
     }
 
     RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Texture) {
+        return nullptr;
+    }
     switch (runtime.blueprint.kind) {
     case ResourceKind::Transient:
         if (runtime.pool_index < transient_pool_.size()) {
@@ -614,6 +726,27 @@ TextureView* RenderGraph::ResolveView(const u32 resource_id) {
         return runtime.per_frame_view;
     case ResourceKind::Owned:
         return runtime.view.get() != nullptr ? runtime.view.get() : runtime.per_frame_view;
+    }
+    return nullptr;
+}
+
+Buffer* RenderGraph::ResolveBuffer(const u32 resource_id) {
+    if (resource_id >= runtime_resources_.size()) {
+        return nullptr;
+    }
+    RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Buffer) {
+        return nullptr;
+    }
+    switch (runtime.blueprint.kind) {
+    case ResourceKind::Transient:
+        return runtime.pool_index < transient_buffer_pool_.size()
+                   ? transient_buffer_pool_[runtime.pool_index].buffer.get()
+                   : runtime.buffer.get();
+    case ResourceKind::Owned:
+        return runtime.blueprint.owned_buffer;
+    case ResourceKind::PerFrame:
+        return runtime.per_frame_buffer;
     }
     return nullptr;
 }
@@ -782,6 +915,15 @@ Result<void> RenderGraph::ExecuteRenderPass(const u32 pass_index, CommandEncoder
         }
         context.samples_.push_back(view);
     }
+    context.buffers_.reserve(pass.buffers.size());
+    for (const auto& input : pass.buffers) {
+        Buffer* buffer = ResolveBuffer(input.resource_id);
+        if (buffer == nullptr) {
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph pass '" + pass.debug_name + "' missing buffer");
+        }
+        context.buffers_.push_back(buffer);
+    }
 
     auto executed = pass.render_execute(context);
     pass_encoder->get()->End();
@@ -844,6 +986,16 @@ void RenderGraphFrame::Bind(const PerFrameSlot slot, TextureView* view) {
     per_frame_views_[slot.id_] = view;
     if (slot.id_ < graph_->runtime_resources_.size()) {
         graph_->runtime_resources_[slot.id_].per_frame_view = view;
+    }
+}
+
+void RenderGraphFrame::Bind(const PerFrameSlot slot, Buffer* buffer) {
+    if (!slot || graph_ == nullptr || slot.id_ >= graph_->runtime_resources_.size()) {
+        return;
+    }
+    auto& runtime = graph_->runtime_resources_[slot.id_];
+    if (runtime.blueprint.type == ResourceType::Buffer) {
+        runtime.per_frame_buffer = buffer;
     }
 }
 

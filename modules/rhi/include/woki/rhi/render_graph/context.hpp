@@ -27,12 +27,13 @@ public:
 
     [[nodiscard]] TextureView& sample(u32 slot);
     [[nodiscard]] u32 sample_count() const noexcept;
+    [[nodiscard]] Buffer& buffer(u32 slot);
+    [[nodiscard]] u32 buffer_count() const noexcept;
 
     [[nodiscard]] u32 width() const noexcept { return width_; }
     [[nodiscard]] u32 height() const noexcept { return height_; }
 
-    template<typename T>
-    [[nodiscard]] T& data() {
+    template <typename T> [[nodiscard]] T& data() {
         WOKI_ASSERT(user_data_ != nullptr);
         return *static_cast<T*>(user_data_);
     }
@@ -53,6 +54,7 @@ private:
     std::vector<TextureView*> colors_{};
     TextureView* depth_{nullptr};
     std::vector<TextureView*> samples_{};
+    std::vector<Buffer*> buffers_{};
 
     std::unordered_map<std::string, scope<BindGroup>> bind_group_cache_{};
 };
@@ -68,8 +70,7 @@ public:
 
     [[nodiscard]] Result<void> CopyAll();
 
-    template<typename T>
-    [[nodiscard]] T& data() {
+    template <typename T> [[nodiscard]] T& data() {
         WOKI_ASSERT(user_data_ != nullptr);
         return *static_cast<T*>(user_data_);
     }

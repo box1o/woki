@@ -13,6 +13,7 @@ public:
     RhiRenderGraphFrame& operator=(const RhiRenderGraphFrame&) = delete;
 
     [[nodiscard]] Result<void> Bind(GraphResource resource, rhi::TextureView& view);
+    [[nodiscard]] Result<void> Bind(GraphResource resource, rhi::Buffer& buffer);
     [[nodiscard]] Result<void> CaptureTimestamps(
         rhi::QuerySet& query_set, rhi::Buffer& resolve_buffer, rhi::Buffer& readback_buffer);
     [[nodiscard]] Result<void> Execute();
@@ -20,11 +21,12 @@ public:
 private:
     friend class ExecutableRenderGraph;
 
-    RhiRenderGraphFrame(
-        rhi::RenderGraphFrame frame, std::vector<rhi::PerFrameSlot> per_frame_slots);
+    RhiRenderGraphFrame(rhi::RenderGraphFrame frame, std::vector<rhi::PerFrameSlot> per_frame_slots,
+        std::vector<GraphResourceKind> per_frame_kinds);
 
     rhi::RenderGraphFrame frame_;
     std::vector<rhi::PerFrameSlot> per_frame_slots_{};
+    std::vector<GraphResourceKind> per_frame_kinds_{};
 };
 
 class ExecutableRenderGraph final {
@@ -44,10 +46,12 @@ private:
         const CompiledRenderGraph&, rhi::Device&, GpuResourceManager&, u32, u32);
 
     ExecutableRenderGraph(scope<rhi::RenderGraph> graph,
-        std::vector<rhi::PerFrameSlot> per_frame_slots, u32 width, u32 height);
+        std::vector<rhi::PerFrameSlot> per_frame_slots,
+        std::vector<GraphResourceKind> per_frame_kinds, u32 width, u32 height);
 
     scope<rhi::RenderGraph> graph_{};
     std::vector<rhi::PerFrameSlot> per_frame_slots_{};
+    std::vector<GraphResourceKind> per_frame_kinds_{};
     u32 width_{0};
     u32 height_{0};
 };

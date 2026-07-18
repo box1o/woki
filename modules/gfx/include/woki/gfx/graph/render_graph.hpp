@@ -61,6 +61,7 @@ struct GraphResourceDesc final {
     GraphResourceOrigin origin{GraphResourceOrigin::Transient};
     ImportedGraphResource imported{};
     rhi::TransientDesc transient{};
+    rhi::TransientBufferDesc transient_buffer{};
 };
 
 struct GraphResourceUse final {
@@ -84,6 +85,10 @@ struct GraphSampleInput final {
     rhi::SampleMode mode{rhi::SampleMode::ColorTexture};
 };
 
+struct GraphBufferInput final {
+    GraphResource resource{};
+};
+
 struct GraphPassDesc final {
     std::string label{};
     std::vector<GraphResourceUse> resources{};
@@ -91,6 +96,7 @@ struct GraphPassDesc final {
     std::vector<GraphColorOutput> colors{};
     std::optional<GraphDepthOutput> depth{};
     std::vector<GraphSampleInput> samples{};
+    std::vector<GraphBufferInput> buffers{};
     std::function<Result<void>(rhi::RenderPassContext&)> execute{};
 };
 
@@ -114,7 +120,9 @@ class RenderGraph final {
 public:
     [[nodiscard]] Result<GraphResource> AddResource(const GraphResourceDesc& desc);
     [[nodiscard]] Result<GraphResource> AddTransientTexture(rhi::TransientDesc desc);
+    [[nodiscard]] Result<GraphResource> AddTransientBuffer(rhi::TransientBufferDesc desc);
     [[nodiscard]] Result<GraphResource> AddPerFrameTexture(std::string label);
+    [[nodiscard]] Result<GraphResource> AddPerFrameBuffer(std::string label);
     [[nodiscard]] Result<GraphResource> Import(BufferHandle buffer, std::string label = {});
     [[nodiscard]] Result<GraphResource> Import(TextureHandle texture, std::string label = {});
     [[nodiscard]] Result<GraphPass> AddPass(const GraphPassDesc& desc);

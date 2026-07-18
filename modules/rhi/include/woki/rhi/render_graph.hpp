@@ -21,6 +21,7 @@ public:
     ~RenderGraphFrame();
 
     void Bind(PerFrameSlot slot, TextureView* view);
+    void Bind(PerFrameSlot slot, Buffer* buffer);
     [[nodiscard]] Result<void> CaptureTimestamps(
         QuerySet& query_set, Buffer& resolve_buffer, Buffer& readback_buffer);
     [[nodiscard]] Result<void> Execute();
@@ -58,7 +59,9 @@ private:
         render_graph::detail::ResourceRecord blueprint{};
         scope<Texture> texture{};
         scope<TextureView> view{};
+        scope<Buffer> buffer{};
         TextureView* per_frame_view{nullptr};
+        Buffer* per_frame_buffer{nullptr};
         u32 pool_index{kInvalidGraphResource};
     };
 
@@ -69,9 +72,11 @@ private:
     void ReleaseTransientPool();
     [[nodiscard]] Result<void> AcquireTransientResource(
         RuntimeResource& runtime, u32 width, u32 height);
+    [[nodiscard]] Result<void> AcquireTransientBuffer(RuntimeResource& runtime);
     [[nodiscard]] Texture* ResolveTexture(u32 resource_id);
     [[nodiscard]] TextureView* ResolveView(u32 resource_id);
     [[nodiscard]] TextureView* ResolveSampleView(u32 resource_id, SampleMode mode);
+    [[nodiscard]] Buffer* ResolveBuffer(u32 resource_id);
     [[nodiscard]] Result<void> ExecuteRenderPass(u32 pass_index, CommandEncoder& encoder, u32 width,
         u32 height, const std::unordered_map<u32, TextureView*>& per_frame_views);
     [[nodiscard]] Result<void> ExecuteCopyPass(
@@ -83,6 +88,7 @@ private:
     u32 height_{0};
     std::vector<RuntimeResource> runtime_resources_{};
     std::vector<render_graph::detail::PooledTransientTexture> transient_pool_{};
+    std::vector<render_graph::detail::PooledTransientBuffer> transient_buffer_pool_{};
 };
 
 } // namespace woki::rhi

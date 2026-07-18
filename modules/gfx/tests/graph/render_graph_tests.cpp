@@ -116,3 +116,75 @@ TEST_CASE("Render graph accepts executable per-frame color outputs") {
     REQUIRE(compiled);
     REQUIRE(compiled->passes.size() == 1);
 }
+
+TEST_CASE("Render graph tracks transient buffer dependencies and lifetimes") {
+    woki::gfx::RenderGraph graph{};
+    const auto buffer = graph.AddTransientBuffer({
+        .label = "Visible draws",
+        .size = 4096,
+        .usage = woki::rhi::BufferUsage::Storage | woki::rhi::BufferUsage::CopyDst,
+    });
+    REQUIRE(buffer);
+    const auto producer = graph.AddPass({
+        .label = "Build visible draws",
+        .resources = {{.resource = *buffer, .access = woki::gfx::GraphAccess::Write}},
+        .buffers = {{.resource = *buffer}},
+    });
+    const auto consumer = graph.AddPass({
+        .label = "Consume visible draws",
+        .resources = {{.resource = *buffer, .access = woki::gfx::GraphAccess::Read}},
+        .buffers = {{.resource = *buffer}},
+    });
+    REQUIRE(producer);
+    REQUIRE(consumer);
+
+    const auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->passes.back().dependencies == std::vector{*producer});
+    REQUIRE(compiled->lifetimes.size() == 1);
+    REQUIRE(compiled->lifetimes.front().first_pass == 0);
+    REQUIRE(compiled->lifetimes.front().last_pass == 1);
+}
+
+TEST_CASE("Render graph validates declared buffer inputs") {
+    woki::gfx::RenderGraph graph{};
+    const auto buffer = graph.AddPerFrameBuffer("Frame instances");
+    const auto texture = graph.AddPerFrameTexture("Frame color");
+    REQUIRE(buffer);
+    REQUIRE(texture);
+
+    REQUIRE(graph.AddPass({
+        .label = "Missing access",
+        .buffers = {{.resource = *buffer}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+
+    graph.Clear();
+    const auto color = graph.AddPerFrameTexture("Wrong kind");
+    REQUIRE(color);
+    REQUIRE(graph.AddPass({
+        .label = "Wrong kind",
+        .resources = {{.resource = *color, .access = woki::gfx::GraphAccess::Read}},
+        .buffers = {{.resource = *color}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+}
+
+TEST_CASE("Render graph permits per-frame and imported buffers to be read first") {
+    woki::gfx::RenderGraph graph{};
+    const auto per_frame = graph.AddPerFrameBuffer("Frame data");
+    const auto imported = graph.Import(woki::gfx::BufferHandle::FromParts(1, 1), "Scene data");
+    REQUIRE(per_frame);
+    REQUIRE(imported);
+    REQUIRE(graph.AddPass({
+        .label = "Read external buffers",
+        .resources =
+            {
+                {.resource = *per_frame, .access = woki::gfx::GraphAccess::Read},
+                {.resource = *imported, .access = woki::gfx::GraphAccess::Read},
+            },
+        .buffers = {{.resource = *per_frame}, {.resource = *imported}},
+    }));
+
+    REQUIRE(graph.Compile());
+}

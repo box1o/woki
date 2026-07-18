@@ -95,9 +95,16 @@ formats into these runtime-neutral clip and skeleton structures.
   built-in tone-map shader is one ready-to-use pipeline source. Only the last effect in a chain may
   target `PostProcessOutput::Final`.
 
-Feature metadata uses typed blackboard values, while textures remain declared graph resources. This
-keeps transient texture lifetimes inside the graph and creates dependent bind groups only when pass
-texture views are available.
+Feature metadata uses typed blackboard values, while GPU data remains declared as graph resources.
+This keeps transient lifetimes inside the graph and creates dependent bindings only when pass-native
+resources are available.
+
+Graph resources include textures and buffers with transient, imported, and per-frame ownership.
+Buffer inputs have explicit access declarations, participate in the same dependency and lifetime
+analysis as textures, and are exposed to pass callbacks by stable input index. Transient buffers are
+allocated and reused by the RHI graph; per-frame buffers are bound by the caller. This path supports
+future GPU-driven visibility, indirect draws, compute-produced data, and external UI geometry without
+bypassing graph scheduling.
 
 ## Pipeline and diagnostics API
 

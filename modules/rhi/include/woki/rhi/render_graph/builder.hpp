@@ -29,6 +29,8 @@ public:
     PassBuilder& Depth(Resource resource, DepthAttachmentConfig config = {});
     PassBuilder& Depth(PerFrameSlot resource, DepthAttachmentConfig config = {});
     PassBuilder& Sample(Resource resource, SampleMode mode = SampleMode::ColorTexture);
+    PassBuilder& Buffer(Resource resource);
+    PassBuilder& Buffer(PerFrameSlot resource);
     PassBuilder& Copy(Resource src, Resource dst);
 
     template <typename Fn> PassBuilder& Execute(Fn&& callback);
@@ -60,8 +62,11 @@ public:
     explicit RenderGraphBuilder(Device& device);
 
     [[nodiscard]] PerFrameSlot PerFrame();
+    [[nodiscard]] PerFrameSlot PerFrameBuffer();
     [[nodiscard]] Resource Transient(TransientDesc desc);
+    [[nodiscard]] Resource TransientBuffer(TransientBufferDesc desc);
     [[nodiscard]] Resource Use(Texture& texture);
+    [[nodiscard]] Resource Use(Buffer& buffer);
 
     [[nodiscard]] FramebufferBuilder Framebuffer();
     [[nodiscard]] PassBuilder AddPass(std::string_view debug_name);

@@ -55,6 +55,12 @@ struct TransientDesc final {
     ExtentMode extent{ExtentMode::Swapchain()};
 };
 
+struct TransientBufferDesc final {
+    std::string label{};
+    u64 size{0};
+    BufferUsage usage{};
+};
+
 struct ColorAttachmentConfig final {
     LoadOp load{LoadOp::Clear};
     StoreOp store{StoreOp::Store};

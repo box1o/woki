@@ -16,10 +16,6 @@ namespace {
     if (desc.label.empty()) {
         return Err(ErrorCode::ValidationNullValue, "Render graph resource requires a label");
     }
-    if (desc.kind == GraphResourceKind::Buffer && desc.origin != GraphResourceOrigin::Imported) {
-        return Err(ErrorCode::GraphicsUnsupportedApi,
-            "Only imported buffers are supported by the render graph");
-    }
     if (desc.origin == GraphResourceOrigin::Imported &&
         std::holds_alternative<std::monostate>(desc.imported)) {
         return Err(
@@ -30,11 +26,17 @@ namespace {
         return Err(ErrorCode::ValidationInvalidState,
             "Non-imported graph resource cannot contain a resource handle");
     }
-    if (desc.origin == GraphResourceOrigin::Transient &&
+    if (desc.kind == GraphResourceKind::Texture && desc.origin == GraphResourceOrigin::Transient &&
         (desc.transient.format == rhi::TextureFormat::Undefined ||
             desc.transient.usage == rhi::TextureUsage::None)) {
         return Err(ErrorCode::ValidationInvalidState,
             "Transient graph texture requires a format and usage");
+    }
+    if (desc.kind == GraphResourceKind::Buffer && desc.origin == GraphResourceOrigin::Transient &&
+        (desc.transient_buffer.size == 0 ||
+            desc.transient_buffer.usage == rhi::BufferUsage::None)) {
+        return Err(
+            ErrorCode::ValidationInvalidState, "Transient graph buffer requires a size and usage");
     }
     if (const auto* buffer = std::get_if<BufferHandle>(&desc.imported)) {
         if (desc.kind != GraphResourceKind::Buffer || !*buffer) {
@@ -84,10 +86,28 @@ Result<GraphResource> RenderGraph::AddTransientTexture(rhi::TransientDesc desc) 
     });
 }
 
+Result<GraphResource> RenderGraph::AddTransientBuffer(rhi::TransientBufferDesc desc) {
+    const std::string label = desc.label;
+    return AddResource({
+        .label = label,
+        .kind = GraphResourceKind::Buffer,
+        .origin = GraphResourceOrigin::Transient,
+        .transient_buffer = std::move(desc),
+    });
+}
+
 Result<GraphResource> RenderGraph::AddPerFrameTexture(std::string label) {
     return AddResource({
         .label = std::move(label),
         .kind = GraphResourceKind::Texture,
+        .origin = GraphResourceOrigin::PerFrame,
+    });
+}
+
+Result<GraphResource> RenderGraph::AddPerFrameBuffer(std::string label) {
+    return AddResource({
+        .label = std::move(label),
+        .kind = GraphResourceKind::Buffer,
         .origin = GraphResourceOrigin::PerFrame,
     });
 }
@@ -180,6 +200,24 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
         for (const auto& sample : pass.samples) {
             if (auto status = validate_attachment(sample.resource, false); !status) {
                 return Err(status.error());
+            }
+        }
+        std::vector<u32> buffer_inputs{};
+        for (const auto& buffer : pass.buffers) {
+            if (!buffer.resource || buffer.resource.Index() >= resources_.size() ||
+                resources_[buffer.resource.Index()].kind != GraphResourceKind::Buffer) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph buffer input references an invalid buffer");
+            }
+            if (std::ranges::find(buffer_inputs, buffer.resource.Index()) != buffer_inputs.end()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph pass contains a duplicate buffer input");
+            }
+            buffer_inputs.push_back(buffer.resource.Index());
+            if (std::ranges::find(pass.resources, buffer.resource, &GraphResourceUse::resource) ==
+                pass.resources.end()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "Render graph buffer input is missing its access declaration");
             }
         }
 
