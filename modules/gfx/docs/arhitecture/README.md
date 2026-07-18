@@ -77,6 +77,11 @@ global, and inverse-bind-adjusted skin matrices. Render objects may carry an eva
 scene extraction preserves it through immutable snapshots and the draw-binding layer uploads it as
 per-draw storage data for skinned shader variants.
 
+`Blend` combines two evaluated poses in local transform space, supports a normalized per-joint mask,
+uses spherical rotation interpolation, and reconstructs global and skin matrices from the skeleton.
+This supports cross-fades and body-region animation layers without interpolating matrices or breaking
+joint hierarchy invariants.
+
 Animation file import is intentionally outside GFX. Importers translate FBX, glTF, or other source
 formats into these runtime-neutral clip and skeleton structures.
 

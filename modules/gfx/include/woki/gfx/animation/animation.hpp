@@ -60,5 +60,7 @@ struct AnimationPose final {
 [[nodiscard]] Result<void> Validate(const AnimationClip& clip, u32 joint_count);
 [[nodiscard]] Result<AnimationPose> Evaluate(const Skeleton& skeleton, const AnimationClip& clip,
     f32 time, AnimationWrapMode wrap = AnimationWrapMode::Loop);
+[[nodiscard]] Result<AnimationPose> Blend(const Skeleton& skeleton, const AnimationPose& from,
+    const AnimationPose& to, f32 weight, std::span<const f32> joint_weights = {});
 
 } // namespace woki::gfx

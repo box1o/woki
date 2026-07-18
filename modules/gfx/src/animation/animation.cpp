@@ -56,6 +56,32 @@ template <typename T>
     return math::slerp(left.value, right.value, factor);
 }
 
+[[nodiscard]] bool IsFinite(const math::vec3f value) noexcept {
+    return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+}
+
+[[nodiscard]] bool IsFinite(const Transform& transform) noexcept {
+    return IsFinite(transform.translation) && IsFinite(transform.scale) &&
+           std::isfinite(transform.rotation.x) && std::isfinite(transform.rotation.y) &&
+           std::isfinite(transform.rotation.z) && std::isfinite(transform.rotation.w) &&
+           transform.rotation.length_squared() > 0.0F;
+}
+
+[[nodiscard]] AnimationPose BuildPose(const Skeleton& skeleton, std::vector<Transform> local) {
+    AnimationPose pose{.local = std::move(local)};
+    pose.global.resize(skeleton.joints.size());
+    pose.skin_matrices.resize(skeleton.joints.size());
+    for (u32 index = 0; index < skeleton.joints.size(); ++index) {
+        const auto& joint = skeleton.joints[index];
+        const math::mat4f local_matrix = ToMatrix(pose.local[index]);
+        pose.global[index] = joint.parent < 0
+                                 ? local_matrix
+                                 : pose.global[static_cast<u32>(joint.parent)] * local_matrix;
+        pose.skin_matrices[index] = pose.global[index] * joint.inverse_bind;
+    }
+    return pose;
+}
+
 } // namespace
 
 math::mat4f ToMatrix(const Transform& transform) noexcept {
@@ -127,28 +153,63 @@ Result<AnimationPose> Evaluate(
         time = 0.0F;
     }
 
-    AnimationPose pose{};
-    pose.local.reserve(skeleton.joints.size());
+    std::vector<Transform> local{};
+    local.reserve(skeleton.joints.size());
     for (const auto& joint : skeleton.joints) {
-        pose.local.push_back(joint.bind_transform);
+        local.push_back(joint.bind_transform);
     }
     for (const auto& track : clip.tracks) {
-        auto& transform = pose.local[track.joint];
+        auto& transform = local[track.joint];
         transform.translation = Interpolate(track.translations, time, transform.translation);
         transform.rotation = Interpolate(track.rotations, time, transform.rotation).normalized();
         transform.scale = Interpolate(track.scales, time, transform.scale);
     }
 
-    pose.global.resize(skeleton.joints.size());
-    pose.skin_matrices.resize(skeleton.joints.size());
-    for (u32 index = 0; index < skeleton.joints.size(); ++index) {
-        const auto& joint = skeleton.joints[index];
-        const math::mat4f local = ToMatrix(pose.local[index]);
-        pose.global[index] =
-            joint.parent < 0 ? local : pose.global[static_cast<u32>(joint.parent)] * local;
-        pose.skin_matrices[index] = pose.global[index] * joint.inverse_bind;
+    return Ok(BuildPose(skeleton, std::move(local)));
+}
+
+Result<AnimationPose> Blend(const Skeleton& skeleton, const AnimationPose& from,
+    const AnimationPose& to, const f32 weight, const std::span<const f32> joint_weights) {
+    if (auto validation = Validate(skeleton); !validation) {
+        return Err(validation.error());
     }
-    return Ok(std::move(pose));
+    const std::size_t joint_count = skeleton.joints.size();
+    if (from.local.size() != joint_count || to.local.size() != joint_count) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Animation blend poses must match the skeleton joint count");
+    }
+    if (!std::isfinite(weight) || weight < 0.0F || weight > 1.0F) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "Animation blend weight must be finite and normalized");
+    }
+    if (!joint_weights.empty() && joint_weights.size() != joint_count) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Animation joint weights must match the skeleton joint count");
+    }
+
+    std::vector<Transform> local(joint_count);
+    for (std::size_t index = 0; index < joint_count; ++index) {
+        const Transform& source = from.local[index];
+        const Transform& destination = to.local[index];
+        if (!IsFinite(source) || !IsFinite(destination)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Animation blend poses contain an invalid transform");
+        }
+        const f32 joint_weight = joint_weights.empty() ? 1.0F : joint_weights[index];
+        if (!std::isfinite(joint_weight) || joint_weight < 0.0F || joint_weight > 1.0F) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                "Animation joint weights must be finite and normalized");
+        }
+        const f32 factor = weight * joint_weight;
+        local[index] = {
+            .translation = math::lerp(source.translation, destination.translation, factor),
+            .rotation =
+                math::slerp(source.rotation.normalized(), destination.rotation.normalized(), factor)
+                    .normalized(),
+            .scale = math::lerp(source.scale, destination.scale, factor),
+        };
+    }
+    return Ok(BuildPose(skeleton, std::move(local)));
 }
 
 } // namespace woki::gfx
