@@ -2,6 +2,7 @@
 
 #include "../resource/resource_id.hpp"
 #include "../resource/resource_types.hpp"
+#include "shader_interface.hpp"
 
 #include <string>
 #include <string_view>
@@ -46,6 +47,7 @@ struct ShaderDesc final {
     AssetId asset_id{};
     std::string label{};
     std::vector<ShaderSource> sources{};
+    ShaderInterfaceDesc interface{};
     bool hot_reload{true};
 };
 

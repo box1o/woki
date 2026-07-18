@@ -2,6 +2,7 @@
 
 #include "../resource/resource_registry.hpp"
 
+#include <woki/gfx/material/material_parameter_layout.hpp>
 #include <woki/gfx/resource/gpu_resource_manager.hpp>
 #include <woki/gfx/shader/shader_manager.hpp>
 
@@ -14,8 +15,20 @@ namespace {
 
 [[nodiscard]] Result<void> ValidateReferences(
     const MaterialDesc& desc, const ShaderManager& shaders, const GpuResourceManager& resources) {
-    if (shaders.Description(desc.shader) == nullptr) {
+    const ShaderDesc* shader = shaders.Description(desc.shader);
+    if (shader == nullptr) {
         return Err(ErrorCode::FailedToAcquireResource, "Material shader handle is not active");
+    }
+    auto layout = BuildMaterialParameterLayout(shader->interface.parameters);
+    if (!layout) {
+        return Err(layout.error());
+    }
+    if (auto packed = PackMaterialParameters(*layout, desc.parameters); !packed) {
+        return Err(packed.error());
+    }
+    if (auto validation = ValidateMaterialResources(shader->interface, desc.parameters);
+        !validation) {
+        return Err(validation.error());
     }
     for (const auto& [name, value] : desc.parameters.Values()) {
         static_cast<void>(name);

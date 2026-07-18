@@ -62,7 +62,7 @@ Result<void> Validate(const ShaderDesc& desc) {
         return Err(ErrorCode::ValidationInvalidState,
             "Compute stages cannot be mixed with graphics stages");
     }
-    return Ok();
+    return Validate(desc.interface);
 }
 
 class ShaderManager::Impl final {
