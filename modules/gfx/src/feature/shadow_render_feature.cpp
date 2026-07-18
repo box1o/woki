@@ -92,7 +92,10 @@ Result<void> ShadowRenderFeature::AddPasses(
         return published;
     }
 
-    bindings_->SetView(desc_.light_view);
+    const u64 view_scope = bindings_->SetView(desc_.light_view);
+    for (auto& draw : resolved->draws) {
+        draw.view_scope = view_scope;
+    }
     if (auto binding_result = bindings_->Prepare(*resolved); !binding_result) {
         return binding_result;
     }

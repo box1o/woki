@@ -39,7 +39,7 @@ public:
     [[nodiscard]] Result<void> SetEnvironment(const EnvironmentLighting& environment);
     [[nodiscard]] Result<void> PrepareFrame(rhi::RenderPassContext& context,
         const ResolvedDrawList& draws, std::optional<u32> shadow_sample = {});
-    void SetView(const RenderView& view) noexcept;
+    [[nodiscard]] u64 SetView(const RenderView& view) noexcept;
     void ClearLighting() noexcept;
     void ClearShadow() noexcept;
     void ClearEnvironment() noexcept;
@@ -60,6 +60,7 @@ private:
     struct ObjectBinding final {
         const rhi::RenderPipeline* pipeline{nullptr};
         RenderObjectHandle object{};
+        u64 view_scope{0};
         u32 group{0};
         scope<rhi::BindGroup> binding{};
     };
@@ -75,7 +76,7 @@ private:
     [[nodiscard]] MaterialBinding* Find(
         const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
     [[nodiscard]] ObjectBinding* Find(std::vector<ObjectBinding>& bindings,
-        const rhi::RenderPipeline* pipeline, RenderObjectHandle object) noexcept;
+        const rhi::RenderPipeline* pipeline, RenderObjectHandle object, u64 view_scope) noexcept;
     [[nodiscard]] FrameBinding* FindFrame(const rhi::RenderPipeline* pipeline) noexcept;
 
     rhi::Device* device_{nullptr};
@@ -92,6 +93,7 @@ private:
     std::optional<UniformBufferSlice> environment_data_{};
     std::optional<EnvironmentLighting> environment_{};
     RenderView view_{};
+    u64 next_view_scope_{1};
     u64 snapshot_sequence_{0};
 };
 

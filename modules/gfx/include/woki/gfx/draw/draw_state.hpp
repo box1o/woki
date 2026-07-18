@@ -45,6 +45,9 @@ struct ResolvedDraw final {
     const rhi::Buffer* index_buffer{nullptr};
     rhi::IndexFormat index_format{rhi::IndexFormat::Undefined};
     MaterialDesc material{};
+    // Identifies the view whose object uniforms must be used for this draw. A draw may
+    // share its pipeline and object with another pass while requiring different view data.
+    u64 view_scope{0};
 };
 
 struct ResolvedDrawBatch final {

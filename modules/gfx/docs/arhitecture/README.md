@@ -96,13 +96,19 @@ formats into these runtime-neutral clip and skeleton structures.
 
 ## Built-in render features
 
+- `DepthPrepassFeature` renders the main opaque queue through registered depth-only material variants
+  and publishes main depth before forward shading. Opaque, masked, skinned, and masked-skinned
+  materials therefore use their matching depth implementation. Register it before
+  `ForwardRenderFeature`; forward rendering validates and loads the published depth instead of
+  clearing it.
 - `ForwardRenderFeature` renders opaque and transparent queues to either the final output or an
   offscreen HDR texture.
 - `ShadowRenderFeature` filters shadow casters and publishes fixed-resolution depth plus typed light
   metadata through the graph blackboard. Opaque depth variants remain vertex-only. Masked materials
   use a depth pipeline with `depth_fragment` enabled and the built-in `DepthMasked` implementation,
   which samples only base-color alpha and applies the material cutoff so foliage and cutouts cast
-  correct silhouettes.
+  correct silhouettes. Standard object bindings are keyed by render-view scope, so shared objects
+  receive independent camera and light-view uniforms across passes.
 - `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline.
   Each instance has a unique label and chooses either an intermediate transient output or the final
   per-frame output, allowing ordered chains such as bloom, color grading, and tone mapping. The

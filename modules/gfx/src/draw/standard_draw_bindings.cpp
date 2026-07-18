@@ -75,9 +75,11 @@ StandardDrawBindings::MaterialBinding* StandardDrawBindings::Find(
 
 StandardDrawBindings::ObjectBinding* StandardDrawBindings::Find(
     std::vector<ObjectBinding>& bindings, const rhi::RenderPipeline* pipeline,
-    const RenderObjectHandle object) noexcept {
-    const auto iterator = std::ranges::find_if(bindings, [pipeline, object](const auto& entry) {
-        return entry.pipeline == pipeline && entry.object == object;
+    const RenderObjectHandle object, const u64 view_scope) noexcept {
+    const auto iterator =
+        std::ranges::find_if(bindings, [pipeline, object, view_scope](const auto& entry) {
+            return entry.pipeline == pipeline && entry.object == object &&
+                   entry.view_scope == view_scope;
     });
     return iterator != bindings.end() ? &*iterator : nullptr;
 }
@@ -224,7 +226,12 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         if (!shader->interface.uses_object_transform) {
             continue;
         }
-        if (Find(objects_, draw.pipeline, draw.packet.object) == nullptr) {
+        if (draw.view_scope == 0) {
+            Clear();
+            return Err(ErrorCode::ValidationInvalidState,
+                "Object transform draw has not been assigned to a render view");
+        }
+        if (Find(objects_, draw.pipeline, draw.packet.object, draw.view_scope) == nullptr) {
             const GpuObjectData object_data{
                 .model = draw.transform,
                 .normal_matrix = BuildNormalMatrix(draw.transform),
@@ -262,6 +269,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
             objects_.push_back(ObjectBinding{
                 .pipeline = draw.pipeline,
                 .object = draw.packet.object,
+                .view_scope = draw.view_scope,
                 .group = shader->interface.object_group,
                 .binding = std::move(*bind_group),
             });
@@ -269,7 +277,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         if (!shader->interface.uses_skinning) {
             continue;
         }
-        if (Find(skins_, draw.pipeline, draw.packet.object) != nullptr) {
+        if (Find(skins_, draw.pipeline, draw.packet.object, 0) != nullptr) {
             continue;
         }
         if (draw.skin_matrices.empty()) {
@@ -307,6 +315,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         skins_.push_back(ObjectBinding{
             .pipeline = draw.pipeline,
             .object = draw.packet.object,
+            .view_scope = 0,
             .group = shader->interface.skin_group,
             .binding = std::move(*skin_group),
         });
@@ -324,10 +333,11 @@ void StandardDrawBindings::Encode(
     if (auto* frame = FindFrame(draw.pipeline)) {
         pass.SetBindGroup(frame->group, frame->binding.get());
     }
-    if (const auto* object = Find(objects_, draw.pipeline, draw.packet.object)) {
+    if (const auto* object =
+            Find(objects_, draw.pipeline, draw.packet.object, draw.view_scope)) {
         pass.SetBindGroup(object->group, object->binding.get());
     }
-    if (const auto* skin = Find(skins_, draw.pipeline, draw.packet.object)) {
+    if (const auto* skin = Find(skins_, draw.pipeline, draw.packet.object, 0)) {
         pass.SetBindGroup(skin->group, skin->binding.get());
     }
     if (desc_.transform_immediate_offset) {
@@ -465,7 +475,14 @@ Result<void> StandardDrawBindings::PrepareFrame(rhi::RenderPassContext& context,
     return Ok();
 }
 
-void StandardDrawBindings::SetView(const RenderView& view) noexcept { view_ = view; }
+u64 StandardDrawBindings::SetView(const RenderView& view) noexcept {
+    view_ = view;
+    const u64 scope = next_view_scope_++;
+    if (next_view_scope_ == 0) {
+        next_view_scope_ = 1;
+    }
+    return scope;
+}
 
 void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 void StandardDrawBindings::ClearShadow() noexcept { shadow_.reset(); }

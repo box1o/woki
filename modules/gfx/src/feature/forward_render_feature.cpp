@@ -47,6 +47,16 @@ Result<void> ForwardRenderFeature::AddPasses(
     }
 
     GraphResource depth = blackboard.Find(render_outputs::kDepth);
+    const bool depth_prepass = static_cast<bool>(depth);
+    if (depth_prepass) {
+        const GraphResourceDesc* published_depth = graph.Resource(depth);
+        if (published_depth == nullptr || published_depth->kind != GraphResourceKind::Texture ||
+            (published_depth->origin == GraphResourceOrigin::Transient &&
+                published_depth->transient.format != *desc_.targets.depth_format)) {
+            return Err(ErrorCode::GraphicsInvalidFormat,
+                "Published main depth is incompatible with the forward target signature");
+        }
+    }
     if (!depth) {
         auto created = graph.AddTransientTexture({
             .label = "Forward depth",
@@ -92,7 +102,13 @@ Result<void> ForwardRenderFeature::AddPasses(
     bindings_->ClearLighting();
     bindings_->ClearShadow();
     bindings_->ClearEnvironment();
-    bindings_->SetView(context.view);
+    const u64 view_scope = bindings_->SetView(context.view);
+    for (auto& draw : active_frame_->opaque.draws) {
+        draw.view_scope = view_scope;
+    }
+    for (auto& draw : active_frame_->transparent.draws) {
+        draw.view_scope = view_scope;
+    }
     auto lighting =
         PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);
     if (!lighting) {
@@ -141,7 +157,8 @@ Result<void> ForwardRenderFeature::AddPasses(
         .resources =
             {
                 {.resource = color, .access = GraphAccess::Write},
-                {.resource = depth, .access = GraphAccess::Write},
+                {.resource = depth,
+                    .access = depth_prepass ? GraphAccess::ReadWrite : GraphAccess::Write},
             },
         .colors = {{
             .resource = color,
@@ -153,7 +170,7 @@ Result<void> ForwardRenderFeature::AddPasses(
         .depth =
             GraphDepthOutput{
                 .resource = depth,
-                .config = {.load = rhi::LoadOp::Clear,
+                .config = {.load = depth_prepass ? rhi::LoadOp::Load : rhi::LoadOp::Clear,
                     .store = rhi::StoreOp::Store,
                     .clear = desc_.clear_depth,
                     .write = true},
