@@ -75,10 +75,14 @@ StandardDrawBindings::ObjectBinding* StandardDrawBindings::Find(
 }
 
 Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding(
-    const ResolvedDraw& draw) {
+    const ResolvedDraw& draw, const RenderPassClass pass) {
     const ShaderDesc* shader = shaders_->Description(draw.material.shader);
     if (shader == nullptr) {
         return Err(ErrorCode::FailedToAcquireResource, "Draw binding shader is no longer active");
+    }
+    MaterialBinding result{.pipeline = draw.pipeline, .material = draw.packet.material};
+    if (pass == RenderPassClass::DepthOnly) {
+        return Ok(std::move(result));
     }
     auto layout = BuildMaterialParameterLayout(shader->interface.parameters);
     if (!layout) {
@@ -98,7 +102,6 @@ Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding
         uniform_slice = *allocation;
     }
 
-    MaterialBinding result{.pipeline = draw.pipeline, .material = draw.packet.material};
     for (const u32 group : MaterialGroups(shader->interface)) {
         auto native_layout = draw.pipeline->GetBindGroupLayout(group);
         if (!native_layout) {
@@ -204,7 +207,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         if (Find(draw.pipeline, draw.packet.material) != nullptr) {
             continue;
         }
-        auto binding = BuildBinding(draw);
+        auto binding = BuildBinding(draw, draws.pass);
         if (!binding) {
             Clear();
             return Err(binding.error());

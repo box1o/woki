@@ -56,7 +56,8 @@ private:
         scope<rhi::BindGroup> binding{};
     };
 
-    [[nodiscard]] Result<MaterialBinding> BuildBinding(const ResolvedDraw& draw);
+    [[nodiscard]] Result<MaterialBinding> BuildBinding(
+        const ResolvedDraw& draw, RenderPassClass pass);
     [[nodiscard]] MaterialBinding* Find(
         const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
     [[nodiscard]] ObjectBinding* Find(std::vector<ObjectBinding>& bindings,

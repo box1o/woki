@@ -64,3 +64,13 @@ TEST_CASE("Render queue rejects draw packets with missing objects") {
 
     REQUIRE_FALSE(queue);
 }
+
+TEST_CASE("Render queue filters non-shadow-casting objects") {
+    auto snapshot = MakeSnapshot();
+    snapshot.objects.front().casts_shadows = false;
+
+    auto queue = woki::gfx::BuildRenderQueue(snapshot, {.shadow_casters_only = true});
+
+    REQUIRE(queue);
+    REQUIRE(queue->draws.empty());
+}

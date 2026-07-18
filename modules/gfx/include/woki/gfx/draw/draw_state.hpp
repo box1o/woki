@@ -30,6 +30,7 @@ struct PreparedDrawBatch final {
 
 struct PreparedDrawList final {
     u64 snapshot_sequence{0};
+    RenderPassClass pass{RenderPassClass::ForwardOpaque};
     std::vector<PreparedDraw> draws{};
     std::vector<PreparedDrawBatch> batches{};
 };
@@ -53,6 +54,7 @@ struct ResolvedDrawBatch final {
 
 struct ResolvedDrawList final {
     u64 snapshot_sequence{0};
+    RenderPassClass pass{RenderPassClass::ForwardOpaque};
     std::vector<ResolvedDraw> draws{};
     std::vector<ResolvedDrawBatch> batches{};
 };

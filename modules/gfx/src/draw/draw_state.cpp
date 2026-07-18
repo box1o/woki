@@ -11,7 +11,7 @@ Result<PreparedDrawList> PrepareDraws(const RenderQueue& queue, const RenderPass
         return Err(ErrorCode::ValidationOutOfRange, "Prepared draw list exceeds its index range");
     }
 
-    PreparedDrawList prepared{.snapshot_sequence = queue.snapshot_sequence};
+    PreparedDrawList prepared{.snapshot_sequence = queue.snapshot_sequence, .pass = pass};
     prepared.draws.reserve(queue.draws.size());
     prepared.batches.reserve(queue.batches.size());
     for (const auto& queued : queue.draws) {
@@ -58,7 +58,10 @@ Result<PreparedDrawList> PrepareDraws(const RenderQueue& queue, const RenderPass
 
 Result<ResolvedDrawList> ResolveDraws(const PreparedDrawList& prepared,
     const PipelineManager& pipelines, const GpuResourceManager& resources) {
-    ResolvedDrawList resolved{.snapshot_sequence = prepared.snapshot_sequence};
+    ResolvedDrawList resolved{
+        .snapshot_sequence = prepared.snapshot_sequence,
+        .pass = prepared.pass,
+    };
     resolved.draws.reserve(prepared.draws.size());
     resolved.batches.reserve(prepared.batches.size());
 
