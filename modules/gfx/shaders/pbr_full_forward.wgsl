@@ -1,5 +1,7 @@
 #include "include/lighting.wgsl"
 #include "include/pbr_brdf.wgsl"
+#include "include/shadow_data.wgsl"
+#include "include/environment_data.wgsl"
 
 struct ObjectData {
     model: mat4x4<f32>,
@@ -70,39 +72,57 @@ fn vertex_main(input: MeshVertex) -> SurfaceVertex {
 
 @fragment
 fn fragment_main(input: SurfaceVertex) -> @location(0) vec4<f32> {
-    let color_sample = textureSample(base_color_map, material_sampler, input.uv);
-    let base_color = material.base_color * color_sample;
+    let base_color = material.base_color *
+        textureSample(base_color_map, material_sampler, input.uv);
     if (base_color.a < material.alpha_cutoff) {
         discard;
     }
     let properties = textureSample(metallic_roughness_map, material_sampler, input.uv);
     let metallic = clamp(material.metallic * properties.b, 0.0, 1.0);
     let roughness = clamp(material.roughness * properties.g, 0.045, 1.0);
-    let occlusion_sample = textureSample(occlusion_map, material_sampler, input.uv).r;
-    let occlusion = mix(1.0, occlusion_sample, material.occlusion_strength);
+    let sampled_occlusion = textureSample(occlusion_map, material_sampler, input.uv).r;
+    let occlusion = mix(1.0, sampled_occlusion, material.occlusion_strength);
     let emissive = material.emissive *
         textureSample(emissive_map, material_sampler, input.uv).rgb;
     let normal = mapped_normal(input);
     let view = normalize(object.view_position.xyz - input.world_position);
     let base = max(base_color.rgb, vec3<f32>(0.0));
     let reflectance = mix(vec3<f32>(0.04), base, metallic);
-    var radiance = lighting.ambient.rgb * base * occlusion + emissive;
+    let n_dot_v = max(dot(normal, view), 0.0);
+
+    let environment_fresnel = fresnel_schlick_roughness(n_dot_v, reflectance, roughness);
+    let environment_diffuse = textureSample(irradiance_map, environment_sampler,
+        rotate_environment(normal)).rgb * base;
+    let reflection = rotate_environment(reflect(-view, normal));
+    let environment_specular = textureSampleLevel(radiance_map, environment_sampler, reflection,
+        roughness * environment.parameters.y).rgb;
+    let brdf = textureSample(brdf_lut, environment_sampler, vec2<f32>(n_dot_v, roughness)).rg;
+    let specular_ibl = environment_specular *
+        (environment_fresnel * brdf.x + vec3<f32>(brdf.y));
+    let diffuse_weight = (vec3<f32>(1.0) - environment_fresnel) * (1.0 - metallic);
+    let image_lighting = (diffuse_weight * environment_diffuse + specular_ibl) *
+        environment.parameters.x * occlusion;
+    var radiance = image_lighting + lighting.ambient.rgb * base * occlusion + emissive;
+
     let count = min(lighting.light_count, MAX_LIGHTS);
     for (var index = 0u; index < count; index++) {
         let light = lighting.lights[index];
         let direction = light_direction(light, input.world_position);
         let halfway = normalize(view + direction);
         let n_dot_l = max(dot(normal, direction), 0.0);
-        let n_dot_v = max(dot(normal, view), 0.0);
         let distribution = distribution_ggx(normal, halfway, roughness);
         let geometry = geometry_schlick_ggx(n_dot_l, roughness) *
             geometry_schlick_ggx(n_dot_v, roughness);
         let fresnel = fresnel_schlick(max(dot(halfway, view), 0.0), reflectance);
-        let specular = distribution * geometry * fresnel / max(4.0 * n_dot_v * n_dot_l, 0.0001);
+        let specular = distribution * geometry * fresnel /
+            max(4.0 * n_dot_v * n_dot_l, 0.0001);
         let diffuse = (vec3<f32>(1.0) - fresnel) * (1.0 - metallic) * base / PI;
         let energy = light.color_intensity.rgb * light.color_intensity.w *
             light_attenuation(light, input.world_position);
-        radiance += (diffuse + specular) * energy * n_dot_l;
+        let casts_shadow = index == shadow.light_index && light.spot_shadow.z > 0.5;
+        let visibility = select(1.0,
+            shadow_visibility(input.world_position, normal, direction), casts_shadow);
+        radiance += (diffuse + specular) * energy * n_dot_l * visibility;
     }
     return vec4<f32>(radiance, base_color.a);
 }

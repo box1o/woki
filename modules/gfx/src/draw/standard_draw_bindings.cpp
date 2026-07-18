@@ -378,7 +378,7 @@ Result<void> StandardDrawBindings::PrepareFrame(rhi::RenderPassContext& context,
         if (FindFrame(draw.pipeline) != nullptr) {
             continue;
         }
-        const ShaderDesc* shader = shaders_->Description(draw.material.shader);
+        const ShaderDesc* shader = shaders_->Description(draw.shader);
         if (shader == nullptr) {
             return Err(
                 ErrorCode::FailedToAcquireResource, "Frame binding shader is no longer active");

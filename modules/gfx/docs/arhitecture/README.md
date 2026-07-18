@@ -55,16 +55,19 @@ The future UI renderer remains separate from GFX and uses these same generic fac
 ## Built-in shading
 
 `StandardShaderLibrary` describes file-backed, hot-reloadable unlit, numeric PBR, textured PBR,
-shadowed PBR, skinned PBR, and tone-mapping shaders. Shared WGSL files provide object transforms,
-BRDF functions, and lighting functions through the normal shader include system. Standard interfaces
+shadowed PBR, environment PBR, full PBR, skinned PBR, masked-depth, and tone-mapping shaders. Shared
+WGSL files provide object transforms, BRDF functions, shadow sampling, environment sampling, and
+lighting functions through the normal shader include system. Standard interfaces
 reserve independent binding groups for per-object data, material parameters, frame lighting/shadows,
 and skin palettes.
 
 The PBR paths implement base color, emissive, metallic, roughness, normal, occlusion, and alpha-mask
 inputs with directional, point, and spot lights. Missing material maps bind deterministic 1x1
-fallback textures. A shadow feature renders a selected shadow-casting light into graph-owned depth;
-the shadowed PBR variant consumes that texture through pass-time frame bindings. Image-based lighting
-and cascaded/atlas shadows remain future extensions.
+fallback textures. A shadow feature renders a selected shadow-casting light into graph-owned depth.
+`PbrFull` combines material textures, alpha masking, direct lights, selected-light shadows, split-sum
+image-based lighting, ambient occlusion, and emissive output in the primary production path. The
+smaller variants remain useful for constrained passes and debugging. Cascaded and atlas shadows
+remain future extensions.
 
 ## Animation and skinning
 

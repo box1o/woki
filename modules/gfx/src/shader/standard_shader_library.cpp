@@ -75,6 +75,40 @@ void AddTexturedPbrInterface(ShaderInterfaceDesc& interface) {
     };
 }
 
+struct SurfaceShaderInfo final {
+    std::string_view file{};
+    std::string_view asset{};
+    std::string_view label{};
+    bool pbr{false};
+    bool skinned{false};
+    bool textured{false};
+    bool shadows{false};
+    bool environment{false};
+};
+
+[[nodiscard]] constexpr SurfaceShaderInfo SurfaceInfo(const StandardShader shader) noexcept {
+    switch (shader) {
+    case StandardShader::Pbr:
+        return {"pbr_forward", "woki/shaders/pbr", "Woki PBR", true};
+    case StandardShader::PbrShadowed:
+        return {"pbr_shadowed_forward", "woki/shaders/pbr_shadowed", "Woki PBR Shadowed", true,
+            false, false, true};
+    case StandardShader::PbrEnvironment:
+        return {"pbr_environment_forward", "woki/shaders/pbr_environment", "Woki PBR Environment",
+            true, false, false, false, true};
+    case StandardShader::PbrTextured:
+        return {"pbr_textured_forward", "woki/shaders/pbr_textured", "Woki PBR Textured", true,
+            false, true};
+    case StandardShader::PbrSkinned:
+        return {"pbr_skinned_forward", "woki/shaders/pbr_skinned", "Woki PBR Skinned", true, true};
+    case StandardShader::PbrFull:
+        return {"pbr_full_forward", "woki/shaders/pbr_full", "Woki PBR Full", true, false, true,
+            true, true};
+    default:
+        return {"unlit", "woki/shaders/unlit", "Woki Unlit"};
+    }
+}
+
 } // namespace
 
 StandardShaderLibrary::StandardShaderLibrary(paths::Path shader_root)
@@ -156,29 +190,11 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
             .hot_reload = true,
         };
     }
-    const bool pbr = shader != StandardShader::Unlit;
-    const bool skinned = shader == StandardShader::PbrSkinned;
-    const bool textured = shader == StandardShader::PbrTextured;
-    const bool shadowed = shader == StandardShader::PbrShadowed;
-    const bool environment = shader == StandardShader::PbrEnvironment;
-    const std::string name =
-        skinned ? "pbr_skinned_forward"
-                : (textured ? "pbr_textured_forward"
-                            : (shadowed ? "pbr_shadowed_forward"
-                                        : (environment ? "pbr_environment_forward"
-                                                       : (pbr ? "pbr_forward" : "unlit"))));
-    const std::string source_path = (root_ / (name + ".wgsl")).generic_string();
+    const SurfaceShaderInfo info = SurfaceInfo(shader);
+    const std::string source_path = (root_ / (std::string(info.file) + ".wgsl")).generic_string();
     ShaderDesc result{
-        .asset_id = AssetId{skinned       ? "woki/shaders/pbr_skinned"
-                            : textured    ? "woki/shaders/pbr_textured"
-                            : shadowed    ? "woki/shaders/pbr_shadowed"
-                            : environment ? "woki/shaders/pbr_environment"
-                                          : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
-        .label = skinned       ? "Woki PBR Skinned"
-                 : textured    ? "Woki PBR Textured"
-                 : shadowed    ? "Woki PBR Shadowed"
-                 : environment ? "Woki PBR Environment"
-                               : (pbr ? "Woki PBR" : "Woki Unlit"),
+        .asset_id = AssetId{info.asset},
+        .label = std::string(info.label),
         .sources =
             {
                 {.stage = ShaderStage::Vertex,
@@ -188,10 +204,10 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
                     .entry_point = "fragment_main",
                     .source_path = source_path},
             },
-        .interface = StandardInterface(pbr, skinned, shadowed, environment),
+        .interface = StandardInterface(info.pbr, info.skinned, info.shadows, info.environment),
         .hot_reload = true,
     };
-    if (textured) {
+    if (info.textured) {
         AddTexturedPbrInterface(result.interface);
     }
     return result;
