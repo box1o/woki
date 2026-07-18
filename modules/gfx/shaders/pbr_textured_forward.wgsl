@@ -4,6 +4,8 @@ const PI: f32 = 3.14159265359;
 
 struct ObjectData {
     model: mat4x4<f32>,
+    view_projection: mat4x4<f32>,
+    view_position: vec4<f32>,
 };
 
 struct PbrMaterial {
@@ -76,7 +78,7 @@ fn mapped_normal(input: SurfaceVertex) -> vec3<f32> {
 fn vertex_main(input: MeshVertex) -> SurfaceVertex {
     let world_position = object.model * vec4<f32>(input.position, 1.0);
     var output: SurfaceVertex;
-    output.position = world_position;
+    output.position = object.view_projection * world_position;
     output.world_position = world_position.xyz;
     output.world_normal = normalize((object.model * vec4<f32>(input.normal, 0.0)).xyz);
     output.uv = input.uv;
@@ -98,7 +100,7 @@ fn fragment_main(input: SurfaceVertex) -> @location(0) vec4<f32> {
     let emissive = material.emissive *
         textureSample(emissive_map, material_sampler, input.uv).rgb;
     let normal = mapped_normal(input);
-    let view = normalize(-input.world_position);
+    let view = normalize(object.view_position.xyz - input.world_position);
     let base = max(base_color.rgb, vec3<f32>(0.0));
     let reflectance = mix(vec3<f32>(0.04), base, metallic);
     var radiance = lighting.ambient.rgb * base * occlusion + emissive;

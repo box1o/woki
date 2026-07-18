@@ -56,7 +56,7 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     }
     const auto abort = [this]() { uniforms_->AbortFrame(); };
 
-    auto plan = planner_.Prepare(desc.layer_mask);
+    auto plan = planner_.Prepare(desc.view, desc.layer_mask);
     if (!plan) {
         abort();
         return Err(plan.error());

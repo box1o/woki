@@ -52,9 +52,10 @@ public:
 };
 
 [[nodiscard]] woki::gfx::RenderFeatureContext EmptyContext() {
+    static const woki::gfx::RenderView view{};
     static const woki::gfx::RenderSnapshot snapshot{};
     static const woki::gfx::RenderQueue queue{};
-    return {.snapshot = snapshot, .opaque_queue = queue, .transparent_queue = queue};
+    return {.view = view, .snapshot = snapshot, .opaque_queue = queue, .transparent_queue = queue};
 }
 
 } // namespace

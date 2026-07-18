@@ -81,6 +81,7 @@ Result<void> ForwardRenderFeature::AddPasses(
         .bindings = bindings_,
     });
     bindings_->ClearLighting();
+    bindings_->SetView(context.view);
     auto lighting =
         PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);
     if (!lighting) {

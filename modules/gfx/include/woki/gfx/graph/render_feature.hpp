@@ -10,6 +10,11 @@
 
 namespace woki::gfx {
 
+struct RenderView final {
+    math::mat4f view_projection{math::mat4f::identity()};
+    math::vec3f world_position{};
+};
+
 class RenderGraphBlackboard final {
 public:
     [[nodiscard]] Result<void> Publish(StringId name, GraphResource resource);
@@ -23,6 +28,7 @@ private:
 };
 
 struct RenderFeatureContext final {
+    const RenderView& view;
     const RenderSnapshot& snapshot;
     const RenderQueue& opaque_queue;
     const RenderQueue& transparent_queue;

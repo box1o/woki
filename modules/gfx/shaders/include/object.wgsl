@@ -1,5 +1,7 @@
 struct ObjectData {
     model: mat4x4<f32>,
+    view_projection: mat4x4<f32>,
+    view_position: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> object: ObjectData;
@@ -18,7 +20,7 @@ struct SurfaceVertex {
 fn transform_vertex(input: MeshVertex) -> SurfaceVertex {
     let world_position = object.model * vec4<f32>(input.position, 1.0);
     var output: SurfaceVertex;
-    output.position = world_position;
+    output.position = object.view_projection * world_position;
     output.world_position = world_position.xyz;
     output.world_normal = normalize((object.model * vec4<f32>(input.normal, 0.0)).xyz);
     return output;

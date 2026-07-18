@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../graph/render_feature.hpp"
 #include "../material/standard_material_resources.hpp"
 #include "../resource/frame_uniform_buffer.hpp"
 #include "../shader/shader_manager.hpp"
@@ -32,6 +33,7 @@ public:
 
     [[nodiscard]] std::size_t MaterialBindingCount() const noexcept;
     [[nodiscard]] Result<void> SetLighting(std::span<const std::byte> data);
+    void SetView(const RenderView& view) noexcept;
     void ClearLighting() noexcept;
     void Clear() noexcept;
 
@@ -69,6 +71,7 @@ private:
     std::vector<ObjectBinding> objects_{};
     std::vector<ObjectBinding> skins_{};
     std::optional<UniformBufferSlice> lighting_{};
+    RenderView view_{};
     u64 snapshot_sequence_{0};
 };
 

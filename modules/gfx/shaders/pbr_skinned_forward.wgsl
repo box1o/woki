@@ -2,6 +2,8 @@
 
 struct ObjectData {
     model: mat4x4<f32>,
+    view_projection: mat4x4<f32>,
+    view_position: vec4<f32>,
 };
 
 struct SkinData {
@@ -45,7 +47,7 @@ fn vertex_main(input: SkinnedVertex) -> SurfaceVertex {
     let world = object.model * deformation;
     let world_position = world * vec4<f32>(input.position, 1.0);
     var output: SurfaceVertex;
-    output.position = world_position;
+    output.position = object.view_projection * world_position;
     output.world_position = world_position.xyz;
     output.world_normal = normalize((world * vec4<f32>(input.normal, 0.0)).xyz);
     return output;
@@ -54,7 +56,7 @@ fn vertex_main(input: SkinnedVertex) -> SurfaceVertex {
 @fragment
 fn fragment_main(input: SurfaceVertex) -> @location(0) vec4<f32> {
     let normal = normalize(input.world_normal);
-    let view = normalize(-input.world_position);
+    let view = normalize(object.view_position.xyz - input.world_position);
     let roughness = clamp(material.roughness, 0.045, 1.0);
     let metallic = clamp(material.metallic, 0.0, 1.0);
     let base = max(material.base_color.rgb, vec3<f32>(0.0));

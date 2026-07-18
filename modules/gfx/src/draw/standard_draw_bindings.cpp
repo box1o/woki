@@ -7,6 +7,12 @@
 namespace woki::gfx {
 namespace {
 
+struct alignas(16) GpuObjectData final {
+    math::mat4f model{math::mat4f::identity()};
+    math::mat4f view_projection{math::mat4f::identity()};
+    math::vec4f view_position{};
+};
+
 [[nodiscard]] std::vector<u32> MaterialGroups(const ShaderInterfaceDesc& interface) {
     std::vector<u32> groups{};
     if (!interface.parameters.empty()) {
@@ -218,7 +224,13 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
             continue;
         }
         if (Find(objects_, draw.pipeline, draw.packet.object) == nullptr) {
-            auto allocation = uniforms_->Write(std::as_bytes(std::span{&draw.transform, 1}));
+            const GpuObjectData object_data{
+                .model = draw.transform,
+                .view_projection = view_.view_projection,
+                .view_position = {view_.world_position.x, view_.world_position.y,
+                    view_.world_position.z, 1.0F},
+            };
+            auto allocation = uniforms_->Write(std::as_bytes(std::span{&object_data, 1}));
             if (!allocation) {
                 Clear();
                 return Err(allocation.error());
@@ -331,6 +343,8 @@ Result<void> StandardDrawBindings::SetLighting(const std::span<const std::byte> 
     lighting_ = *allocation;
     return Ok();
 }
+
+void StandardDrawBindings::SetView(const RenderView& view) noexcept { view_ = view; }
 
 void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 

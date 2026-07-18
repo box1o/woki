@@ -13,13 +13,14 @@ struct RenderFramePlan final {
 };
 
 [[nodiscard]] Result<RenderFramePlan> BuildRenderFramePlan(
-    RenderSnapshot snapshot, RenderFeatureRegistry& features);
+    RenderSnapshot snapshot, RenderFeatureRegistry& features, const RenderView& view = {});
 
 class RenderFramePlanner final {
 public:
     RenderFramePlanner(RenderScene& scene, RenderFeatureRegistry& features) noexcept;
 
-    [[nodiscard]] Result<RenderFramePlan> Prepare(u64 layer_mask = ~0ULL);
+    [[nodiscard]] Result<RenderFramePlan> Prepare(
+        const RenderView& view = {}, u64 layer_mask = ~0ULL);
 
 private:
     RenderScene* scene_{nullptr};

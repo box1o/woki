@@ -18,6 +18,7 @@ struct RenderFrameDesc final {
     u64 layer_mask{~0ULL};
     u32 width{0};
     u32 height{0};
+    RenderView view{};
     rhi::TextureView* output{nullptr};
 };
 

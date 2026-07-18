@@ -37,7 +37,7 @@ fn vertex_main(input: MeshVertex) -> SurfaceVertex {
 @fragment
 fn fragment_main(input: SurfaceVertex) -> @location(0) vec4<f32> {
     let normal = normalize(input.world_normal);
-    let view = normalize(-input.world_position);
+    let view = normalize(object.view_position.xyz - input.world_position);
     let roughness = clamp(material.roughness, 0.045, 1.0);
     let metallic = clamp(material.metallic, 0.0, 1.0);
     let base = max(material.base_color.rgb, vec3<f32>(0.0));

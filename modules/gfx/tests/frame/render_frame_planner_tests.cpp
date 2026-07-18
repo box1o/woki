@@ -17,6 +17,7 @@ public:
         woki::gfx::RenderGraphBlackboard&,
         const woki::gfx::RenderFeatureContext& context) override {
         observed_sequence = context.snapshot.sequence;
+        observed_view_position = context.view.world_position;
         opaque_draws = context.opaque_queue.draws.size();
         transparent_draws = context.transparent_queue.draws.size();
         auto pass = graph.AddPass({.label = "Queue pass"});
@@ -26,6 +27,7 @@ public:
     woki::u64 observed_sequence{0};
     std::size_t opaque_draws{0};
     std::size_t transparent_draws{0};
+    woki::math::vec3f observed_view_position{};
 };
 
 [[nodiscard]] woki::gfx::RenderSnapshot MakeSnapshot() {
@@ -52,7 +54,8 @@ TEST_CASE("Frame planner builds phase queues and feature graph from one snapshot
     auto* observer = feature.get();
     REQUIRE(features.Add(std::move(feature)));
 
-    auto plan = woki::gfx::BuildRenderFramePlan(MakeSnapshot(), features);
+    const woki::gfx::RenderView view{.world_position = {1.0F, 2.0F, 3.0F}};
+    auto plan = woki::gfx::BuildRenderFramePlan(MakeSnapshot(), features, view);
 
     REQUIRE(plan);
     REQUIRE(plan->snapshot.sequence == 12);
@@ -64,6 +67,7 @@ TEST_CASE("Frame planner builds phase queues and feature graph from one snapshot
     REQUIRE(observer->observed_sequence == 12);
     REQUIRE(observer->opaque_draws == 1);
     REQUIRE(observer->transparent_draws == 1);
+    REQUIRE(observer->observed_view_position == view.world_position);
 }
 
 TEST_CASE("Frame planner rejects an inconsistent snapshot before invoking features") {
