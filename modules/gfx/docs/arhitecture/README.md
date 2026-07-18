@@ -71,7 +71,8 @@ image-based lighting, ambient occlusion, and emissive output in the primary prod
 `PbrFullSkinned` uses the same shared surface implementation after GPU joint deformation, so animated
 geometry retains the complete material and lighting path. Its vertex contract is position at location
 0, normal at 1, UV at 2, four joint indices at 3, and four weights at 4. The smaller variants remain
-useful for constrained passes and debugging. Cascaded and atlas shadows remain future extensions.
+useful for constrained passes and debugging. Directional lights can use the cascaded atlas feature;
+the single-view feature remains available for spot lights and constrained scenes.
 
 Skinned shadow pipelines use `DepthSkinned` for opaque materials and `DepthMaskedSkinned` for cutout
 materials. Both consume the same joint palette and locations 3/4 as `PbrFullSkinned`; the masked
@@ -117,6 +118,13 @@ formats into these runtime-neutral clip and skeleton structures.
   which samples only base-color alpha and applies the material cutoff so foliage and cutouts cast
   correct silhouettes. Standard object bindings are keyed by render-view scope, so shared objects
   receive independent camera and light-view uniforms across passes.
+- `CascadedShadowFeature` accepts one to four independently culled light views with strictly
+  increasing camera-distance splits. It renders them into a compact 1x1, 2x1, or 2x2 depth atlas in
+  one pass using viewport and scissor tiles, then publishes the same shadow outputs consumed by
+  forward PBR. The shared GPU shadow block carries four matrices, atlas transforms, split distances,
+  bias, strength, light index, and active cascade count. The shader selects a cascade by distance and
+  clamps comparison samples inside its tile to prevent atlas bleeding. Register either the single
+  shadow feature or the cascaded feature, never both.
 - `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline.
   Each instance has a unique label and chooses either an intermediate transient output or the final
   per-frame output, allowing ordered chains such as bloom, color grading, and tone mapping. The

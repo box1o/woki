@@ -1,6 +1,7 @@
 #include <woki/gfx/feature/shadow_render_feature.hpp>
 
 #include <cmath>
+#include <limits>
 
 namespace woki::gfx {
 
@@ -43,6 +44,11 @@ Result<void> ShadowRenderFeature::AddPasses(
     if (auto validation = Validate(desc_); !validation) {
         return validation;
     }
+    if (blackboard.Contains(render_outputs::kShadowDepth) ||
+        blackboard.Contains(render_outputs::kShadowData)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Shadow renderer must be the first shadow producer");
+    }
     if (desc_.light_index >= context.snapshot.lights.size() ||
         !context.snapshot.lights[desc_.light_index].casts_shadows) {
         return Err(ErrorCode::ValidationOutOfRange,
@@ -66,28 +72,29 @@ Result<void> ShadowRenderFeature::AddPasses(
         return Err(resolved.error());
     }
 
-    GraphResource depth = blackboard.Find(render_outputs::kShadowDepth);
-    if (!depth) {
-        auto created = graph.AddTransientTexture({
-            .label = "Shadow depth",
-            .format = desc_.format,
-            .usage = rhi::TextureUsage::RenderAttachment | rhi::TextureUsage::TextureBinding,
-            .extent = rhi::ExtentMode::Fixed(desc_.resolution, desc_.resolution),
-        });
-        if (!created) {
-            return Err(created.error());
-        }
-        depth = *created;
-        if (auto published = blackboard.Publish(render_outputs::kShadowDepth, depth); !published) {
-            return published;
-        }
+    auto created = graph.AddTransientTexture({
+        .label = "Shadow depth",
+        .format = desc_.format,
+        .usage = rhi::TextureUsage::RenderAttachment | rhi::TextureUsage::TextureBinding,
+        .extent = rhi::ExtentMode::Fixed(desc_.resolution, desc_.resolution),
+    });
+    if (!created) {
+        return Err(created.error());
+    }
+    const GraphResource depth = *created;
+    if (auto published = blackboard.Publish(render_outputs::kShadowDepth, depth); !published) {
+        return published;
     }
     if (auto published = blackboard.PublishData(render_outputs::kShadowData,
-            ShadowFrameData{.light_view_projection = desc_.light_view.view_projection,
-                .depth_bias = desc_.depth_bias,
-                .normal_bias = desc_.normal_bias,
-                .strength = desc_.strength,
-                .light_index = desc_.light_index});
+            ShadowFrameData{.light_view_projections = {desc_.light_view.view_projection,
+                                math::mat4f::identity(), math::mat4f::identity(),
+                                math::mat4f::identity()},
+                .atlas_transforms = {math::vec4f{1.0F, 1.0F, 0.0F, 0.0F}, math::vec4f{},
+                    math::vec4f{}, math::vec4f{}},
+                .split_distances = math::vec4f{std::numeric_limits<f32>::max()},
+                .parameters = {desc_.depth_bias, desc_.normal_bias, desc_.strength, 0.0F},
+                .light_index = desc_.light_index,
+                .cascade_count = 1});
         !published) {
         return published;
     }
