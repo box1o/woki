@@ -81,6 +81,36 @@ StandardShaderLibrary::StandardShaderLibrary(paths::Path shader_root)
 const paths::Path& StandardShaderLibrary::Root() const noexcept { return root_; }
 
 ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
+    if (shader == StandardShader::ToneMap) {
+        const std::string source_path = (root_ / "tone_map.wgsl").generic_string();
+        return {
+            .asset_id = AssetId{"woki/shaders/tone_map"},
+            .label = "Woki Tone Map",
+            .sources =
+                {
+                    {.stage = ShaderStage::Vertex,
+                        .entry_point = "vertex_main",
+                        .source_path = source_path},
+                    {.stage = ShaderStage::Fragment,
+                        .entry_point = "fragment_main",
+                        .source_path = source_path},
+                },
+            .interface = {.resources =
+                              {
+                                  {.name = StringId{"hdr_color"},
+                                      .type = ShaderResourceType::Texture2D,
+                                      .group = 0,
+                                      .binding = 0,
+                                      .required = true},
+                                  {.name = StringId{"linear_sampler"},
+                                      .type = ShaderResourceType::Sampler,
+                                      .group = 0,
+                                      .binding = 1,
+                                      .required = true},
+                              }},
+            .hot_reload = true,
+        };
+    }
     const bool pbr = shader != StandardShader::Unlit;
     const bool skinned = shader == StandardShader::PbrSkinned;
     const bool textured = shader == StandardShader::PbrTextured;

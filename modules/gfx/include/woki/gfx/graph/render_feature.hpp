@@ -22,6 +22,7 @@ struct RenderView final {
 class RenderGraphBlackboard final {
 public:
     [[nodiscard]] Result<void> Publish(StringId name, GraphResource resource);
+    [[nodiscard]] Result<void> Replace(StringId name, GraphResource resource);
     [[nodiscard]] GraphResource Find(StringId name) const noexcept;
     [[nodiscard]] bool Contains(StringId name) const noexcept;
     [[nodiscard]] std::size_t Size() const noexcept;

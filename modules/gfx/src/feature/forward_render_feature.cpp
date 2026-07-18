@@ -29,7 +29,14 @@ Result<void> ForwardRenderFeature::AddPasses(
 
     GraphResource color = blackboard.Find(render_outputs::kColor);
     if (!color) {
-        auto created = graph.AddPerFrameTexture("Forward color");
+        auto created = desc_.offscreen_color ? graph.AddTransientTexture({
+                                                   .label = "Forward color",
+                                                   .format = desc_.targets.color_formats.front(),
+                                                   .usage = rhi::TextureUsage::RenderAttachment |
+                                                            rhi::TextureUsage::TextureBinding,
+                                                   .extent = rhi::ExtentMode::Swapchain(),
+                                               })
+                                             : graph.AddPerFrameTexture("Forward color");
         if (!created) {
             return Err(created.error());
         }

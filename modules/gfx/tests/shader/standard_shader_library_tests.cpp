@@ -60,3 +60,14 @@ TEST_CASE("Standard shader library describes shadowed PBR frame bindings") {
     REQUIRE(shader.interface.shadow_group == shader.interface.lighting_group);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes tone mapping") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::ToneMap);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/tone_map"});
+    REQUIRE(shader.sources.front().source_path == "shaders/tone_map.wgsl");
+    REQUIRE(shader.interface.resources.size() == 2);
+    REQUIRE_FALSE(shader.interface.uses_object_transform);
+    REQUIRE(woki::gfx::Validate(shader));
+}

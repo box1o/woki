@@ -2,15 +2,11 @@
 
 #include "../draw/standard_draw_bindings.hpp"
 #include "../graph/render_feature.hpp"
+#include "../graph/render_outputs.hpp"
 #include "../lighting/light.hpp"
 #include "../lighting/shadow.hpp"
 
 namespace woki::gfx {
-
-namespace render_outputs {
-inline const StringId kColor{"render.color"};
-inline const StringId kDepth{"render.depth"};
-} // namespace render_outputs
 
 struct ForwardRenderFeatureDesc final {
     RenderTargetSignature targets{};
@@ -18,6 +14,7 @@ struct ForwardRenderFeatureDesc final {
     f32 clear_depth{1.0F};
     math::vec3f ambient_light{0.02F};
     u32 maximum_lights{256};
+    bool offscreen_color{false};
 };
 
 class ForwardRenderFeature final : public RenderFeature {

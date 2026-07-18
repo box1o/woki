@@ -25,6 +25,20 @@ Result<void> RenderGraphBlackboard::Publish(const StringId name, const GraphReso
     return Ok();
 }
 
+Result<void> RenderGraphBlackboard::Replace(const StringId name, const GraphResource resource) {
+    if (name.Empty() || !resource) {
+        return Err(
+            ErrorCode::ValidationNullValue, "Render graph blackboard requires a name and resource");
+    }
+    const auto iterator = resources_.find(name);
+    if (iterator == resources_.end()) {
+        return Err(ErrorCode::FailedToAcquireResource,
+            "Render graph blackboard resource is not published");
+    }
+    iterator->second = resource;
+    return Ok();
+}
+
 GraphResource RenderGraphBlackboard::Find(const StringId name) const noexcept {
     const auto iterator = resources_.find(name);
     return iterator != resources_.end() ? iterator->second : GraphResource{};

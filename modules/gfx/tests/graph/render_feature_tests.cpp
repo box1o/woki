@@ -133,3 +133,15 @@ TEST_CASE("Render graph blackboard carries typed feature data") {
     blackboard.Clear();
     REQUIRE(blackboard.Size() == 0);
 }
+
+TEST_CASE("Render graph blackboard explicitly replaces published resources") {
+    woki::gfx::RenderGraph graph{};
+    const auto first = graph.AddPerFrameTexture("First");
+    const auto second = graph.AddPerFrameTexture("Second");
+    REQUIRE(first);
+    REQUIRE(second);
+    woki::gfx::RenderGraphBlackboard blackboard{};
+    REQUIRE(blackboard.Publish(kColor, *first));
+    REQUIRE(blackboard.Replace(kColor, *second));
+    REQUIRE(blackboard.Find(kColor) == *second);
+}
