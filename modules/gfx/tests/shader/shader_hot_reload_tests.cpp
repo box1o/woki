@@ -107,5 +107,6 @@ TEST_CASE("Shader hot reload validates tracking requests") {
     woki::gfx::ShaderHotReload reload;
 
     REQUIRE_FALSE(reload.Track({}, "shader.wgsl").has_value());
-    REQUIRE_FALSE(reload.Track(woki::gfx::ShaderHandle::FromParts(1, 1), {}).has_value());
+    REQUIRE_FALSE(
+        reload.Track(woki::gfx::ShaderHandle::FromParts(1, 1), woki::paths::Path{}).has_value());
 }

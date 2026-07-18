@@ -9,22 +9,35 @@ namespace woki::gfx {
 
 Result<void> ShaderHotReload::Track(const ShaderHandle shader, const paths::Path& source_path,
     const std::span<const std::string> dependencies) {
+    return TrackFiles(shader, std::span<const paths::Path>(&source_path, 1), dependencies);
+}
+
+Result<void> ShaderHotReload::TrackFiles(const ShaderHandle shader,
+    const std::span<const paths::Path> source_paths,
+    const std::span<const std::string> dependencies) {
     if (!shader) {
         return Err(ErrorCode::InvalidArgument, "Cannot track an invalid shader handle");
     }
-    if (source_path.empty()) {
-        return Err(ErrorCode::InvalidArgument, "Tracked shader requires a source path");
+    if (source_paths.empty()) {
+        return Err(ErrorCode::InvalidArgument, "Tracked shader requires at least one source path");
     }
 
     std::vector<paths::Path> files{};
-    files.reserve(dependencies.size() + 1);
+    files.reserve(dependencies.size() + source_paths.size());
 
-    auto normalized_source = paths::Normalize(source_path);
-    if (!normalized_source) {
-        return Err(normalized_source.error());
+    std::vector<paths::Path> normalized_sources{};
+    normalized_sources.reserve(source_paths.size());
+    for (const auto& source_path : source_paths) {
+        if (source_path.empty()) {
+            return Err(ErrorCode::InvalidArgument, "Tracked shader source path cannot be empty");
+        }
+        auto normalized_source = paths::Normalize(source_path);
+        if (!normalized_source) {
+            return Err(normalized_source.error());
+        }
+        normalized_sources.push_back(*normalized_source);
+        files.push_back(std::move(*normalized_source));
     }
-    const paths::Path normalized_source_path = *normalized_source;
-    files.push_back(normalized_source_path);
 
     for (const auto& dependency : dependencies) {
         auto normalized = paths::Normalize(dependency);
@@ -55,7 +68,7 @@ Result<void> ShaderHotReload::Track(const ShaderHandle shader, const paths::Path
         added_files.push_back(file);
     }
 
-    const std::string source_name = normalized_source_path.generic_string();
+    const std::string source_name = normalized_sources.front().generic_string();
     std::vector<std::string> dependency_names{};
     dependency_names.reserve(files.size() - 1);
     for (const auto& file : files) {

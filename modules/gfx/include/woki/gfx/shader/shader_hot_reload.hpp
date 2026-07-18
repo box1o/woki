@@ -20,6 +20,8 @@ class ShaderHotReload final {
 public:
     [[nodiscard]] Result<void> Track(ShaderHandle shader, const paths::Path& source_path,
         std::span<const std::string> dependencies = {});
+    [[nodiscard]] Result<void> TrackFiles(ShaderHandle shader,
+        std::span<const paths::Path> source_paths, std::span<const std::string> dependencies = {});
 
     [[nodiscard]] bool Untrack(ShaderHandle shader);
     [[nodiscard]] bool IsTracked(ShaderHandle shader) const noexcept;
