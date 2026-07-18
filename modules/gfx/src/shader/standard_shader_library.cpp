@@ -120,6 +120,60 @@ StandardShaderLibrary::StandardShaderLibrary(paths::Path shader_root)
 const paths::Path& StandardShaderLibrary::Root() const noexcept { return root_; }
 
 ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
+    if (shader == StandardShader::BloomThreshold || shader == StandardShader::BloomBlur ||
+        shader == StandardShader::BloomComposite) {
+        const bool composite = shader == StandardShader::BloomComposite;
+        const std::string_view file = shader == StandardShader::BloomThreshold
+                                          ? "bloom_threshold"
+                                      : shader == StandardShader::BloomBlur ? "bloom_blur"
+                                                                           : "bloom_composite";
+        const std::string_view asset = shader == StandardShader::BloomThreshold
+                                           ? "woki/shaders/bloom_threshold"
+                                       : shader == StandardShader::BloomBlur
+                                           ? "woki/shaders/bloom_blur"
+                                           : "woki/shaders/bloom_composite";
+        const std::string_view label = shader == StandardShader::BloomThreshold
+                                           ? "Woki Bloom Threshold"
+                                       : shader == StandardShader::BloomBlur ? "Woki Bloom Blur"
+                                                                            : "Woki Bloom Composite";
+        const std::string source_path =
+            (root_ / (std::string(file) + ".wgsl")).generic_string();
+        ShaderInterfaceDesc interface{};
+        interface.resources = {
+            {.name = StringId{"source_color"},
+                .type = ShaderResourceType::Texture2D,
+                .group = 0,
+                .binding = 0,
+                .required = true},
+        };
+        if (composite) {
+            interface.resources.push_back({.name = StringId{"bloom_color"},
+                .type = ShaderResourceType::Texture2D,
+                .group = 0,
+                .binding = 1,
+                .required = true});
+        }
+        interface.resources.push_back({.name = StringId{"linear_sampler"},
+            .type = ShaderResourceType::Sampler,
+            .group = 0,
+            .binding = composite ? 2U : 1U,
+            .required = true});
+        return {
+            .asset_id = AssetId{asset},
+            .label = std::string(label),
+            .sources =
+                {
+                    {.stage = ShaderStage::Vertex,
+                        .entry_point = "vertex_main",
+                        .source_path = source_path},
+                    {.stage = ShaderStage::Fragment,
+                        .entry_point = "fragment_main",
+                        .source_path = source_path},
+                },
+            .interface = std::move(interface),
+            .hot_reload = true,
+        };
+    }
     if (shader == StandardShader::ToneMap) {
         const std::string source_path = (root_ / "tone_map.wgsl").generic_string();
         return {

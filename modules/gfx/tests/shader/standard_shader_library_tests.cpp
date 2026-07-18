@@ -72,6 +72,28 @@ TEST_CASE("Standard shader library describes tone mapping") {
     REQUIRE(woki::gfx::Validate(shader));
 }
 
+TEST_CASE("Standard shader library describes the bloom pipeline stages") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto threshold = library.Describe(woki::gfx::StandardShader::BloomThreshold);
+    const auto blur = library.Describe(woki::gfx::StandardShader::BloomBlur);
+    const auto composite = library.Describe(woki::gfx::StandardShader::BloomComposite);
+
+    REQUIRE(threshold.asset_id == woki::gfx::AssetId{"woki/shaders/bloom_threshold"});
+    REQUIRE(threshold.sources.front().source_path == "shaders/bloom_threshold.wgsl");
+    REQUIRE(threshold.interface.resources.size() == 2);
+    REQUIRE(woki::gfx::Validate(threshold));
+
+    REQUIRE(blur.asset_id == woki::gfx::AssetId{"woki/shaders/bloom_blur"});
+    REQUIRE(blur.interface.resources.size() == 2);
+    REQUIRE(woki::gfx::Validate(blur));
+
+    REQUIRE(composite.asset_id == woki::gfx::AssetId{"woki/shaders/bloom_composite"});
+    REQUIRE(composite.interface.resources.size() == 3);
+    REQUIRE(composite.interface.resources[1].binding == 1);
+    REQUIRE(composite.interface.resources[2].binding == 2);
+    REQUIRE(woki::gfx::Validate(composite));
+}
+
 TEST_CASE("Standard shader library describes environment PBR frame bindings") {
     const woki::gfx::StandardShaderLibrary library{"shaders"};
     const auto shader = library.Describe(woki::gfx::StandardShader::PbrEnvironment);

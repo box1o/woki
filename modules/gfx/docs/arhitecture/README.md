@@ -96,6 +96,14 @@ formats into these runtime-neutral clip and skeleton structures.
 
 ## Built-in render features
 
+- `BloomFeature` consumes single-sampled transient HDR color, extracts highlights with a configurable
+  soft threshold, runs one to eight separable Gaussian blur iterations at a configurable resolution,
+  and composites bloom back into a full-resolution transient HDR target. Its parameter slices come
+  from `FrameUniformBuffer`, so cached graph callbacks always bind current-frame settings. The
+  built-in threshold, blur, and composite shaders share `fullscreen_triangle.wgsl` through the shader
+  include system. Single-input stages use group 0 bindings `[source, sampler, parameters]`; composite
+  uses `[source, bloom, sampler, parameters]`. Public `bloom_bindings` constants define this contract.
+  Register bloom after forward rendering and before tone mapping.
 - `DepthPrepassFeature` renders the main opaque queue through registered depth-only material variants
   and publishes main depth before forward shading. Opaque, masked, skinned, and masked-skinned
   materials therefore use their matching depth implementation. Register it before

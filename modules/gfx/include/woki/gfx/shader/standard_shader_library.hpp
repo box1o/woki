@@ -21,6 +21,9 @@ enum class StandardShader : u8 {
     PbrFullSkinned,
     DepthSkinned,
     DepthMaskedSkinned,
+    BloomThreshold,
+    BloomBlur,
+    BloomComposite,
 };
 
 class StandardShaderLibrary final {
