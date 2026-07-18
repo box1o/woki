@@ -101,4 +101,7 @@ creates and registers the result idempotently.
 
 Renderer diagnostics expose the last frame result, hot-reload failures, CPU timings for maintenance,
 planning, graph compilation, upload, execution, and total frame work, plus live and retired GFX
-resource counts. GPU timestamp queries are not integrated yet.
+resource counts. When the RHI device enables `TimestampQuery`, the renderer also captures whole-graph
+GPU duration into a three-frame readback ring. Readback starts only after the caller reports the
+submission complete, never stalls rendering, and records the newest available duration and its
+submission in `RendererDiagnostics`. Unsupported devices continue without GPU timings.

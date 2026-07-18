@@ -15,6 +15,11 @@ Result<void> RhiRenderGraphFrame::Bind(const GraphResource resource, rhi::Textur
     return Ok();
 }
 
+Result<void> RhiRenderGraphFrame::CaptureTimestamps(
+    rhi::QuerySet& query_set, rhi::Buffer& resolve_buffer, rhi::Buffer& readback_buffer) {
+    return frame_.CaptureTimestamps(query_set, resolve_buffer, readback_buffer);
+}
+
 Result<void> RhiRenderGraphFrame::Execute() { return frame_.Execute(); }
 
 ExecutableRenderGraph::ExecutableRenderGraph(scope<rhi::RenderGraph> graph,

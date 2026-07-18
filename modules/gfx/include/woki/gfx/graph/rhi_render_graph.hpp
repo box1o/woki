@@ -13,6 +13,8 @@ public:
     RhiRenderGraphFrame& operator=(const RhiRenderGraphFrame&) = delete;
 
     [[nodiscard]] Result<void> Bind(GraphResource resource, rhi::TextureView& view);
+    [[nodiscard]] Result<void> CaptureTimestamps(
+        rhi::QuerySet& query_set, rhi::Buffer& resolve_buffer, rhi::Buffer& readback_buffer);
     [[nodiscard]] Result<void> Execute();
 
 private:

@@ -2,14 +2,22 @@
 
 #include <woki/gfx/feature/forward_render_feature.hpp>
 
+#include "gpu_frame_profiler.hpp"
+
 namespace woki::gfx {
 
 Renderer::Renderer(rhi::Device& device, GpuResourceManager& resources, ShaderManager& shaders,
     PipelineManager& pipelines, MaterialManager& materials, RenderScene& scene,
-    RenderFeatureRegistry& features, FrameUniformBuffer& uniforms) noexcept
+    RenderFeatureRegistry& features, FrameUniformBuffer& uniforms)
     : device_(&device), resources_(&resources), shaders_(&shaders), pipelines_(&pipelines),
-      materials_(&materials), features_(&features), uniforms_(&uniforms),
-      planner_(scene, features) {}
+      materials_(&materials), features_(&features), uniforms_(&uniforms), planner_(scene, features),
+      gpu_profiler_(std::make_unique<detail::GpuFrameProfiler>(device)) {
+    diagnostics_.gpu_timing_supported = gpu_profiler_->Supported();
+    diagnostics_.gpu_timing_active = gpu_profiler_->Active();
+    diagnostics_.gpu_timing_initialization_error = gpu_profiler_->InitializationError();
+}
+
+Renderer::~Renderer() = default;
 
 void Renderer::Collect(const u64 completed_submission) {
     resources_->Collect(completed_submission);
@@ -48,6 +56,12 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
     if (desc.submission <= last_submission_ || desc.completed_submission > desc.submission) {
         return Err(
             ErrorCode::ValidationInvalidState, "Renderer submission identities must be monotonic");
+    }
+
+    if (const auto gpu_timing = gpu_profiler_->Poll(desc.completed_submission)) {
+        ++diagnostics_.gpu_timing_samples;
+        diagnostics_.last_gpu_timing_submission = gpu_timing->submission;
+        diagnostics_.last_gpu_duration_ns = gpu_timing->duration_ns;
     }
 
     const auto maintenance_start = Clock::Now();
@@ -105,10 +119,17 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         abort();
         return Err(bound.error());
     }
+    auto gpu_capture = gpu_profiler_->Capture(*frame);
+    if (!gpu_capture) {
+        abort();
+        return Err(gpu_capture.error());
+    }
     if (auto executed = frame->Execute(); !executed) {
+        gpu_profiler_->CancelCapture();
         abort();
         return Err(executed.error());
     }
+    gpu_profiler_->MarkSubmitted(desc.submission);
     const u64 uniform_bytes = uniforms_->Used();
     if (auto submitted = uniforms_->MarkSubmitted(desc.submission); !submitted) {
         return Err(submitted.error());
@@ -126,6 +147,7 @@ Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {
         .shader_reload_failures = static_cast<u32>(hot_reload.failures.size()),
         .uniform_bytes = uniform_bytes,
         .graph_rebuilt = graph_rebuilt,
+        .gpu_timing_captured = *gpu_capture,
     };
     ++diagnostics_.frames_rendered;
     diagnostics_.graph_rebuilds += graph_rebuilt ? 1 : 0;

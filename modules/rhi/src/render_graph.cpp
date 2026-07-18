@@ -847,9 +847,40 @@ void RenderGraphFrame::Bind(const PerFrameSlot slot, TextureView* view) {
     }
 }
 
+Result<void> RenderGraphFrame::CaptureTimestamps(
+    QuerySet& query_set, Buffer& resolve_buffer, Buffer& readback_buffer) {
+    constexpr u64 kTimestampBytes = sizeof(u64) * 2;
+    if (query_set.GetType() != QueryType::Timestamp || query_set.GetCount() < 2) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Render graph timestamp capture requires two timestamp queries");
+    }
+    if (resolve_buffer.GetSize() < kTimestampBytes ||
+        !HasFlag(resolve_buffer.GetUsage(), BufferUsage::QueryResolve) ||
+        !HasFlag(resolve_buffer.GetUsage(), BufferUsage::CopySrc)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Timestamp resolve buffer requires QueryResolve and CopySrc usage");
+    }
+    if (readback_buffer.GetSize() < kTimestampBytes ||
+        !HasFlag(readback_buffer.GetUsage(), BufferUsage::CopyDst) ||
+        !HasFlag(readback_buffer.GetUsage(), BufferUsage::MapRead)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Timestamp readback buffer requires CopyDst and MapRead usage");
+    }
+    timestamp_query_set_ = &query_set;
+    timestamp_resolve_buffer_ = &resolve_buffer;
+    timestamp_readback_buffer_ = &readback_buffer;
+    return Ok();
+}
+
 Result<void> RenderGraphFrame::Execute() {
     if (graph_ == nullptr || device_ == nullptr || !encoder_) {
         return Err(ErrorCode::InvalidState, "RenderGraphFrame is invalid");
+    }
+
+    if (timestamp_query_set_ != nullptr) {
+        if (auto result = encoder_->WriteTimestamp(*timestamp_query_set_, 0); !result) {
+            return result;
+        }
     }
 
     for (size_t pass_index = 0; pass_index < graph_->blueprint_.passes.size(); ++pass_index) {
@@ -863,6 +894,22 @@ Result<void> RenderGraphFrame::Execute() {
                 static_cast<u32>(pass_index), *encoder_, width_, height_, per_frame_views_);
         }
         if (!result) {
+            return result;
+        }
+    }
+
+    if (timestamp_query_set_ != nullptr) {
+        if (auto result = encoder_->WriteTimestamp(*timestamp_query_set_, 1); !result) {
+            return result;
+        }
+        if (auto result = encoder_->ResolveQuerySet(
+                *timestamp_query_set_, 0, 2, *timestamp_resolve_buffer_, 0);
+            !result) {
+            return result;
+        }
+        if (auto result = encoder_->CopyBufferToBuffer(
+                *timestamp_resolve_buffer_, 0, *timestamp_readback_buffer_, 0, sizeof(u64) * 2);
+            !result) {
             return result;
         }
     }

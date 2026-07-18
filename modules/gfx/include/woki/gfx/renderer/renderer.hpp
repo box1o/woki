@@ -11,6 +11,10 @@
 
 namespace woki::gfx {
 
+namespace detail {
+class GpuFrameProfiler;
+}
+
 struct RenderFrameDesc final {
     u64 frame_number{0};
     u64 submission{0};
@@ -32,6 +36,7 @@ struct RenderFrameResult final {
     u32 shader_reload_failures{0};
     u64 uniform_bytes{0};
     bool graph_rebuilt{false};
+    bool gpu_timing_captured{false};
 };
 
 struct ShaderHotReloadReport final {
@@ -69,13 +74,20 @@ struct RendererDiagnostics final {
     RenderFrameTimings last_timings{};
     RendererResourceStats resources{};
     ShaderHotReloadReport last_hot_reload{};
+    bool gpu_timing_supported{false};
+    bool gpu_timing_active{false};
+    u64 gpu_timing_samples{0};
+    u64 last_gpu_timing_submission{0};
+    std::optional<u64> last_gpu_duration_ns{};
+    std::optional<Error> gpu_timing_initialization_error{};
 };
 
 class Renderer final {
 public:
     Renderer(rhi::Device& device, GpuResourceManager& resources, ShaderManager& shaders,
         PipelineManager& pipelines, MaterialManager& materials, RenderScene& scene,
-        RenderFeatureRegistry& features, FrameUniformBuffer& uniforms) noexcept;
+        RenderFeatureRegistry& features, FrameUniformBuffer& uniforms);
+    ~Renderer();
 
     [[nodiscard]] Result<RenderFrameResult> Render(const RenderFrameDesc& desc);
     [[nodiscard]] ShaderHotReloadReport ProcessHotReload();
@@ -100,6 +112,7 @@ private:
     u64 graph_revision_{0};
     u64 last_submission_{0};
     RendererDiagnostics diagnostics_{};
+    std::unique_ptr<detail::GpuFrameProfiler> gpu_profiler_{};
 };
 
 } // namespace woki::gfx
