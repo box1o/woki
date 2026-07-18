@@ -39,3 +39,13 @@ TEST_CASE("Standard shader library describes skinned PBR") {
     REQUIRE(shader.interface.uses_lighting);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes textured PBR resources") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::PbrTextured);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/pbr_textured"});
+    REQUIRE(shader.interface.parameters.size() == 7);
+    REQUIRE(shader.interface.resources.size() == 6);
+    REQUIRE(woki::gfx::Validate(shader));
+}

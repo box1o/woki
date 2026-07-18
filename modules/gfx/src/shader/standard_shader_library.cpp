@@ -1,5 +1,6 @@
 #include <woki/gfx/shader/standard_shader_library.hpp>
 
+#include <woki/gfx/material/material.hpp>
 #include <woki/gfx/shader/shader_manager.hpp>
 
 #include <utility>
@@ -34,6 +35,41 @@ namespace {
     return interface;
 }
 
+void AddTexturedPbrInterface(ShaderInterfaceDesc& interface) {
+    interface.parameters.push_back(
+        {.name = material_parameters::kNormalScale, .type = ShaderValueType::Float32});
+    interface.parameters.push_back(
+        {.name = material_parameters::kOcclusionStrength, .type = ShaderValueType::Float32});
+    interface.parameters.push_back(
+        {.name = material_parameters::kAlphaCutoff, .type = ShaderValueType::Float32});
+    interface.resources = {
+        {.name = material_parameters::kBaseColorTexture,
+            .type = ShaderResourceType::Texture2D,
+            .group = 1,
+            .binding = 1},
+        {.name = material_parameters::kMetallicRoughnessTexture,
+            .type = ShaderResourceType::Texture2D,
+            .group = 1,
+            .binding = 2},
+        {.name = material_parameters::kNormalTexture,
+            .type = ShaderResourceType::Texture2D,
+            .group = 1,
+            .binding = 3},
+        {.name = material_parameters::kOcclusionTexture,
+            .type = ShaderResourceType::Texture2D,
+            .group = 1,
+            .binding = 4},
+        {.name = material_parameters::kEmissiveTexture,
+            .type = ShaderResourceType::Texture2D,
+            .group = 1,
+            .binding = 5},
+        {.name = material_parameters::kSampler,
+            .type = ShaderResourceType::Sampler,
+            .group = 1,
+            .binding = 6},
+    };
+}
+
 } // namespace
 
 StandardShaderLibrary::StandardShaderLibrary(paths::Path shader_root)
@@ -44,12 +80,18 @@ const paths::Path& StandardShaderLibrary::Root() const noexcept { return root_; 
 ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
     const bool pbr = shader != StandardShader::Unlit;
     const bool skinned = shader == StandardShader::PbrSkinned;
-    const std::string name = skinned ? "pbr_skinned_forward" : (pbr ? "pbr_forward" : "unlit");
+    const bool textured = shader == StandardShader::PbrTextured;
+    const std::string name =
+        skinned ? "pbr_skinned_forward"
+                : (textured ? "pbr_textured_forward" : (pbr ? "pbr_forward" : "unlit"));
     const std::string source_path = (root_ / (name + ".wgsl")).generic_string();
-    return {
-        .asset_id = AssetId{skinned ? "woki/shaders/pbr_skinned"
-                                    : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
-        .label = skinned ? "Woki PBR Skinned" : (pbr ? "Woki PBR" : "Woki Unlit"),
+    ShaderDesc result{
+        .asset_id = AssetId{skinned    ? "woki/shaders/pbr_skinned"
+                            : textured ? "woki/shaders/pbr_textured"
+                                       : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
+        .label = skinned    ? "Woki PBR Skinned"
+                 : textured ? "Woki PBR Textured"
+                            : (pbr ? "Woki PBR" : "Woki Unlit"),
         .sources =
             {
                 {.stage = ShaderStage::Vertex,
@@ -62,6 +104,10 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
         .interface = StandardInterface(pbr, skinned),
         .hot_reload = true,
     };
+    if (textured) {
+        AddTexturedPbrInterface(result.interface);
+    }
+    return result;
 }
 
 Result<ShaderHandle> StandardShaderLibrary::Load(

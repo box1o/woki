@@ -28,6 +28,20 @@ namespace {
     return groups;
 }
 
+[[nodiscard]] TextureHandle DefaultTexture(
+    const StandardMaterialResources& defaults, const StringId name) noexcept {
+    if (name == material_parameters::kNormalTexture) {
+        return defaults.normal;
+    }
+    if (name == material_parameters::kMetallicRoughnessTexture) {
+        return defaults.metallic_roughness;
+    }
+    if (name == material_parameters::kEmissiveTexture) {
+        return defaults.black;
+    }
+    return defaults.white;
+}
+
 } // namespace
 
 StandardDrawBindings::StandardDrawBindings(rhi::Device& device, GpuResourceManager& resources,
@@ -126,6 +140,21 @@ Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding
                     return Err(
                         ErrorCode::ValidationNullValue, "Required material binding is missing");
                 }
+                rhi::BindGroupEntryDesc entry{.binding = binding.binding};
+                if (binding.type == ShaderResourceType::Sampler) {
+                    entry.sampler = resources_->Resolve(desc_.defaults.sampler);
+                } else if (binding.type == ShaderResourceType::Texture2D) {
+                    entry.texture_view =
+                        resources_->ResolveView(DefaultTexture(desc_.defaults, binding.name));
+                } else {
+                    return Err(ErrorCode::GraphicsUnsupportedApi,
+                        "No standard fallback exists for this optional shader resource type");
+                }
+                if (entry.sampler == nullptr && entry.texture_view == nullptr) {
+                    return Err(ErrorCode::ValidationNullValue,
+                        "Optional material binding requires configured default resources");
+                }
+                entries.push_back(entry);
                 continue;
             }
             rhi::BindGroupEntryDesc entry{.binding = binding.binding};

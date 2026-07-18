@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../material/standard_material_resources.hpp"
 #include "../resource/frame_uniform_buffer.hpp"
 #include "../shader/shader_manager.hpp"
 #include "draw_encoder.hpp"
@@ -12,6 +13,7 @@ namespace woki::gfx {
 
 struct StandardDrawBindingsDesc final {
     std::optional<u32> transform_immediate_offset{};
+    StandardMaterialResources defaults{};
 };
 
 class StandardDrawBindings final : public DrawBindingEncoder {
