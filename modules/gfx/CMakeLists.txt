@@ -30,6 +30,7 @@ endif()
 
 set(BASE_DEPS
     woki::core
+    woki::rhi
 )
 
 if(EMSCRIPTEN)

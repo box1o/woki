@@ -30,6 +30,12 @@ struct SurfaceDesc final {
     std::string label{"Surface"};
 };
 
+struct NativeWindowHandle final {
+    void* value{nullptr};
+
+    [[nodiscard]] explicit operator bool() const noexcept { return value != nullptr; }
+};
+
 // Matches wgpu::SurfaceDescriptor — `next_in_chain` points to a platform WGPUChainedStruct.
 struct SurfaceDescriptor final {
     void* next_in_chain{nullptr};

@@ -29,7 +29,6 @@ endif()
 
 set(RHI_DEPS
     woki::core
-    woki::gfx
 )
 
 if(EMSCRIPTEN)
@@ -41,6 +40,7 @@ if(EMSCRIPTEN)
 else()
     find_package(Threads REQUIRED)
     find_package(Dawn CONFIG QUIET)
+    list(APPEND RHI_DEPS glfw)
 
     if(TARGET dawn::webgpu_dawn)
         list(APPEND RHI_DEPS dawn::webgpu_dawn)

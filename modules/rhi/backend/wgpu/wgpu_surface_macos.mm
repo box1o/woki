@@ -1,7 +1,5 @@
 #include "wgpu_surface.hpp"
 
-#include <woki/window/window.hpp>
-
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
 
 #define GLFW_EXPOSE_NATIVE_COCOA
@@ -13,12 +11,13 @@
 
 namespace woki::rhi::wgpu {
 
-WGPUSurface CreateNativeSurfaceCocoa(WGPUInstance instance, Window& window) {
+WGPUSurface CreateNativeSurfaceCocoa(
+    WGPUInstance instance, const NativeWindowHandle window) {
     if (instance == nullptr) {
         return nullptr;
     }
 
-    auto* glfw_window = static_cast<GLFWwindow*>(window.GetNativeHandle());
+    auto* glfw_window = static_cast<GLFWwindow*>(window.value);
     if (glfw_window == nullptr) {
         return nullptr;
     }

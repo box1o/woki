@@ -3,8 +3,8 @@
 #include <woki/math/math.hpp>
 #include <woki/rhi.hpp>
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 
@@ -220,59 +220,88 @@ fn fs_main(input: VSOut) -> @location(0) vec4f {
 )";
 
 constexpr std::array<CubeVertex, 24> kCubeVertices = {
-    CubeVertex{{-1.0f, -1.0f,  1.0f}, { 0.0f,  0.0f,  1.0f}, {0.93f, 0.25f, 0.21f}},
-    CubeVertex{{ 1.0f, -1.0f,  1.0f}, { 0.0f,  0.0f,  1.0f}, {0.93f, 0.25f, 0.21f}},
-    CubeVertex{{ 1.0f,  1.0f,  1.0f}, { 0.0f,  0.0f,  1.0f}, {0.93f, 0.25f, 0.21f}},
-    CubeVertex{{-1.0f,  1.0f,  1.0f}, { 0.0f,  0.0f,  1.0f}, {0.93f, 0.25f, 0.21f}},
+    CubeVertex{{-1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.93f, 0.25f, 0.21f}},
+    CubeVertex{{1.0f, -1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.93f, 0.25f, 0.21f}},
+    CubeVertex{{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.93f, 0.25f, 0.21f}},
+    CubeVertex{{-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.93f, 0.25f, 0.21f}},
 
-    CubeVertex{{ 1.0f, -1.0f, -1.0f}, { 0.0f,  0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
-    CubeVertex{{-1.0f, -1.0f, -1.0f}, { 0.0f,  0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
-    CubeVertex{{-1.0f,  1.0f, -1.0f}, { 0.0f,  0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
-    CubeVertex{{ 1.0f,  1.0f, -1.0f}, { 0.0f,  0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
+    CubeVertex{{1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
+    CubeVertex{{-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
+    CubeVertex{{-1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
+    CubeVertex{{1.0f, 1.0f, -1.0f}, {0.0f, 0.0f, -1.0f}, {0.16f, 0.55f, 0.96f}},
 
-    CubeVertex{{-1.0f, -1.0f, -1.0f}, {-1.0f,  0.0f,  0.0f}, {0.26f, 0.78f, 0.39f}},
-    CubeVertex{{-1.0f, -1.0f,  1.0f}, {-1.0f,  0.0f,  0.0f}, {0.26f, 0.78f, 0.39f}},
-    CubeVertex{{-1.0f,  1.0f,  1.0f}, {-1.0f,  0.0f,  0.0f}, {0.26f, 0.78f, 0.39f}},
-    CubeVertex{{-1.0f,  1.0f, -1.0f}, {-1.0f,  0.0f,  0.0f}, {0.26f, 0.78f, 0.39f}},
+    CubeVertex{{-1.0f, -1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.26f, 0.78f, 0.39f}},
+    CubeVertex{{-1.0f, -1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.26f, 0.78f, 0.39f}},
+    CubeVertex{{-1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.26f, 0.78f, 0.39f}},
+    CubeVertex{{-1.0f, 1.0f, -1.0f}, {-1.0f, 0.0f, 0.0f}, {0.26f, 0.78f, 0.39f}},
 
-    CubeVertex{{ 1.0f, -1.0f,  1.0f}, { 1.0f,  0.0f,  0.0f}, {0.96f, 0.70f, 0.18f}},
-    CubeVertex{{ 1.0f, -1.0f, -1.0f}, { 1.0f,  0.0f,  0.0f}, {0.96f, 0.70f, 0.18f}},
-    CubeVertex{{ 1.0f,  1.0f, -1.0f}, { 1.0f,  0.0f,  0.0f}, {0.96f, 0.70f, 0.18f}},
-    CubeVertex{{ 1.0f,  1.0f,  1.0f}, { 1.0f,  0.0f,  0.0f}, {0.96f, 0.70f, 0.18f}},
+    CubeVertex{{1.0f, -1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.96f, 0.70f, 0.18f}},
+    CubeVertex{{1.0f, -1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.96f, 0.70f, 0.18f}},
+    CubeVertex{{1.0f, 1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}, {0.96f, 0.70f, 0.18f}},
+    CubeVertex{{1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.96f, 0.70f, 0.18f}},
 
-    CubeVertex{{-1.0f,  1.0f,  1.0f}, { 0.0f,  1.0f,  0.0f}, {0.65f, 0.38f, 0.92f}},
-    CubeVertex{{ 1.0f,  1.0f,  1.0f}, { 0.0f,  1.0f,  0.0f}, {0.65f, 0.38f, 0.92f}},
-    CubeVertex{{ 1.0f,  1.0f, -1.0f}, { 0.0f,  1.0f,  0.0f}, {0.65f, 0.38f, 0.92f}},
-    CubeVertex{{-1.0f,  1.0f, -1.0f}, { 0.0f,  1.0f,  0.0f}, {0.65f, 0.38f, 0.92f}},
+    CubeVertex{{-1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.65f, 0.38f, 0.92f}},
+    CubeVertex{{1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.65f, 0.38f, 0.92f}},
+    CubeVertex{{1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.65f, 0.38f, 0.92f}},
+    CubeVertex{{-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.65f, 0.38f, 0.92f}},
 
-    CubeVertex{{-1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f,  0.0f}, {0.07f, 0.72f, 0.73f}},
-    CubeVertex{{ 1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f,  0.0f}, {0.07f, 0.72f, 0.73f}},
-    CubeVertex{{ 1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f,  0.0f}, {0.07f, 0.72f, 0.73f}},
-    CubeVertex{{-1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f,  0.0f}, {0.07f, 0.72f, 0.73f}},
+    CubeVertex{{-1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.07f, 0.72f, 0.73f}},
+    CubeVertex{{1.0f, -1.0f, -1.0f}, {0.0f, -1.0f, 0.0f}, {0.07f, 0.72f, 0.73f}},
+    CubeVertex{{1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.07f, 0.72f, 0.73f}},
+    CubeVertex{{-1.0f, -1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.07f, 0.72f, 0.73f}},
 };
 
 constexpr std::array<u16, 36> kCubeIndices = {
-     0,  1,  2,  0,  2,  3,
-     4,  5,  6,  4,  6,  7,
-     8,  9, 10,  8, 10, 11,
-    12, 13, 14, 12, 14, 15,
-    16, 17, 18, 16, 18, 19,
-    20, 21, 22, 20, 22, 23,
+    0,
+    1,
+    2,
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    4,
+    6,
+    7,
+    8,
+    9,
+    10,
+    8,
+    10,
+    11,
+    12,
+    13,
+    14,
+    12,
+    14,
+    15,
+    16,
+    17,
+    18,
+    16,
+    18,
+    19,
+    20,
+    21,
+    22,
+    20,
+    22,
+    23,
 };
 
 GBufferPassData g_gbuffer_pass_data{};
 LightingPassData g_lighting_pass_data{};
 PresentPassData g_present_pass_data{};
 
-[[nodiscard]] math::mat4f PerspectiveWebGpu(const f32 fovy, const f32 aspect, const f32 z_near, const f32 z_far) {
+[[nodiscard]] math::mat4f PerspectiveWebGpu(
+    const f32 fovy, const f32 aspect, const f32 z_near, const f32 z_far) {
     const f32 tan_half = std::tan(fovy * 0.5f);
     const f32 depth = z_near - z_far;
 
-    return math::mat4f(math::layout::rowm,
-        1.0f / (aspect * tan_half), 0.0f,             0.0f,                    0.0f,
-        0.0f,                         1.0f / tan_half, 0.0f,                    0.0f,
-        0.0f,                         0.0f,            z_far / depth,           (z_near * z_far) / depth,
-        0.0f,                         0.0f,           -1.0f,                    0.0f);
+    return math::mat4f(math::layout::rowm, 1.0f / (aspect * tan_half), 0.0f, 0.0f, 0.0f, 0.0f,
+        1.0f / tan_half, 0.0f, 0.0f, 0.0f, 0.0f, z_far / depth, (z_near * z_far) / depth, 0.0f,
+        0.0f, -1.0f, 0.0f);
 }
 
 [[nodiscard]] bool CreateShader(
@@ -292,7 +321,8 @@ PresentPassData g_present_pass_data{};
 } // namespace
 
 bool RhiRenderer::UploadCubeResources() {
-    const auto upload_buffer = [this](const rhi::Buffer& buffer, const void* data, const u64 size, const char* label) {
+    const auto upload_buffer = [this](const rhi::Buffer& buffer, const void* data, const u64 size,
+                                   const char* label) {
         if (auto write = device_->GetQueue().WriteBuffer(buffer, 0, data, size); !write) {
             slog::Error("RHI {} upload failed: {}", label, write.error().Message());
             return false;
@@ -311,7 +341,8 @@ bool RhiRenderer::UploadCubeResources() {
     }
     vertex_buffer_ = std::move(*vertex_buffer);
 
-    if (!upload_buffer(*vertex_buffer_, kCubeVertices.data(), sizeof(kCubeVertices), "vertex buffer")) {
+    if (!upload_buffer(
+            *vertex_buffer_, kCubeVertices.data(), sizeof(kCubeVertices), "vertex buffer")) {
         return false;
     }
 
@@ -365,10 +396,11 @@ bool RhiRenderer::CreateDeferredPipelines() {
     const rhi::BindGroupLayoutEntryDesc gbuffer_uniform_entry{
         .binding = 0,
         .visibility = static_cast<u32>(rhi::ShaderStage::Vertex),
-        .buffer = rhi::BufferBindingLayoutDesc{
-            .type = rhi::BufferBindingType::Uniform,
-            .min_binding_size = sizeof(CubeUniforms),
-        },
+        .buffer =
+            rhi::BufferBindingLayoutDesc{
+                .type = rhi::BufferBindingType::Uniform,
+                .min_binding_size = sizeof(CubeUniforms),
+            },
     };
     rhi::BindGroupLayoutDesc gbuffer_layout_desc{};
     gbuffer_layout_desc.label = "GBufferBindGroupLayout";
@@ -402,41 +434,46 @@ bool RhiRenderer::CreateDeferredPipelines() {
         rhi::BindGroupLayoutEntryDesc{
             .binding = 0,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 1,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 2,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 3,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Depth,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Depth,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 4,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .sampler = rhi::SamplerBindingLayoutDesc{
-                .type = rhi::SamplerBindingType::Filtering,
-            },
+            .sampler =
+                rhi::SamplerBindingLayoutDesc{
+                    .type = rhi::SamplerBindingType::Filtering,
+                },
         },
     };
     rhi::BindGroupLayoutDesc lighting_layout_desc{};
@@ -453,49 +490,55 @@ bool RhiRenderer::CreateDeferredPipelines() {
         rhi::BindGroupLayoutEntryDesc{
             .binding = 0,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 1,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 2,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 3,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Depth,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Depth,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 4,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .texture = rhi::TextureBindingLayoutDesc{
-                .sample_type = rhi::TextureSampleType::Float,
-                .view_dimension = rhi::TextureViewDimension::e2D,
-            },
+            .texture =
+                rhi::TextureBindingLayoutDesc{
+                    .sample_type = rhi::TextureSampleType::Float,
+                    .view_dimension = rhi::TextureViewDimension::e2D,
+                },
         },
         rhi::BindGroupLayoutEntryDesc{
             .binding = 5,
             .visibility = static_cast<u32>(rhi::ShaderStage::Fragment),
-            .sampler = rhi::SamplerBindingLayoutDesc{
-                .type = rhi::SamplerBindingType::Filtering,
-            },
+            .sampler =
+                rhi::SamplerBindingLayoutDesc{
+                    .type = rhi::SamplerBindingType::Filtering,
+                },
         },
     };
     rhi::BindGroupLayoutDesc present_layout_desc{};
@@ -508,7 +551,7 @@ bool RhiRenderer::CreateDeferredPipelines() {
     }
     present_bind_group_layout_ = std::move(*present_layout);
 
-    auto sampler = device_->CreateSampler({ .label = "LinearSampler" });
+    auto sampler = device_->CreateSampler({.label = "LinearSampler"});
     if (!sampler) {
         slog::Error("RHI sampler creation failed: {}", sampler.error().Message());
         return false;
@@ -570,7 +613,8 @@ bool RhiRenderer::CreateDeferredPipelines() {
     };
     const rhi::VertexBufferLayoutDesc vertex_buffer_layout{
         .array_stride = sizeof(CubeVertex),
-        .attributes = std::span<const rhi::VertexAttributeDesc>(vertex_attributes.data(), vertex_attributes.size()),
+        .attributes = std::span<const rhi::VertexAttributeDesc>(
+            vertex_attributes.data(), vertex_attributes.size()),
     };
     const rhi::VertexStateDesc gbuffer_vertex_state{
         .module = gbuffer_shader_.get(),
@@ -579,9 +623,9 @@ bool RhiRenderer::CreateDeferredPipelines() {
     };
 
     const std::array gbuffer_color_targets{
-        rhi::ColorTargetStateDesc{ .format = rhi::TextureFormat::BGRA8Unorm },
-        rhi::ColorTargetStateDesc{ .format = rhi::TextureFormat::RGBA16Float },
-        rhi::ColorTargetStateDesc{ .format = rhi::TextureFormat::RGBA8Unorm },
+        rhi::ColorTargetStateDesc{.format = rhi::TextureFormat::BGRA8Unorm},
+        rhi::ColorTargetStateDesc{.format = rhi::TextureFormat::RGBA16Float},
+        rhi::ColorTargetStateDesc{.format = rhi::TextureFormat::RGBA8Unorm},
     };
     const rhi::FragmentStateDesc gbuffer_fragment_state{
         .module = gbuffer_shader_.get(),
@@ -749,21 +793,23 @@ bool RhiRenderer::BuildRenderGraph() {
     });
 
     const rhi::Framebuffer gbuffer = builder.Framebuffer()
-        .Color(0, gbuffer_albedo_)
-        .Color(1, gbuffer_normal_)
-        .Color(2, gbuffer_material_)
-        .Depth(gbuffer_depth_)
-        .Build();
+                                         .Color(0, gbuffer_albedo_)
+                                         .Color(1, gbuffer_normal_)
+                                         .Color(2, gbuffer_material_)
+                                         .Depth(gbuffer_depth_)
+                                         .Build();
 
     builder.AddPass("GBuffer")
-        .Target(gbuffer, {
-            .clear_color = {
-                rhi::Color{0.02f, 0.02f, 0.03f, 1.f},
-                rhi::Color{0.5f, 0.5f, 1.f, 1.f},
-                rhi::Color{0.f, 0.f, 0.f, 1.f},
-            },
-            .clear_depth = 1.f,
-        })
+        .Target(gbuffer,
+            {
+                .clear_color =
+                    {
+                        rhi::Color{0.02f, 0.02f, 0.03f, 1.f},
+                        rhi::Color{0.5f, 0.5f, 1.f, 1.f},
+                        rhi::Color{0.f, 0.f, 0.f, 1.f},
+                    },
+                .clear_depth = 1.f,
+            })
         .Execute([](rhi::RenderPassContext& ctx) {
             auto& data = ctx.data<GBufferPassData>();
             rhi::RenderPassEncoder& pass = ctx.encoder();
@@ -779,26 +825,28 @@ bool RhiRenderer::BuildRenderGraph() {
         .Sample(gbuffer_normal_)
         .Sample(gbuffer_material_)
         .Sample(gbuffer_depth_, rhi::SampleMode::DepthTexture)
-        .Color(0, hdr_color_, {
-            .load = rhi::LoadOp::Clear,
-            .clear = rhi::Color{0.f, 0.f, 0.f, 1.f},
-        })
+        .Color(0, hdr_color_,
+            {
+                .load = rhi::LoadOp::Clear,
+                .clear = rhi::Color{0.f, 0.f, 0.f, 1.f},
+            })
         .Execute([](rhi::RenderPassContext& ctx) {
             auto& data = ctx.data<LightingPassData>();
-            rhi::BindGroup* bind_group = ctx.GetOrCreateBindGroup("lighting", [&]() -> scope<rhi::BindGroup> {
-                auto built =
-                    rhi::BindGroupBuilder(ctx.device(), *data.bind_group_layout, "LightingBindGroup")
-                        .BindTexture(0, ctx.sample(0))
-                        .BindTexture(1, ctx.sample(1))
-                        .BindTexture(2, ctx.sample(2))
-                        .BindTexture(3, ctx.sample(3))
-                        .BindSampler(4, *data.sampler)
-                        .Build();
-                if (!built) {
-                    return nullptr;
-                }
-                return std::move(*built);
-            });
+            rhi::BindGroup* bind_group =
+                ctx.GetOrCreateBindGroup("lighting", [&]() -> scope<rhi::BindGroup> {
+                    auto built = rhi::BindGroupBuilder(
+                        ctx.device(), *data.bind_group_layout, "LightingBindGroup")
+                                     .BindTexture(0, ctx.sample(0))
+                                     .BindTexture(1, ctx.sample(1))
+                                     .BindTexture(2, ctx.sample(2))
+                                     .BindTexture(3, ctx.sample(3))
+                                     .BindSampler(4, *data.sampler)
+                                     .Build();
+                    if (!built) {
+                        return nullptr;
+                    }
+                    return std::move(*built);
+                });
             if (bind_group == nullptr) {
                 return;
             }
@@ -815,29 +863,27 @@ bool RhiRenderer::BuildRenderGraph() {
         .Sample(gbuffer_material_)
         .Sample(gbuffer_depth_, rhi::SampleMode::DepthTexture)
         .Sample(hdr_color_)
-        .Color(0, backbuffer_, {
-            .load = rhi::LoadOp::Clear,
-            .clear = rhi::Color{0.f, 0.f, 0.f, 1.f},
-        })
+        .Color(0, backbuffer_,
+            {
+                .load = rhi::LoadOp::Clear,
+                .clear = rhi::Color{0.f, 0.f, 0.f, 1.f},
+            })
         .Execute([](rhi::RenderPassContext& ctx) {
             auto& data = ctx.data<PresentPassData>();
             const bool debug_view = data.show_texture_debug != nullptr && *data.show_texture_debug;
 
             rhi::BindGroup* bind_group = ctx.GetOrCreateBindGroup(
-                debug_view ? "present_debug" : "present",
-                [&]() -> scope<rhi::BindGroup> {
-                    auto built =
-                        rhi::BindGroupBuilder(
-                            ctx.device(),
-                            debug_view ? *data.debug_bind_group_layout : *data.bind_group_layout,
-                            debug_view ? "TextureDebugBindGroup" : "PresentBindGroup")
-                            .BindTexture(0, ctx.sample(0))
-                            .BindTexture(1, ctx.sample(1))
-                            .BindTexture(2, ctx.sample(2))
-                            .BindTexture(3, ctx.sample(3))
-                            .BindTexture(4, ctx.sample(4))
-                            .BindSampler(5, *data.sampler)
-                            .Build();
+                debug_view ? "present_debug" : "present", [&]() -> scope<rhi::BindGroup> {
+                    auto built = rhi::BindGroupBuilder(ctx.device(),
+                        debug_view ? *data.debug_bind_group_layout : *data.bind_group_layout,
+                        debug_view ? "TextureDebugBindGroup" : "PresentBindGroup")
+                                     .BindTexture(0, ctx.sample(0))
+                                     .BindTexture(1, ctx.sample(1))
+                                     .BindTexture(2, ctx.sample(2))
+                                     .BindTexture(3, ctx.sample(3))
+                                     .BindTexture(4, ctx.sample(4))
+                                     .BindSampler(5, *data.sampler)
+                                     .Build();
                     if (!built) {
                         return nullptr;
                     }
@@ -876,19 +922,17 @@ bool RhiRenderer::UpdateUniforms(const f64 delta_ms) {
 
     const f32 aspect = height_ != 0 ? static_cast<f32>(width_) / static_cast<f32>(height_) : 1.0f;
     const math::mat4f projection = PerspectiveWebGpu(math::radians(55.0f), aspect, 0.1f, 100.0f);
-    const math::mat4f view = math::lookAt(
-        math::vec3f{0.0f, 0.0f, 6.0f},
-        math::vec3f{0.0f, 0.0f, 0.0f},
-        math::vec3f{0.0f, 1.0f, 0.0f});
-    const math::mat4f model =
-        math::rotate_y(cube_yaw_)
-        * math::rotate_x(cube_pitch_);
+    const math::mat4f view = math::lookAt(math::vec3f{0.0f, 0.0f, 6.0f},
+        math::vec3f{0.0f, 0.0f, 0.0f}, math::vec3f{0.0f, 1.0f, 0.0f});
+    const math::mat4f model = math::rotate_y(cube_yaw_) * math::rotate_x(cube_pitch_);
 
     const CubeUniforms uniforms{
         .mvp = projection * view * model,
     };
 
-    if (auto write = device_->GetQueue().WriteBuffer(*uniform_buffer_, 0, &uniforms, sizeof(uniforms)); !write) {
+    if (auto write =
+            device_->GetQueue().WriteBuffer(*uniform_buffer_, 0, &uniforms, sizeof(uniforms));
+        !write) {
         slog::Warn("RHI uniform update failed: {}", write.error().Message());
         return false;
     }
@@ -944,9 +988,7 @@ void RhiRenderer::HandleEvent(events::Event& event) {
 
 RhiRenderer::RhiRenderer() = default;
 
-RhiRenderer::~RhiRenderer() {
-    Shutdown();
-}
+RhiRenderer::~RhiRenderer() { Shutdown(); }
 
 bool RhiRenderer::Initialize(Window& window) {
     Shutdown();
@@ -962,7 +1004,7 @@ bool RhiRenderer::Initialize(Window& window) {
     }
     instance_ = std::move(*instance);
 
-    auto surface = instance_->CreateSurface(window);
+    auto surface = instance_->CreateSurface(rhi::NativeWindowHandle{window.GetNativeHandle()});
     if (!surface) {
         slog::Error("RHI surface creation failed: {}", surface.error().Message());
         Shutdown();
@@ -982,7 +1024,8 @@ bool RhiRenderer::Initialize(Window& window) {
 
     rhi::DeviceDesc device_desc{};
     device_desc.label = "StudioDevice";
-    device_desc.uncaptured_error_callback = [](const rhi::ErrorType type, const std::string_view message) {
+    device_desc.uncaptured_error_callback = [](const rhi::ErrorType type,
+                                                const std::string_view message) {
         slog::Error("RHI uncaptured device error ({}): {}", static_cast<u32>(type), message);
     };
     auto device = adapter_->CreateDevice(device_desc);
@@ -994,8 +1037,10 @@ bool RhiRenderer::Initialize(Window& window) {
     device_ = std::move(*device);
 
     rhi::SurfaceCapabilities capabilities{};
-    if (auto surface_capabilities = surface_->GetCapabilities(*adapter_, capabilities); !surface_capabilities) {
-        slog::Error("RHI surface capability query failed: {}", surface_capabilities.error().Message());
+    if (auto surface_capabilities = surface_->GetCapabilities(*adapter_, capabilities);
+        !surface_capabilities) {
+        slog::Error(
+            "RHI surface capability query failed: {}", surface_capabilities.error().Message());
         Shutdown();
         return false;
     }
@@ -1006,13 +1051,13 @@ bool RhiRenderer::Initialize(Window& window) {
         return false;
     }
 
-    const auto preferred_format = std::ranges::find(capabilities.formats, rhi::TextureFormat::BGRA8Unorm);
-    color_format_ = preferred_format != capabilities.formats.end()
-        ? rhi::TextureFormat::BGRA8Unorm
-        : capabilities.formats.front();
+    const auto preferred_format =
+        std::ranges::find(capabilities.formats, rhi::TextureFormat::BGRA8Unorm);
+    color_format_ = preferred_format != capabilities.formats.end() ? rhi::TextureFormat::BGRA8Unorm
+                                                                   : capabilities.formats.front();
 
     auto swapchain = rhi::Swapchain::Builder(*device_, *surface_)
-                         .SizeSource(window_)
+                         .Size(width_, height_)
                          .ColorFormat(color_format_)
                          .Label("StudioSwapchain")
                          .Build();

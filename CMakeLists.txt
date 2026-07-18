@@ -35,7 +35,14 @@ message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 add_subdirectory(3rdparty)
 
 set(modules_dir "${CMAKE_SOURCE_DIR}/modules")
-file(GLOB module_entries RELATIVE "${modules_dir}" "${modules_dir}/*")
+set(module_entries core ecs extension rhi gfx)
+
+file(GLOB discovered_module_entries RELATIVE "${modules_dir}" "${modules_dir}/*")
+foreach(discovered_module_entry IN LISTS discovered_module_entries)
+    if(NOT discovered_module_entry IN_LIST module_entries)
+        list(APPEND module_entries "${discovered_module_entry}")
+    endif()
+endforeach()
 
 foreach(module_entry IN LISTS module_entries)
     if(IS_DIRECTORY "${modules_dir}/${module_entry}")

@@ -4,10 +4,8 @@
 #include "wgpu_adapter.hpp"
 #include "wgpu_enums.hpp"
 
-#include <woki/rhi/device.hpp>
-#include <woki/window/window.hpp>
-
 #include <GLFW/glfw3.h>
+#include <woki/rhi/device.hpp>
 
 #ifdef __EMSCRIPTEN__
 #define GLFW_EXPOSE_NATIVE_EMSCRIPTEN
@@ -39,15 +37,12 @@ using convert::ToWgpu;
 } // namespace
 
 WgpuSurfaceImpl::WgpuSurfaceImpl(WGPUInstance instance, WGPUSurface surface)
-    : instance_(instance)
-    , surface_(surface) {
+    : instance_(instance), surface_(surface) {
     WOKI_ASSERT(instance_.get() != nullptr);
     WOKI_ASSERT(surface_.get() != nullptr);
 }
 
-WgpuSurfaceImpl::~WgpuSurfaceImpl() {
-    ReleaseCurrentTexture();
-}
+WgpuSurfaceImpl::~WgpuSurfaceImpl() { ReleaseCurrentTexture(); }
 
 Result<void> WgpuSurfaceImpl::GetCapabilities(
     const Adapter& adapter, SurfaceCapabilities& capabilities) const {
@@ -61,9 +56,10 @@ Result<void> WgpuSurfaceImpl::GetCapabilities(
     }
 
     WGPUSurfaceCapabilities native_capabilities = WGPU_SURFACE_CAPABILITIES_INIT;
-    if (wgpuSurfaceGetCapabilities(surface_.get(), wgpu_adapter->GetNativeAdapter(), &native_capabilities)
-        != WGPUStatus_Success) {
-        return Err(ErrorCode::GraphicsResourceCreationFailed, "Failed to query surface capabilities");
+    if (wgpuSurfaceGetCapabilities(surface_.get(), wgpu_adapter->GetNativeAdapter(),
+            &native_capabilities) != WGPUStatus_Success) {
+        return Err(
+            ErrorCode::GraphicsResourceCreationFailed, "Failed to query surface capabilities");
     }
 
     capabilities.usages = detail::TextureUsageFromWgpu(native_capabilities.usages);
@@ -135,7 +131,8 @@ Result<void> WgpuSurfaceImpl::Configure(const SurfaceConfiguration& config) {
     }
 
     if (config.width == 0 || config.height == 0) {
-        return Err(ErrorCode::GraphicsFramebufferIncomplete, "Surface configure size must be non-zero");
+        return Err(
+            ErrorCode::GraphicsFramebufferIncomplete, "Surface configure size must be non-zero");
     }
 
     const auto handles = config.device->GetNativeHandles();
@@ -199,9 +196,7 @@ void WgpuSurfaceImpl::SetLabel(const std::string_view label) {
     }
 }
 
-WGPUSurface WgpuSurfaceImpl::GetNativeSurface() const noexcept {
-    return surface_.get();
-}
+WGPUSurface WgpuSurfaceImpl::GetNativeSurface() const noexcept { return surface_.get(); }
 
 WGPUTextureView WgpuSurfaceImpl::TakeCurrentTextureView() noexcept {
     return current_view_.release();
@@ -212,12 +207,12 @@ void WgpuSurfaceImpl::ReleaseCurrentTexture() noexcept {
     current_texture_.reset();
 }
 
-WGPUSurface CreateNativeSurface(WGPUInstance instance, Window& window) {
+WGPUSurface CreateNativeSurface(WGPUInstance instance, const NativeWindowHandle window) {
     if (instance == nullptr) {
         return nullptr;
     }
 
-    WOKI_ASSERT(window.GetNativeHandle() != nullptr);
+    WOKI_ASSERT(window.value != nullptr);
 
 #ifdef __EMSCRIPTEN__
     WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
@@ -227,7 +222,7 @@ WGPUSurface CreateNativeSurface(WGPUInstance instance, Window& window) {
     descriptor.nextInChain = &canvas.chain;
     return wgpuInstanceCreateSurface(instance, &descriptor);
 #else
-    auto* glfw_window = static_cast<GLFWwindow*>(window.GetNativeHandle());
+    auto* glfw_window = static_cast<GLFWwindow*>(window.value);
     if (glfw_window == nullptr) {
         return nullptr;
     }
@@ -240,7 +235,8 @@ WGPUSurface CreateNativeSurface(WGPUInstance instance, Window& window) {
     }
 #endif
 
-#if defined(GLFW_EXPOSE_NATIVE_X11) || defined(GLFW_EXPOSE_NATIVE_WAYLAND) || defined(GLFW_EXPOSE_NATIVE_WIN32)
+#if defined(GLFW_EXPOSE_NATIVE_X11) || defined(GLFW_EXPOSE_NATIVE_WAYLAND) ||                      \
+    defined(GLFW_EXPOSE_NATIVE_WIN32)
     WGPUSurfaceDescriptor descriptor = WGPU_SURFACE_DESCRIPTOR_INIT;
 
 #if defined(GLFW_EXPOSE_NATIVE_X11)

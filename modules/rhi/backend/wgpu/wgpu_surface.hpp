@@ -4,10 +4,6 @@
 
 #include "detail/handle.hpp"
 
-namespace woki {
-class Window;
-}
-
 namespace woki::rhi::wgpu {
 
 class WgpuAdapterImpl;
@@ -39,10 +35,11 @@ private:
     detail::TextureViewHandle current_view_;
 };
 
-[[nodiscard]] WGPUSurface CreateNativeSurface(WGPUInstance instance, Window& window);
+[[nodiscard]] WGPUSurface CreateNativeSurface(WGPUInstance instance, NativeWindowHandle window);
 
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
-[[nodiscard]] WGPUSurface CreateNativeSurfaceCocoa(WGPUInstance instance, Window& window);
+[[nodiscard]] WGPUSurface CreateNativeSurfaceCocoa(
+    WGPUInstance instance, NativeWindowHandle window);
 #endif
 
 } // namespace woki::rhi::wgpu
