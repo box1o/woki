@@ -14,6 +14,7 @@ namespace woki::gfx {
 struct PreparedDraw final {
     DrawPacket packet{};
     math::mat4f transform{math::mat4f::identity()};
+    std::vector<math::mat4f> skin_matrices{};
     PipelineHandle pipeline{};
     MeshView geometry{};
     MaterialDesc material{};
@@ -36,6 +37,7 @@ struct PreparedDrawList final {
 struct ResolvedDraw final {
     DrawPacket packet{};
     math::mat4f transform{math::mat4f::identity()};
+    std::vector<math::mat4f> skin_matrices{};
     const rhi::RenderPipeline* pipeline{nullptr};
     std::vector<const rhi::Buffer*> vertex_buffers{};
     const rhi::Buffer* index_buffer{nullptr};

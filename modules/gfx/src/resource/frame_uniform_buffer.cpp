@@ -15,7 +15,8 @@ Result<std::unique_ptr<FrameUniformBuffer>> FrameUniformBuffer::Create(
 
     BufferResourceDesc buffer_desc{};
     buffer_desc.gpu.size = arena->Capacity();
-    buffer_desc.gpu.usage = rhi::BufferUsage::Uniform | rhi::BufferUsage::CopyDst;
+    buffer_desc.gpu.usage =
+        rhi::BufferUsage::Uniform | rhi::BufferUsage::Storage | rhi::BufferUsage::CopyDst;
     buffer_desc.gpu.label = desc.label;
     buffer_desc.lifetime = ResourceLifetime::Dynamic;
     auto buffer = resources.CreateBuffer(buffer_desc);

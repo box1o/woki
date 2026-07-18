@@ -139,6 +139,7 @@ Result<RenderSnapshot> RenderScene::Extract(const u64 layer_mask) {
             .mesh = object.mesh,
             .materials = object.materials,
             .transform = object.transform,
+            .skin_matrices = object.skin_matrices,
             .layer_mask = object.layer_mask,
             .sort_depth = object.sort_depth,
             .casts_shadows = object.casts_shadows,

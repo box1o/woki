@@ -165,6 +165,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         materials_.push_back(std::move(*binding));
     }
     objects_.reserve(draws.draws.size());
+    skins_.reserve(draws.draws.size());
     for (const auto& draw : draws.draws) {
         const ShaderDesc* shader = shaders_->Description(draw.material.shader);
         if (shader == nullptr) {
@@ -174,6 +175,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         }
         if (!shader->interface.uses_object_transform) {
             objects_.push_back(std::nullopt);
+            skins_.push_back(std::nullopt);
             continue;
         }
         auto allocation = uniforms_->Write(std::as_bytes(std::span{&draw.transform, 1}));
@@ -207,6 +209,46 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
             .group = shader->interface.object_group,
             .binding = std::move(*bind_group),
         });
+        if (!shader->interface.uses_skinning) {
+            skins_.push_back(std::nullopt);
+            continue;
+        }
+        if (draw.skin_matrices.empty()) {
+            Clear();
+            return Err(
+                ErrorCode::ValidationNullValue, "Skinned shader requires a nonempty joint palette");
+        }
+        auto skin_allocation = uniforms_->Write(std::as_bytes(std::span{draw.skin_matrices}));
+        if (!skin_allocation) {
+            Clear();
+            return Err(skin_allocation.error());
+        }
+        rhi::Buffer* skin_buffer = resources_->Resolve(skin_allocation->buffer);
+        auto skin_layout = draw.pipeline->GetBindGroupLayout(shader->interface.skin_group);
+        if (skin_buffer == nullptr || !skin_layout) {
+            Clear();
+            return Err(ErrorCode::FailedToAcquireResource,
+                "Skin palette binding resources are unavailable");
+        }
+        const rhi::BindGroupEntryDesc skin_entry{
+            .binding = shader->interface.skin_binding,
+            .buffer = skin_buffer,
+            .offset = skin_allocation->offset,
+            .size = skin_allocation->size,
+        };
+        auto skin_group = device_->CreateBindGroup({
+            .layout = skin_layout.get(),
+            .entries = std::span{&skin_entry, 1},
+            .label = draw.material.label + ".Skin",
+        });
+        if (!skin_group) {
+            Clear();
+            return Err(skin_group.error());
+        }
+        skins_.push_back(ObjectBinding{
+            .group = shader->interface.skin_group,
+            .binding = std::move(*skin_group),
+        });
     }
     return Ok();
 }
@@ -221,6 +263,10 @@ void StandardDrawBindings::Encode(
     WOKI_ASSERT(draw_index < objects_.size());
     if (const auto& object = objects_[draw_index]) {
         pass.SetBindGroup(object->group, object->binding.get());
+    }
+    WOKI_ASSERT(draw_index < skins_.size());
+    if (const auto& skin = skins_[draw_index]) {
+        pass.SetBindGroup(skin->group, skin->binding.get());
     }
     if (desc_.transform_immediate_offset) {
         pass.SetImmediates(
@@ -246,6 +292,7 @@ void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 void StandardDrawBindings::Clear() noexcept {
     materials_.clear();
     objects_.clear();
+    skins_.clear();
 }
 
 } // namespace woki::gfx

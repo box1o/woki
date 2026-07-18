@@ -43,6 +43,9 @@ struct ShaderInterfaceDesc final {
     bool uses_object_transform{false};
     u32 object_group{0};
     u32 object_binding{0};
+    bool uses_skinning{false};
+    u32 skin_group{3};
+    u32 skin_binding{0};
     u32 parameter_group{1};
     u32 parameter_binding{0};
     bool uses_lighting{false};

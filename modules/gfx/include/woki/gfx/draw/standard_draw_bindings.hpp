@@ -61,6 +61,7 @@ private:
     StandardDrawBindingsDesc desc_{};
     std::vector<MaterialBinding> materials_{};
     std::vector<std::optional<ObjectBinding>> objects_{};
+    std::vector<std::optional<ObjectBinding>> skins_{};
     std::optional<UniformBufferSlice> lighting_{};
 };
 

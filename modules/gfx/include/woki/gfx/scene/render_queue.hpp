@@ -16,6 +16,7 @@ struct RenderQueueFilter final {
 struct QueuedDraw final {
     DrawPacket packet{};
     math::mat4f transform{math::mat4f::identity()};
+    std::vector<math::mat4f> skin_matrices{};
 };
 
 struct DrawBatch final {

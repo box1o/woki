@@ -7,11 +7,12 @@
 namespace woki::gfx {
 namespace {
 
-[[nodiscard]] ShaderInterfaceDesc StandardInterface(const bool lighting) {
+[[nodiscard]] ShaderInterfaceDesc StandardInterface(const bool lighting, const bool skinning) {
     ShaderInterfaceDesc interface{
         .uses_object_transform = true,
         .object_group = 0,
         .object_binding = 0,
+        .uses_skinning = skinning,
         .parameter_group = 1,
         .parameter_binding = 0,
         .uses_lighting = lighting,
@@ -41,12 +42,14 @@ StandardShaderLibrary::StandardShaderLibrary(paths::Path shader_root)
 const paths::Path& StandardShaderLibrary::Root() const noexcept { return root_; }
 
 ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
-    const bool pbr = shader == StandardShader::Pbr;
-    const std::string name = pbr ? "pbr_forward" : "unlit";
+    const bool pbr = shader != StandardShader::Unlit;
+    const bool skinned = shader == StandardShader::PbrSkinned;
+    const std::string name = skinned ? "pbr_skinned_forward" : (pbr ? "pbr_forward" : "unlit");
     const std::string source_path = (root_ / (name + ".wgsl")).generic_string();
     return {
-        .asset_id = AssetId{pbr ? "woki/shaders/pbr" : "woki/shaders/unlit"},
-        .label = pbr ? "Woki PBR" : "Woki Unlit",
+        .asset_id = AssetId{skinned ? "woki/shaders/pbr_skinned"
+                                    : (pbr ? "woki/shaders/pbr" : "woki/shaders/unlit")},
+        .label = skinned ? "Woki PBR Skinned" : (pbr ? "Woki PBR" : "Woki Unlit"),
         .sources =
             {
                 {.stage = ShaderStage::Vertex,
@@ -56,7 +59,7 @@ ShaderDesc StandardShaderLibrary::Describe(const StandardShader shader) const {
                     .entry_point = "fragment_main",
                     .source_path = source_path},
             },
-        .interface = StandardInterface(pbr),
+        .interface = StandardInterface(pbr, skinned),
         .hot_reload = true,
     };
 }

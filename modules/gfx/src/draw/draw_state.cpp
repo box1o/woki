@@ -34,6 +34,7 @@ Result<PreparedDrawList> PrepareDraws(const RenderQueue& queue, const RenderPass
         prepared.draws.push_back({
             .packet = queued.packet,
             .transform = queued.transform,
+            .skin_matrices = queued.skin_matrices,
             .pipeline = pipeline,
             .geometry = std::move(*geometry),
             .material = std::move(*material),
@@ -76,6 +77,7 @@ Result<ResolvedDrawList> ResolveDraws(const PreparedDrawList& prepared,
         ResolvedDraw native{
             .packet = draw.packet,
             .transform = draw.transform,
+            .skin_matrices = draw.skin_matrices,
             .pipeline = pipeline,
             .index_buffer = index_buffer,
             .index_format = draw.geometry.index_format,

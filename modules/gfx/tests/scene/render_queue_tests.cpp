@@ -11,7 +11,10 @@ constexpr auto kMaterial = woki::gfx::MaterialHandle::FromParts(1, 1);
 [[nodiscard]] woki::gfx::RenderSnapshot MakeSnapshot() {
     return {
         .sequence = 42,
-        .objects = {{.object = kObject, .mesh = kMesh, .layer_mask = 0b0010}},
+        .objects = {{.object = kObject,
+            .mesh = kMesh,
+            .skin_matrices = {woki::math::mat4f::identity()},
+            .layer_mask = 0b0010}},
         .draws =
             {
                 {.object = kObject, .mesh = kMesh, .material = kMaterial, .index_count = 3},
@@ -32,6 +35,7 @@ TEST_CASE("Render queue preserves snapshot identity and batches adjacent draws")
     REQUIRE(queue);
     REQUIRE(queue->snapshot_sequence == 42);
     REQUIRE(queue->draws.size() == 2);
+    REQUIRE(queue->draws.front().skin_matrices.size() == 1);
     REQUIRE(queue->batches.size() == 1);
     REQUIRE(queue->batches.front().first_draw == 0);
     REQUIRE(queue->batches.front().draw_count == 2);

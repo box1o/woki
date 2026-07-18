@@ -28,3 +28,14 @@ TEST_CASE("Standard shader library describes unlit rendering") {
     REQUIRE(shader.interface.parameters.size() == 1);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes skinned PBR") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::PbrSkinned);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/pbr_skinned"});
+    REQUIRE(shader.interface.uses_object_transform);
+    REQUIRE(shader.interface.uses_skinning);
+    REQUIRE(shader.interface.uses_lighting);
+    REQUIRE(woki::gfx::Validate(shader));
+}

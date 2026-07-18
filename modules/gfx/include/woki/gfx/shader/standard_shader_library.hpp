@@ -11,6 +11,7 @@ class ShaderManager;
 enum class StandardShader : u8 {
     Unlit = 0,
     Pbr,
+    PbrSkinned,
 };
 
 class StandardShaderLibrary final {

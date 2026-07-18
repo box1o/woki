@@ -57,7 +57,9 @@ Result<RenderQueue> BuildRenderQueue(
         }
 
         const auto draw_index = static_cast<u32>(queue.draws.size());
-        queue.draws.push_back({.packet = draw, .transform = object->second->transform});
+        queue.draws.push_back({.packet = draw,
+            .transform = object->second->transform,
+            .skin_matrices = object->second->skin_matrices});
         if (queue.batches.empty() || !CanAppend(queue.batches.back(), draw)) {
             queue.batches.push_back({
                 .mesh = draw.mesh,

@@ -23,6 +23,7 @@ struct RenderObjectDesc final {
     MeshHandle mesh{};
     std::vector<MaterialHandle> materials{};
     math::mat4f transform{math::mat4f::identity()};
+    std::vector<math::mat4f> skin_matrices{};
     u64 layer_mask{~0ULL};
     f32 sort_depth{0.0F};
     bool visible{true};
@@ -34,6 +35,7 @@ struct ExtractedObject final {
     MeshHandle mesh{};
     std::vector<MaterialHandle> materials{};
     math::mat4f transform{math::mat4f::identity()};
+    std::vector<math::mat4f> skin_matrices{};
     u64 layer_mask{~0ULL};
     f32 sort_depth{0.0F};
     bool casts_shadows{true};
