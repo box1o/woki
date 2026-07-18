@@ -6,6 +6,7 @@ TEST_CASE("Mesh descriptions validate vertex and index storage") {
     woki::gfx::MeshDesc desc{};
     REQUIRE_FALSE(woki::gfx::Validate(desc).has_value());
 
+    desc.vertex_layout = woki::StringId{"position"};
     desc.vertex_streams.push_back({
         .stride = 12,
         .vertex_count = 3,
@@ -22,6 +23,7 @@ TEST_CASE("Mesh descriptions validate vertex and index storage") {
 
 TEST_CASE("Mesh vertex streams require matching vertex counts") {
     woki::gfx::MeshDesc desc{};
+    desc.vertex_layout = woki::StringId{"position_uv"};
     desc.vertex_streams.push_back({
         .stride = 12,
         .vertex_count = 3,
@@ -41,6 +43,7 @@ TEST_CASE("Mesh vertex streams require matching vertex counts") {
 
 TEST_CASE("Mesh submeshes remain inside the index buffer") {
     woki::gfx::MeshDesc desc{};
+    desc.vertex_layout = woki::StringId{"position"};
     desc.vertex_streams.push_back({
         .stride = 12,
         .vertex_count = 4,

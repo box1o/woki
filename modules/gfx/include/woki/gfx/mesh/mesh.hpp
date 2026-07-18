@@ -27,6 +27,7 @@ struct SubmeshDesc final {
 struct MeshDesc final {
     AssetId asset_id{};
     std::string label{};
+    StringId vertex_layout{};
     std::vector<VertexStreamDesc> vertex_streams{};
     rhi::IndexFormat index_format{rhi::IndexFormat::Uint32};
     u32 index_count{0};
@@ -36,6 +37,7 @@ struct MeshDesc final {
 };
 
 struct MeshView final {
+    StringId vertex_layout{};
     std::vector<BufferHandle> vertex_buffers{};
     BufferHandle index_buffer{};
     rhi::IndexFormat index_format{rhi::IndexFormat::Undefined};

@@ -2,6 +2,7 @@
 
 // IWYU pragma: begin_exports
 #include "events/events.hpp"
+#include "gfx/draws.hpp"
 #include "gfx/frames.hpp"
 #include "gfx/graphs.hpp"
 #include "gfx/materials.hpp"

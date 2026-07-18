@@ -32,6 +32,9 @@ struct MeshRecord final {
 } // namespace
 
 Result<void> Validate(const MeshDesc& desc) {
+    if (desc.vertex_layout.Empty()) {
+        return Err(ErrorCode::ValidationNullValue, "Mesh requires a vertex layout identity");
+    }
     if (desc.vertex_streams.empty()) {
         return Err(ErrorCode::ValidationNullValue, "Mesh requires at least one vertex stream");
     }
@@ -162,6 +165,7 @@ Result<MeshView> MeshManager::GetView(const MeshHandle mesh) const {
         return Err(ErrorCode::FailedToAcquireResource, "Mesh handle is not active");
     }
     return Ok(MeshView{
+        .vertex_layout = record->desc.vertex_layout,
         .vertex_buffers = record->vertex_buffers,
         .index_buffer = record->index_buffer,
         .index_format = record->desc.index_format,
