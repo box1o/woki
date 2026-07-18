@@ -816,9 +816,8 @@ u32 WgpuTextureImpl::GetWidth() const {
 }
 
 void WgpuTextureImpl::Pin(const TextureUsage usage) {
-    if (handle_) {
-        wgpuTexturePin(handle_.get(), detail::TextureUsageToWgpu(usage));
-    }
+    // Texture residency hints are unavailable in the supported Dawn SDK.
+    (void)usage;
 }
 
 void WgpuTextureImpl::SetLabel(const std::string_view label) {
@@ -833,11 +832,7 @@ void WgpuTextureImpl::SetOwnershipForMemoryDump(const u64 owner_guid) {
     }
 }
 
-void WgpuTextureImpl::Unpin() {
-    if (handle_) {
-        wgpuTextureUnpin(handle_.get());
-    }
-}
+void WgpuTextureImpl::Unpin() {}
 
 NativeHandles WgpuTextureImpl::GetNativeHandles() const noexcept {
     NativeHandles handles{};
