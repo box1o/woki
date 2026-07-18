@@ -1,6 +1,7 @@
 #include <woki/rhi/render_graph.hpp>
 
 #include <woki/rhi/command_encoder.hpp>
+#include <woki/rhi/compute_pass_encoder.hpp>
 #include <woki/rhi/device.hpp>
 #include <woki/rhi/objects.hpp>
 #include <woki/rhi/queue.hpp>
@@ -13,17 +14,18 @@ namespace woki::rhi {
 namespace {
 
 using render_graph::detail::ColorOutput;
+using render_graph::detail::CopyOperation;
 using render_graph::detail::DepthOutput;
 using render_graph::detail::FramebufferRecord;
 using render_graph::detail::GraphBlueprint;
+using render_graph::detail::PassKind;
 using render_graph::detail::PassRecord;
+using render_graph::detail::PooledTransientTexture;
 using render_graph::detail::ResourceKind;
 using render_graph::detail::ResourceRecord;
-using render_graph::detail::CopyOperation;
-using render_graph::detail::PooledTransientTexture;
-using render_graph::detail::TransientPoolKey;
-using render_graph::detail::PassKind;
+using render_graph::detail::ResourceType;
 using render_graph::detail::SampleInput;
+using render_graph::detail::TransientPoolKey;
 
 [[nodiscard]] Extent3D ResolveExtent(const ExtentMode& mode, const u32 width, const u32 height) {
     switch (mode.kind) {
@@ -80,7 +82,7 @@ using render_graph::detail::SampleInput;
     native_desc.usage = desc.usage;
     native_desc.dimension = TextureDimension::e2D;
     native_desc.mip_level_count = 1;
-    native_desc.sample_count = 1;
+    native_desc.sample_count = desc.sample_count;
     return device.CreateTexture(native_desc);
 }
 
@@ -92,6 +94,7 @@ using render_graph::detail::SampleInput;
         .usage = desc.usage,
         .width = size.width,
         .height = size.height,
+        .sample_count = desc.sample_count,
     };
 }
 
@@ -128,18 +131,21 @@ TextureView& RenderPassContext::depth() {
     return *depth_;
 }
 
-bool RenderPassContext::has_depth() const noexcept {
-    return depth_ != nullptr;
-}
+bool RenderPassContext::has_depth() const noexcept { return depth_ != nullptr; }
 
 TextureView& RenderPassContext::sample(const u32 slot) {
     WOKI_ASSERT(slot < samples_.size() && samples_[slot] != nullptr);
     return *samples_[slot];
 }
 
-u32 RenderPassContext::sample_count() const noexcept {
-    return static_cast<u32>(samples_.size());
+u32 RenderPassContext::sample_count() const noexcept { return static_cast<u32>(samples_.size()); }
+
+Buffer& RenderPassContext::buffer(const u32 slot) {
+    WOKI_ASSERT(slot < buffers_.size() && buffers_[slot] != nullptr);
+    return *buffers_[slot];
 }
+
+u32 RenderPassContext::buffer_count() const noexcept { return static_cast<u32>(buffers_.size()); }
 
 BindGroup* RenderPassContext::GetOrCreateBindGroup(
     const std::string_view key, std::function<scope<BindGroup>()> factory) {
@@ -230,21 +236,34 @@ Result<void> CopyPassContext::CopyAll() {
         return Err(ErrorCode::InvalidState, "CopyPassContext has no encoder");
     }
     if (sources_.size() != destinations_.size()) {
-        return Err(ErrorCode::ValidationInvalidState, "CopyPassContext source/destination mismatch");
+        return Err(
+            ErrorCode::ValidationInvalidState, "CopyPassContext source/destination mismatch");
     }
 
     for (size_t i = 0; i < sources_.size(); ++i) {
         Texture* source = sources_[i];
         Texture* destination = destinations_[i];
         if (source == nullptr || destination == nullptr) {
-            return Err(ErrorCode::GraphicsResourceCreationFailed, "CopyPassContext missing texture");
+            return Err(
+                ErrorCode::GraphicsResourceCreationFailed, "CopyPassContext missing texture");
+        }
+        if (!HasFlag(source->GetUsage(), TextureUsage::CopySrc) ||
+            !HasFlag(destination->GetUsage(), TextureUsage::CopyDst)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "CopyPassContext textures are missing copy usage flags");
+        }
+        if (source->GetFormat() != destination->GetFormat() ||
+            source->GetDimension() != destination->GetDimension() ||
+            source->GetWidth() != destination->GetWidth() ||
+            source->GetHeight() != destination->GetHeight() ||
+            source->GetDepthOrArrayLayers() != destination->GetDepthOrArrayLayers() ||
+            source->GetSampleCount() != 1 || destination->GetSampleCount() != 1) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "CopyPassContext requires matching single-sampled textures");
         }
 
-        const Extent3D copy_size{
-            std::max(1u, width_),
-            std::max(1u, height_),
-            1,
-        };
+        const Extent3D copy_size{source->GetWidth(), source->GetHeight(),
+            source->GetDepthOrArrayLayers()};
         if (auto result = encoder_->CopyTextureToTexture(
                 MakeCopyInfo(*source), MakeCopyInfo(*destination), copy_size);
             !result) {
@@ -253,6 +272,34 @@ Result<void> CopyPassContext::CopyAll() {
     }
 
     return Ok();
+}
+
+// --- ComputePassContext ---
+
+ComputePassEncoder& ComputePassContext::encoder() {
+    WOKI_ASSERT(pass_ != nullptr);
+    return *pass_;
+}
+
+Device& ComputePassContext::device() noexcept {
+    WOKI_ASSERT(device_ != nullptr);
+    return *device_;
+}
+
+Buffer& ComputePassContext::buffer(const u32 slot) {
+    WOKI_ASSERT(slot < buffers_.size() && buffers_[slot] != nullptr);
+    return *buffers_[slot];
+}
+
+u32 ComputePassContext::buffer_count() const noexcept { return static_cast<u32>(buffers_.size()); }
+
+TextureView& ComputePassContext::storage_texture(const u32 slot) {
+    WOKI_ASSERT(slot < storage_textures_.size() && storage_textures_[slot] != nullptr);
+    return *storage_textures_[slot];
+}
+
+u32 ComputePassContext::storage_texture_count() const noexcept {
+    return static_cast<u32>(storage_textures_.size());
 }
 
 // --- PassBuilder ---
@@ -299,6 +346,28 @@ PassBuilder& PassBuilder::Color(
     return *this;
 }
 
+PassBuilder& PassBuilder::Resolve(const u32 slot, const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    auto& colors = owner_->blueprint_.passes[pass_index_].colors;
+    const auto output = std::ranges::find(colors, slot, &ColorOutput::slot);
+    WOKI_ASSERT(output != colors.end());
+    output->resolve_resource_id = resource.id_;
+    return *this;
+}
+
+PassBuilder& PassBuilder::Resolve(const u32 slot, const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    auto& colors = owner_->blueprint_.passes[pass_index_].colors;
+    const auto output = std::ranges::find(colors, slot, &ColorOutput::slot);
+    WOKI_ASSERT(output != colors.end());
+    output->resolve_resource_id = resource.id_;
+    return *this;
+}
+
 PassBuilder& PassBuilder::Depth(const Resource resource, DepthAttachmentConfig config) {
     WOKI_ASSERT(owner_ != nullptr);
     WOKI_ASSERT(resource);
@@ -332,6 +401,40 @@ PassBuilder& PassBuilder::Sample(const Resource resource, const SampleMode mode)
         .resource_id = resource.id_,
         .mode = mode,
     });
+    return *this;
+}
+
+PassBuilder& PassBuilder::Buffer(const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].buffers.push_back({.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::Buffer(const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].buffers.push_back({.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::StorageTexture(const Resource resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].storage_textures.push_back(
+        {.resource_id = resource.id_});
+    return *this;
+}
+
+PassBuilder& PassBuilder::StorageTexture(const PerFrameSlot resource) {
+    WOKI_ASSERT(owner_ != nullptr);
+    WOKI_ASSERT(resource);
+    WOKI_ASSERT(pass_index_ < owner_->blueprint_.passes.size());
+    owner_->blueprint_.passes[pass_index_].storage_textures.push_back(
+        {.resource_id = resource.id_});
     return *this;
 }
 
@@ -381,12 +484,18 @@ Framebuffer FramebufferBuilder::Build() {
 
 // --- RenderGraphBuilder ---
 
-RenderGraphBuilder::RenderGraphBuilder(Device& device)
-    : device_(&device) {}
+RenderGraphBuilder::RenderGraphBuilder(Device& device) : device_(&device) {}
 
 PerFrameSlot RenderGraphBuilder::PerFrame() {
     PerFrameSlot slot{};
     slot.id_ = AllocateResource(ResourceRecord{.kind = ResourceKind::PerFrame});
+    return slot;
+}
+
+PerFrameSlot RenderGraphBuilder::PerFrameBuffer() {
+    PerFrameSlot slot{};
+    slot.id_ = AllocateResource(
+        ResourceRecord{.kind = ResourceKind::PerFrame, .type = ResourceType::Buffer});
     return slot;
 }
 
@@ -399,11 +508,31 @@ Resource RenderGraphBuilder::Transient(TransientDesc desc) {
     return resource;
 }
 
+Resource RenderGraphBuilder::TransientBuffer(TransientBufferDesc desc) {
+    Resource resource{};
+    resource.id_ = AllocateResource(ResourceRecord{
+        .kind = ResourceKind::Transient,
+        .type = ResourceType::Buffer,
+        .transient_buffer = std::move(desc),
+    });
+    return resource;
+}
+
 Resource RenderGraphBuilder::Use(Texture& texture) {
     Resource resource{};
     resource.id_ = AllocateResource(ResourceRecord{
         .kind = ResourceKind::Owned,
         .owned_texture = &texture,
+    });
+    return resource;
+}
+
+Resource RenderGraphBuilder::Use(Buffer& buffer) {
+    Resource resource{};
+    resource.id_ = AllocateResource(ResourceRecord{
+        .kind = ResourceKind::Owned,
+        .type = ResourceType::Buffer,
+        .owned_buffer = &buffer,
     });
     return resource;
 }
@@ -434,24 +563,202 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
         return Err(ErrorCode::ValidationOutOfRange, "RenderGraph compile requires non-zero size");
     }
 
+    const auto use_resource = [this](const u32 resource_id, const u32 pass_index) {
+        if (resource_id >= blueprint_.resources.size()) {
+            return;
+        }
+        auto& resource = blueprint_.resources[resource_id];
+        resource.first_pass = resource.first_pass == kInvalidGraphResource
+                                  ? pass_index
+                                  : std::min(resource.first_pass, pass_index);
+        resource.last_pass = resource.last_pass == kInvalidGraphResource
+                                 ? pass_index
+                                 : std::max(resource.last_pass, pass_index);
+    };
+    for (u32 pass_index = 0; pass_index < blueprint_.passes.size(); ++pass_index) {
+        const PassRecord& pass = blueprint_.passes[pass_index];
+        for (const auto& color : pass.colors) {
+            use_resource(color.resource_id, pass_index);
+            if (color.resolve_resource_id != kInvalidGraphResource) {
+                use_resource(color.resolve_resource_id, pass_index);
+            }
+        }
+        if (pass.depth) {
+            use_resource(pass.depth->resource_id, pass_index);
+        }
+        for (const auto& sample : pass.samples) {
+            use_resource(sample.resource_id, pass_index);
+        }
+        for (const auto& buffer : pass.buffers) {
+            use_resource(buffer.resource_id, pass_index);
+        }
+        for (const auto& texture : pass.storage_textures) {
+            use_resource(texture.resource_id, pass_index);
+        }
+        for (const auto& copy : pass.copies) {
+            use_resource(copy.src_resource_id, pass_index);
+            use_resource(copy.dst_resource_id, pass_index);
+        }
+        if (pass.framebuffer_id && *pass.framebuffer_id < blueprint_.framebuffers.size()) {
+            const auto& framebuffer = blueprint_.framebuffers[*pass.framebuffer_id];
+            for (const auto& [slot, resource_id] : framebuffer.colors) {
+                (void)slot;
+                use_resource(resource_id, pass_index);
+            }
+            if (framebuffer.depth_resource_id != kInvalidGraphResource) {
+                use_resource(framebuffer.depth_resource_id, pass_index);
+            }
+        }
+    }
+
+    for (const ResourceRecord& resource : blueprint_.resources) {
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Texture &&
+            resource.transient.sample_count == 0) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                "RenderGraph transient texture sample count must be nonzero");
+        }
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Texture &&
+            resource.transient.sample_count > 1 &&
+            (HasFlag(resource.transient.usage, TextureUsage::StorageBinding) ||
+                HasFlag(resource.transient.usage, TextureUsage::CopySrc) ||
+                HasFlag(resource.transient.usage, TextureUsage::CopyDst))) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph multisampled texture cannot use storage or copy usages");
+        }
+        if (resource.kind == ResourceKind::Transient && resource.type == ResourceType::Buffer &&
+            (resource.transient_buffer.size == 0 ||
+                resource.transient_buffer.usage == BufferUsage::None)) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph transient buffer requires size and usage");
+        }
+        if (resource.kind == ResourceKind::Transient &&
+            resource.first_pass == kInvalidGraphResource) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph transient resources must be used by at least one pass");
+        }
+    }
+
     for (const PassRecord& pass : blueprint_.passes) {
+        for (const auto& color : pass.colors) {
+            if (color.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[color.resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color attachment references an invalid texture");
+            }
+            if (color.resolve_resource_id == kInvalidGraphResource) {
+                continue;
+            }
+            if (color.resolve_resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[color.resolve_resource_id].type != ResourceType::Texture ||
+                color.resolve_resource_id == color.resource_id) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve references an invalid texture");
+            }
+            const auto& source = blueprint_.resources[color.resource_id];
+            const auto& target = blueprint_.resources[color.resolve_resource_id];
+            if (source.kind == ResourceKind::Transient && source.transient.sample_count <= 1) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve source must be multisampled");
+            }
+            if (source.kind == ResourceKind::Transient &&
+                !HasFlag(source.transient.usage, TextureUsage::RenderAttachment)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph resolve source requires RenderAttachment usage");
+            }
+            if (target.kind == ResourceKind::Transient && target.transient.sample_count != 1) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph color resolve target must be single-sampled");
+            }
+            if (target.kind == ResourceKind::Transient &&
+                !HasFlag(target.transient.usage, TextureUsage::RenderAttachment)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph resolve target requires RenderAttachment usage");
+            }
+            if (source.kind == ResourceKind::Transient && target.kind == ResourceKind::Transient &&
+                source.transient.format != target.transient.format) {
+                return Err(ErrorCode::GraphicsInvalidFormat,
+                    "RenderGraph color resolve formats must match");
+            }
+        }
+        for (const auto& input : pass.buffers) {
+            if (input.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[input.resource_id].type != ResourceType::Buffer) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph pass '" + pass.debug_name + "' references an invalid buffer");
+            }
+        }
+        for (const auto& input : pass.storage_textures) {
+            if (input.resource_id >= blueprint_.resources.size() ||
+                blueprint_.resources[input.resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph pass '" + pass.debug_name +
+                        "' references an invalid storage texture");
+            }
+            const auto& resource = blueprint_.resources[input.resource_id];
+            if (resource.kind == ResourceKind::Transient &&
+                !HasFlag(resource.transient.usage, TextureUsage::StorageBinding)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph transient storage texture requires StorageBinding usage");
+            }
+            if (resource.kind == ResourceKind::Owned && resource.owned_texture != nullptr &&
+                !HasFlag(resource.owned_texture->GetUsage(), TextureUsage::StorageBinding)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph owned storage texture requires StorageBinding usage");
+            }
+        }
+        for (const auto& copy : pass.copies) {
+            if (copy.src_resource_id >= blueprint_.resources.size() ||
+                copy.dst_resource_id >= blueprint_.resources.size() ||
+                copy.src_resource_id == copy.dst_resource_id ||
+                blueprint_.resources[copy.src_resource_id].type != ResourceType::Texture ||
+                blueprint_.resources[copy.dst_resource_id].type != ResourceType::Texture) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph copy pass references invalid textures");
+            }
+            const auto& source = blueprint_.resources[copy.src_resource_id];
+            const auto& destination = blueprint_.resources[copy.dst_resource_id];
+            const auto source_usage = source.kind == ResourceKind::Transient
+                                          ? source.transient.usage
+                                          : source.owned_texture != nullptr
+                                                ? source.owned_texture->GetUsage()
+                                                : TextureUsage::None;
+            const auto destination_usage = destination.kind == ResourceKind::Transient
+                                               ? destination.transient.usage
+                                               : destination.owned_texture != nullptr
+                                                     ? destination.owned_texture->GetUsage()
+                                                     : TextureUsage::None;
+            if (!HasFlag(source_usage, TextureUsage::CopySrc) ||
+                !HasFlag(destination_usage, TextureUsage::CopyDst)) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph copy textures are missing copy usage flags");
+            }
+        }
+        if (pass.kind == PassKind::Compute) {
+            if (!pass.compute_execute || !pass.colors.empty() || pass.depth ||
+                pass.framebuffer_id || !pass.samples.empty() || !pass.copies.empty()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph compute pass '" + pass.debug_name + "' has an invalid contract");
+            }
+            continue;
+        }
+        if (!pass.storage_textures.empty()) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "RenderGraph storage textures are only valid on compute passes");
+        }
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             if (pass.copies.empty()) {
-                return Err(
-                    ErrorCode::ValidationInvalidState,
+                return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph copy pass '" + pass.debug_name + "' has no Copy operations");
             }
             if (!pass.copy_execute) {
-                return Err(
-                    ErrorCode::ValidationInvalidState,
+                return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph copy pass '" + pass.debug_name + "' has no Execute callback");
             }
             continue;
         }
 
         if (!pass.render_execute) {
-            return Err(
-                ErrorCode::ValidationInvalidState,
+            return Err(ErrorCode::ValidationInvalidState,
                 "RenderGraph pass '" + pass.debug_name + "' has no Execute callback");
         }
     }
@@ -481,38 +788,40 @@ u32 RenderGraphBuilder::AllocatePass(const std::string_view debug_name) {
 // --- RenderGraph ---
 
 Result<scope<RenderGraph>> RenderGraph::Create(
-    Device& device,
-    GraphBlueprint blueprint,
-    const u32 width,
-    const u32 height) {
-    return Ok(scope<RenderGraph>(new RenderGraph(device, std::move(blueprint), width, height)));
+    Device& device, GraphBlueprint blueprint, const u32 width, const u32 height) {
+    auto graph = scope<RenderGraph>(new RenderGraph(device, std::move(blueprint), width, height));
+    if (auto allocated = graph->AllocateRuntimeResources(width, height); !allocated) {
+        return Err(allocated.error());
+    }
+    return Ok(std::move(graph));
 }
 
 RenderGraph::RenderGraph(
-    Device& device,
-    GraphBlueprint blueprint,
-    const u32 width,
-    const u32 height)
-    : device_(&device),
-      blueprint_(std::move(blueprint)),
-      width_(width),
-      height_(height) {
+    Device& device, GraphBlueprint blueprint, const u32 width, const u32 height)
+    : device_(&device), blueprint_(std::move(blueprint)), width_(width), height_(height) {
     runtime_resources_.resize(blueprint_.resources.size());
     for (size_t i = 0; i < blueprint_.resources.size(); ++i) {
         runtime_resources_[i].blueprint = blueprint_.resources[i];
     }
-    (void)AllocateRuntimeResources(width, height);
 }
 
 Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 height) {
     width_ = width;
     height_ = height;
 
-    for (RuntimeResource& runtime : runtime_resources_) {
-        if (runtime.blueprint.kind != ResourceKind::Transient) {
-            continue;
+    std::vector<RuntimeResource*> transients{};
+    for (auto& runtime : runtime_resources_) {
+        if (runtime.blueprint.kind == ResourceKind::Transient) {
+            transients.push_back(&runtime);
         }
-        if (auto result = AcquireTransientResource(runtime, width, height); !result) {
+    }
+    std::ranges::sort(transients, {},
+        [](const RuntimeResource* runtime) { return runtime->blueprint.first_pass; });
+    for (RuntimeResource* runtime : transients) {
+        auto result = runtime->blueprint.type == ResourceType::Buffer
+                          ? AcquireTransientBuffer(*runtime)
+                          : AcquireTransientResource(*runtime, width, height);
+        if (!result) {
             return result;
         }
     }
@@ -520,7 +829,8 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
     for (RuntimeResource& runtime : runtime_resources_) {
         const ResourceRecord& record = runtime.blueprint;
 
-        if (record.kind == ResourceKind::Owned && record.owned_texture != nullptr) {
+        if (record.kind == ResourceKind::Owned && record.type == ResourceType::Texture &&
+            record.owned_texture != nullptr) {
             if (runtime.view == nullptr) {
                 runtime.view = record.owned_texture->CreateView({});
             }
@@ -532,7 +842,10 @@ Result<void> RenderGraph::AllocateRuntimeResources(const u32 width, const u32 he
 
 void RenderGraph::ReleaseTransientPool() {
     for (PooledTransientTexture& entry : transient_pool_) {
-        entry.in_use = false;
+        entry.last_pass = kInvalidGraphResource;
+    }
+    for (auto& entry : transient_buffer_pool_) {
+        entry.last_pass = kInvalidGraphResource;
     }
 
     for (RuntimeResource& runtime : runtime_resources_) {
@@ -540,8 +853,40 @@ void RenderGraph::ReleaseTransientPool() {
             runtime.pool_index = kInvalidGraphResource;
             runtime.texture.reset();
             runtime.view.reset();
+            runtime.buffer.reset();
         }
     }
+}
+
+Result<void> RenderGraph::AcquireTransientBuffer(RuntimeResource& runtime) {
+    const auto& desc = runtime.blueprint.transient_buffer;
+    if (desc.size == 0 || desc.usage == BufferUsage::None) {
+        return Err(ErrorCode::ValidationOutOfRange,
+            "RenderGraph transient buffer requires size and usage");
+    }
+    for (u32 index = 0; index < transient_buffer_pool_.size(); ++index) {
+        auto& entry = transient_buffer_pool_[index];
+        if (entry.desc.size == desc.size && entry.desc.usage == desc.usage &&
+            (entry.last_pass == kInvalidGraphResource ||
+                entry.last_pass < runtime.blueprint.first_pass)) {
+            entry.last_pass = runtime.blueprint.last_pass;
+            runtime.pool_index = index;
+            runtime.buffer.reset();
+            return Ok();
+        }
+    }
+    auto buffer = device_->CreateBuffer({
+        .size = desc.size,
+        .usage = desc.usage,
+        .label = desc.label.empty() ? "RenderGraphTransientBuffer" : desc.label,
+    });
+    if (!buffer) {
+        return Err(buffer.error());
+    }
+    runtime.pool_index = static_cast<u32>(transient_buffer_pool_.size());
+    transient_buffer_pool_.push_back(
+        {.desc = desc, .buffer = std::move(*buffer), .last_pass = runtime.blueprint.last_pass});
+    return Ok();
 }
 
 Result<void> RenderGraph::AcquireTransientResource(
@@ -551,11 +896,12 @@ Result<void> RenderGraph::AcquireTransientResource(
 
     for (u32 pool_index = 0; pool_index < transient_pool_.size(); ++pool_index) {
         PooledTransientTexture& entry = transient_pool_[pool_index];
-        if (entry.in_use || entry.key != key) {
+        if (entry.key != key ||
+            (entry.last_pass != kInvalidGraphResource && entry.last_pass >= record.first_pass)) {
             continue;
         }
 
-        entry.in_use = true;
+        entry.last_pass = record.last_pass;
         runtime.pool_index = pool_index;
         runtime.texture.reset();
         runtime.view.reset();
@@ -574,9 +920,10 @@ Result<void> RenderGraph::AcquireTransientResource(
     pooled.texture = std::move(*texture);
     pooled.view = pooled.texture->CreateView(view_desc);
     if (IsDepthFormat(record.transient.format)) {
-        pooled.depth_sample_view = pooled.texture->CreateView(MakeDepthSampleViewDesc(record.transient));
+        pooled.depth_sample_view =
+            pooled.texture->CreateView(MakeDepthSampleViewDesc(record.transient));
     }
-    pooled.in_use = true;
+    pooled.last_pass = record.last_pass;
 
     runtime.pool_index = static_cast<u32>(transient_pool_.size());
     transient_pool_.push_back(std::move(pooled));
@@ -592,12 +939,23 @@ Result<void> RenderGraph::RebuildForResize(const u32 width, const u32 height) {
     return AllocateRuntimeResources(width, height);
 }
 
+std::size_t RenderGraph::TransientTextureAllocationCount() const noexcept {
+    return transient_pool_.size();
+}
+
+std::size_t RenderGraph::TransientBufferAllocationCount() const noexcept {
+    return transient_buffer_pool_.size();
+}
+
 Texture* RenderGraph::ResolveTexture(const u32 resource_id) {
     if (resource_id >= runtime_resources_.size()) {
         return nullptr;
     }
 
     RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Texture) {
+        return nullptr;
+    }
     switch (runtime.blueprint.kind) {
     case ResourceKind::Transient:
         if (runtime.pool_index < transient_pool_.size()) {
@@ -618,6 +976,9 @@ TextureView* RenderGraph::ResolveView(const u32 resource_id) {
     }
 
     RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Texture) {
+        return nullptr;
+    }
     switch (runtime.blueprint.kind) {
     case ResourceKind::Transient:
         if (runtime.pool_index < transient_pool_.size()) {
@@ -632,10 +993,32 @@ TextureView* RenderGraph::ResolveView(const u32 resource_id) {
     return nullptr;
 }
 
+Buffer* RenderGraph::ResolveBuffer(const u32 resource_id) {
+    if (resource_id >= runtime_resources_.size()) {
+        return nullptr;
+    }
+    RuntimeResource& runtime = runtime_resources_[resource_id];
+    if (runtime.blueprint.type != ResourceType::Buffer) {
+        return nullptr;
+    }
+    switch (runtime.blueprint.kind) {
+    case ResourceKind::Transient:
+        return runtime.pool_index < transient_buffer_pool_.size()
+                   ? transient_buffer_pool_[runtime.pool_index].buffer.get()
+                   : runtime.buffer.get();
+    case ResourceKind::Owned:
+        return runtime.blueprint.owned_buffer;
+    case ResourceKind::PerFrame:
+        return runtime.per_frame_buffer;
+    }
+    return nullptr;
+}
+
 TextureView* RenderGraph::ResolveSampleView(const u32 resource_id, const SampleMode mode) {
     if (mode == SampleMode::DepthTexture && resource_id < runtime_resources_.size()) {
         RuntimeResource& runtime = runtime_resources_[resource_id];
-        if (runtime.blueprint.kind == ResourceKind::Transient && runtime.pool_index < transient_pool_.size()) {
+        if (runtime.blueprint.kind == ResourceKind::Transient &&
+            runtime.pool_index < transient_pool_.size()) {
             TextureView* depth_view = transient_pool_[runtime.pool_index].depth_sample_view.get();
             if (depth_view != nullptr) {
                 return depth_view;
@@ -645,11 +1028,8 @@ TextureView* RenderGraph::ResolveSampleView(const u32 resource_id, const SampleM
     return ResolveView(resource_id);
 }
 
-Result<void> RenderGraph::ExecuteRenderPass(
-    const u32 pass_index,
-    CommandEncoder& encoder,
-    const u32 width,
-    const u32 height,
+Result<void> RenderGraph::ExecuteRenderPass(const u32 pass_index, CommandEncoder& encoder,
+    const u32 width, const u32 height,
     const std::unordered_map<u32, TextureView*>& per_frame_views) {
     const PassRecord& pass = blueprint_.passes[pass_index];
 
@@ -660,7 +1040,8 @@ Result<void> RenderGraph::ExecuteRenderPass(
         if (resource_id < runtime_resources_.size()) {
             RuntimeResource& runtime = runtime_resources_[resource_id];
             if (runtime.blueprint.kind == ResourceKind::PerFrame) {
-                if (const auto it = per_frame_views.find(resource_id); it != per_frame_views.end()) {
+                if (const auto it = per_frame_views.find(resource_id);
+                    it != per_frame_views.end()) {
                     return it->second;
                 }
                 return runtime.per_frame_view;
@@ -684,10 +1065,9 @@ Result<void> RenderGraph::ExecuteRenderPass(
         for (const auto& [slot, resource_id] : framebuffer.colors) {
             TextureView* view = resolve(resource_id);
             if (view == nullptr) {
-                return Err(
-                    ErrorCode::GraphicsResourceCreationFailed,
-                    "RenderGraph pass '" + pass.debug_name + "' missing color view for slot "
-                        + std::to_string(slot));
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
+                    "RenderGraph pass '" + pass.debug_name + "' missing color view for slot " +
+                        std::to_string(slot));
             }
 
             Color clear_value{0.f, 0.f, 0.f, 1.f};
@@ -706,8 +1086,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
         if (framebuffer.depth_resource_id != kInvalidGraphResource) {
             TextureView* depth_view = resolve(framebuffer.depth_resource_id);
             if (depth_view == nullptr) {
-                return Err(
-                    ErrorCode::GraphicsResourceCreationFailed,
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
                     "RenderGraph pass '" + pass.debug_name + "' missing depth view");
             }
 
@@ -733,13 +1112,21 @@ Result<void> RenderGraph::ExecuteRenderPass(
     for (const ColorOutput& color : pass.colors) {
         TextureView* view = resolve(color.resource_id);
         if (view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing color attachment view");
+        }
+        TextureView* resolve_target = nullptr;
+        if (color.resolve_resource_id != kInvalidGraphResource) {
+            resolve_target = resolve(color.resolve_resource_id);
+            if (resolve_target == nullptr) {
+                return Err(ErrorCode::GraphicsResourceCreationFailed,
+                    "RenderGraph pass '" + pass.debug_name + "' missing color resolve view");
+            }
         }
 
         color_attachments[color.slot] = RenderPassColorAttachmentDesc{
             .view = view,
+            .resolve_target = resolve_target,
             .load_op = color.config.load,
             .store_op = color.config.store,
             .clear_value = color.config.clear,
@@ -749,8 +1136,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
     if (pass.depth.has_value()) {
         TextureView* depth_view = resolve(pass.depth->resource_id);
         if (depth_view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing depth attachment view");
         }
 
@@ -764,8 +1150,7 @@ Result<void> RenderGraph::ExecuteRenderPass(
     }
 
     if (color_attachments.empty() && !depth_attachment.has_value()) {
-        return Err(
-            ErrorCode::ValidationInvalidState,
+        return Err(ErrorCode::ValidationInvalidState,
             "RenderGraph pass '" + pass.debug_name + "' has no render targets");
     }
 
@@ -797,23 +1182,28 @@ Result<void> RenderGraph::ExecuteRenderPass(
     for (const SampleInput& sample : pass.samples) {
         TextureView* view = ResolveSampleView(sample.resource_id, sample.mode);
         if (view == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph pass '" + pass.debug_name + "' missing sample view");
         }
         context.samples_.push_back(view);
     }
+    context.buffers_.reserve(pass.buffers.size());
+    for (const auto& input : pass.buffers) {
+        Buffer* buffer = ResolveBuffer(input.resource_id);
+        if (buffer == nullptr) {
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph pass '" + pass.debug_name + "' missing buffer");
+        }
+        context.buffers_.push_back(buffer);
+    }
 
-    pass.render_execute(context);
+    auto executed = pass.render_execute(context);
     pass_encoder->get()->End();
-    return Ok();
+    return executed;
 }
 
 Result<void> RenderGraph::ExecuteCopyPass(
-    const u32 pass_index,
-    CommandEncoder& encoder,
-    const u32 width,
-    const u32 height) {
+    const u32 pass_index, CommandEncoder& encoder, const u32 width, const u32 height) {
     const PassRecord& pass = blueprint_.passes[pass_index];
 
     CopyPassContext context{};
@@ -829,16 +1219,61 @@ Result<void> RenderGraph::ExecuteCopyPass(
         Texture* source = ResolveTexture(copy.src_resource_id);
         Texture* destination = ResolveTexture(copy.dst_resource_id);
         if (source == nullptr || destination == nullptr) {
-            return Err(
-                ErrorCode::GraphicsResourceCreationFailed,
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
                 "RenderGraph copy pass '" + pass.debug_name + "' missing texture");
         }
         context.sources_.push_back(source);
         context.destinations_.push_back(destination);
     }
 
-    pass.copy_execute(context);
-    return Ok();
+    return pass.copy_execute(context);
+}
+
+Result<void> RenderGraph::ExecuteComputePass(const u32 pass_index, CommandEncoder& encoder,
+    const std::unordered_map<u32, TextureView*>& per_frame_views) {
+    const PassRecord& pass = blueprint_.passes[pass_index];
+    auto pass_encoder = encoder.BeginComputePass({.label = pass.debug_name});
+    if (!pass_encoder) {
+        return Err(pass_encoder.error());
+    }
+
+    ComputePassContext context{};
+    context.pass_ = pass_encoder->get();
+    context.device_ = device_;
+    context.user_data_ = pass.user_data;
+    context.buffers_.reserve(pass.buffers.size());
+    for (const auto& input : pass.buffers) {
+        Buffer* buffer = ResolveBuffer(input.resource_id);
+        if (buffer == nullptr) {
+            pass_encoder->get()->End();
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph compute pass '" + pass.debug_name + "' missing buffer");
+        }
+        context.buffers_.push_back(buffer);
+    }
+    context.storage_textures_.reserve(pass.storage_textures.size());
+    for (const auto& input : pass.storage_textures) {
+        TextureView* view = nullptr;
+        if (input.resource_id < runtime_resources_.size() &&
+            runtime_resources_[input.resource_id].blueprint.kind == ResourceKind::PerFrame) {
+            if (const auto found = per_frame_views.find(input.resource_id);
+                found != per_frame_views.end()) {
+                view = found->second;
+            }
+        } else {
+            view = ResolveView(input.resource_id);
+        }
+        if (view == nullptr) {
+            pass_encoder->get()->End();
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph compute pass '" + pass.debug_name + "' missing storage texture");
+        }
+        context.storage_textures_.push_back(view);
+    }
+
+    auto executed = pass.compute_execute(context);
+    pass_encoder->get()->End();
+    return executed;
 }
 
 RenderGraphFrame RenderGraph::BeginFrame(Device& device, const u32 width, const u32 height) {
@@ -847,7 +1282,7 @@ RenderGraphFrame RenderGraph::BeginFrame(Device& device, const u32 width, const 
     }
 
     RenderGraphFrame frame(*this, device, width, height);
-    auto encoder = device.CreateCommandEncoder({ .label = "RenderGraphFrame" });
+    auto encoder = device.CreateCommandEncoder({.label = "RenderGraphFrame"});
     if (encoder) {
         frame.encoder_ = std::move(*encoder);
     }
@@ -873,31 +1308,87 @@ void RenderGraphFrame::Bind(const PerFrameSlot slot, TextureView* view) {
     }
 }
 
+void RenderGraphFrame::Bind(const PerFrameSlot slot, Buffer* buffer) {
+    if (!slot || graph_ == nullptr || slot.id_ >= graph_->runtime_resources_.size()) {
+        return;
+    }
+    auto& runtime = graph_->runtime_resources_[slot.id_];
+    if (runtime.blueprint.type == ResourceType::Buffer) {
+        runtime.per_frame_buffer = buffer;
+    }
+}
+
+Result<void> RenderGraphFrame::CaptureTimestamps(
+    QuerySet& query_set, Buffer& resolve_buffer, Buffer& readback_buffer) {
+    constexpr u64 kTimestampBytes = sizeof(u64) * 2;
+    if (query_set.GetType() != QueryType::Timestamp || query_set.GetCount() < 2) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Render graph timestamp capture requires two timestamp queries");
+    }
+    if (resolve_buffer.GetSize() < kTimestampBytes ||
+        !HasFlag(resolve_buffer.GetUsage(), BufferUsage::QueryResolve) ||
+        !HasFlag(resolve_buffer.GetUsage(), BufferUsage::CopySrc)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Timestamp resolve buffer requires QueryResolve and CopySrc usage");
+    }
+    if (readback_buffer.GetSize() < kTimestampBytes ||
+        !HasFlag(readback_buffer.GetUsage(), BufferUsage::CopyDst) ||
+        !HasFlag(readback_buffer.GetUsage(), BufferUsage::MapRead)) {
+        return Err(ErrorCode::ValidationInvalidState,
+            "Timestamp readback buffer requires CopyDst and MapRead usage");
+    }
+    timestamp_query_set_ = &query_set;
+    timestamp_resolve_buffer_ = &resolve_buffer;
+    timestamp_readback_buffer_ = &readback_buffer;
+    return Ok();
+}
+
 Result<void> RenderGraphFrame::Execute() {
     if (graph_ == nullptr || device_ == nullptr || !encoder_) {
         return Err(ErrorCode::InvalidState, "RenderGraphFrame is invalid");
     }
 
+    if (timestamp_query_set_ != nullptr) {
+        if (auto result = encoder_->WriteTimestamp(*timestamp_query_set_, 0); !result) {
+            return result;
+        }
+    }
+
     for (size_t pass_index = 0; pass_index < graph_->blueprint_.passes.size(); ++pass_index) {
         const PassRecord& pass = graph_->blueprint_.passes[pass_index];
         Result<void> result = Ok();
-        if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
-            result = graph_->ExecuteCopyPass(
-                static_cast<u32>(pass_index), *encoder_, width_, height_);
+        if (pass.kind == PassKind::Compute) {
+            result = graph_->ExecuteComputePass(
+                static_cast<u32>(pass_index), *encoder_, per_frame_views_);
+        } else if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
+            result =
+                graph_->ExecuteCopyPass(static_cast<u32>(pass_index), *encoder_, width_, height_);
         } else {
             result = graph_->ExecuteRenderPass(
-                static_cast<u32>(pass_index),
-                *encoder_,
-                width_,
-                height_,
-                per_frame_views_);
+                static_cast<u32>(pass_index), *encoder_, width_, height_, per_frame_views_);
         }
         if (!result) {
             return result;
         }
     }
 
-    auto command_buffer = encoder_->Finish({ .label = "RenderGraphSubmit" });
+    if (timestamp_query_set_ != nullptr) {
+        if (auto result = encoder_->WriteTimestamp(*timestamp_query_set_, 1); !result) {
+            return result;
+        }
+        if (auto result = encoder_->ResolveQuerySet(
+                *timestamp_query_set_, 0, 2, *timestamp_resolve_buffer_, 0);
+            !result) {
+            return result;
+        }
+        if (auto result = encoder_->CopyBufferToBuffer(
+                *timestamp_resolve_buffer_, 0, *timestamp_readback_buffer_, 0, sizeof(u64) * 2);
+            !result) {
+            return result;
+        }
+    }
+
+    auto command_buffer = encoder_->Finish({.label = "RenderGraphSubmit"});
     if (!command_buffer) {
         return Err(command_buffer.error());
     }

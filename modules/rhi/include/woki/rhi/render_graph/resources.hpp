@@ -52,7 +52,14 @@ struct TransientDesc final {
     std::string label{};
     TextureFormat format{TextureFormat::Undefined};
     TextureUsage usage{};
+    u32 sample_count{1};
     ExtentMode extent{ExtentMode::Swapchain()};
+};
+
+struct TransientBufferDesc final {
+    std::string label{};
+    u64 size{0};
+    BufferUsage usage{};
 };
 
 struct ColorAttachmentConfig final {

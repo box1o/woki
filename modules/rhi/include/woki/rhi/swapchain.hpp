@@ -7,10 +7,6 @@
 
 #include <woki/core.hpp>
 
-namespace woki {
-class Window;
-}
-
 namespace woki::rhi {
 
 class Device;
@@ -36,10 +32,7 @@ protected:
     Swapchain() = default;
 
     [[nodiscard]] static Frame MakeFrame(
-        scope<TextureView> color_view,
-        TextureView* depth_view,
-        u32 width,
-        u32 height);
+        scope<TextureView> color_view, TextureView* depth_view, u32 width, u32 height);
 };
 
 class Swapchain::Builder {
@@ -53,7 +46,6 @@ public:
     Builder& AlphaMode(CompositeAlphaMode alpha_mode);
     Builder& EnableDepth(bool enabled);
     Builder& Label(std::string_view label);
-    Builder& SizeSource(Window* window) noexcept;
 
     [[nodiscard]] Result<scope<Swapchain>> Build();
 
@@ -61,7 +53,6 @@ private:
     Device* device_{nullptr};
     Surface* surface_{nullptr};
     SwapchainDesc desc_{};
-    Window* size_source_{nullptr};
 };
 
 } // namespace woki::rhi

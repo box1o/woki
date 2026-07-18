@@ -1,0 +1,100 @@
+#pragma once
+
+#include "../graph/render_feature.hpp"
+#include "../lighting/environment.hpp"
+#include "../lighting/shadow.hpp"
+#include "../material/standard_material_resources.hpp"
+#include "../resource/frame_uniform_buffer.hpp"
+#include "../shader/shader_manager.hpp"
+#include "draw_encoder.hpp"
+
+#include <memory>
+#include <optional>
+#include <vector>
+
+namespace woki::gfx {
+
+struct StandardDrawBindingsDesc final {
+    std::optional<u32> transform_immediate_offset{};
+    StandardMaterialResources defaults{};
+};
+
+class StandardDrawBindings final : public DrawBindingEncoder {
+public:
+    StandardDrawBindings(rhi::Device& device, GpuResourceManager& resources, ShaderManager& shaders,
+        FrameUniformBuffer& uniforms, StandardDrawBindingsDesc desc = {});
+    ~StandardDrawBindings() override;
+
+    StandardDrawBindings(const StandardDrawBindings&) = delete;
+    StandardDrawBindings& operator=(const StandardDrawBindings&) = delete;
+    StandardDrawBindings(StandardDrawBindings&&) = delete;
+    StandardDrawBindings& operator=(StandardDrawBindings&&) = delete;
+
+    [[nodiscard]] Result<void> Prepare(const ResolvedDrawList& draws) override;
+    void Encode(rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, u32 draw_index) override;
+
+    [[nodiscard]] std::size_t MaterialBindingCount() const noexcept;
+    [[nodiscard]] Result<void> SetLighting(std::span<const std::byte> data);
+    [[nodiscard]] Result<void> SetShadow(const ShadowFrameData& data);
+    [[nodiscard]] Result<void> SetEnvironment(const EnvironmentLighting& environment);
+    [[nodiscard]] Result<void> PrepareFrame(rhi::RenderPassContext& context,
+        const ResolvedDrawList& draws, std::optional<u32> shadow_sample = {});
+    [[nodiscard]] u64 SetView(const RenderView& view) noexcept;
+    void ClearLighting() noexcept;
+    void ClearShadow() noexcept;
+    void ClearEnvironment() noexcept;
+    void Clear() noexcept;
+
+private:
+    struct GroupBinding final {
+        u32 group{0};
+        scope<rhi::BindGroup> binding{};
+    };
+
+    struct MaterialBinding final {
+        const rhi::RenderPipeline* pipeline{nullptr};
+        MaterialHandle material{};
+        std::vector<GroupBinding> groups{};
+    };
+
+    struct ObjectBinding final {
+        const rhi::RenderPipeline* pipeline{nullptr};
+        RenderObjectHandle object{};
+        u64 view_scope{0};
+        u32 group{0};
+        scope<rhi::BindGroup> binding{};
+    };
+
+    struct FrameBinding final {
+        const rhi::RenderPipeline* pipeline{nullptr};
+        u32 group{0};
+        scope<rhi::BindGroup> binding{};
+    };
+
+    [[nodiscard]] Result<MaterialBinding> BuildBinding(
+        const ResolvedDraw& draw, RenderPassClass pass);
+    [[nodiscard]] MaterialBinding* Find(
+        const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
+    [[nodiscard]] ObjectBinding* Find(std::vector<ObjectBinding>& bindings,
+        const rhi::RenderPipeline* pipeline, RenderObjectHandle object, u64 view_scope) noexcept;
+    [[nodiscard]] FrameBinding* FindFrame(const rhi::RenderPipeline* pipeline) noexcept;
+
+    rhi::Device* device_{nullptr};
+    GpuResourceManager* resources_{nullptr};
+    ShaderManager* shaders_{nullptr};
+    FrameUniformBuffer* uniforms_{nullptr};
+    StandardDrawBindingsDesc desc_{};
+    std::vector<MaterialBinding> materials_{};
+    std::vector<ObjectBinding> objects_{};
+    std::vector<ObjectBinding> skins_{};
+    std::vector<FrameBinding> frames_{};
+    std::optional<UniformBufferSlice> lighting_{};
+    std::optional<UniformBufferSlice> shadow_{};
+    std::optional<UniformBufferSlice> environment_data_{};
+    std::optional<EnvironmentLighting> environment_{};
+    RenderView view_{};
+    u64 next_view_scope_{1};
+    u64 snapshot_sequence_{0};
+};
+
+} // namespace woki::gfx

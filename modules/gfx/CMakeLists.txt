@@ -30,6 +30,7 @@ endif()
 
 set(BASE_DEPS
     woki::core
+    woki::rhi
 )
 
 if(EMSCRIPTEN)
@@ -71,4 +72,8 @@ if(EMSCRIPTEN)
     )
 else()
     target_compile_definitions(woki_gfx PUBLIC GLFW_INCLUDE_NONE)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()
