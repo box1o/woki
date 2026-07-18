@@ -9,9 +9,21 @@ namespace {
 
 struct alignas(16) GpuObjectData final {
     math::mat4f model{math::mat4f::identity()};
+    math::mat4f normal_matrix{math::mat4f::identity()};
     math::mat4f view_projection{math::mat4f::identity()};
     math::vec4f view_position{};
 };
+static_assert(sizeof(GpuObjectData) == 208);
+
+[[nodiscard]] math::mat4f BuildNormalMatrix(const math::mat4f& transform) noexcept {
+    const math::mat3f linear{math::layout::rowm, transform(0, 0), transform(0, 1), transform(0, 2),
+        transform(1, 0), transform(1, 1), transform(1, 2), transform(2, 0), transform(2, 1),
+        transform(2, 2)};
+    const math::mat3f normal = linear.inverse().transpose();
+    return {math::layout::rowm, normal(0, 0), normal(0, 1), normal(0, 2), 0.0F, normal(1, 0),
+        normal(1, 1), normal(1, 2), 0.0F, normal(2, 0), normal(2, 1), normal(2, 2), 0.0F, 0.0F,
+        0.0F, 0.0F, 1.0F};
+}
 
 [[nodiscard]] std::vector<u32> MaterialGroups(const ShaderInterfaceDesc& interface) {
     std::vector<u32> groups{};
@@ -214,6 +226,7 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         if (Find(objects_, draw.pipeline, draw.packet.object) == nullptr) {
             const GpuObjectData object_data{
                 .model = draw.transform,
+                .normal_matrix = BuildNormalMatrix(draw.transform),
                 .view_projection = view_.view_projection,
                 .view_position = {view_.world_position.x, view_.world_position.y,
                     view_.world_position.z, 1.0F},

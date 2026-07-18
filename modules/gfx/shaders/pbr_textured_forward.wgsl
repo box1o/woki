@@ -4,6 +4,7 @@ const PI: f32 = 3.14159265359;
 
 struct ObjectData {
     model: mat4x4<f32>,
+    normal_matrix: mat4x4<f32>,
     view_projection: mat4x4<f32>,
     view_position: vec4<f32>,
 };
@@ -80,7 +81,7 @@ fn vertex_main(input: MeshVertex) -> SurfaceVertex {
     var output: SurfaceVertex;
     output.position = object.view_projection * world_position;
     output.world_position = world_position.xyz;
-    output.world_normal = normalize((object.model * vec4<f32>(input.normal, 0.0)).xyz);
+    output.world_normal = normalize((object.normal_matrix * vec4<f32>(input.normal, 0.0)).xyz);
     output.uv = input.uv;
     return output;
 }

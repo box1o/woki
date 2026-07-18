@@ -2,6 +2,7 @@
 
 struct ObjectData {
     model: mat4x4<f32>,
+    normal_matrix: mat4x4<f32>,
     view_projection: mat4x4<f32>,
     view_position: vec4<f32>,
 };
@@ -49,7 +50,8 @@ fn vertex_main(input: SkinnedVertex) -> SurfaceVertex {
     var output: SurfaceVertex;
     output.position = object.view_projection * world_position;
     output.world_position = world_position.xyz;
-    output.world_normal = normalize((world * vec4<f32>(input.normal, 0.0)).xyz);
+    let deformed_normal = deformation * vec4<f32>(input.normal, 0.0);
+    output.world_normal = normalize((object.normal_matrix * deformed_normal).xyz);
     return output;
 }
 
