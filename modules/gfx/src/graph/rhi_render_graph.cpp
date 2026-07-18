@@ -122,8 +122,10 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
 
     for (const auto& scheduled : compiled.passes) {
         const GraphPassDesc* pass = graph.Pass(scheduled.pass);
-        if (pass == nullptr || !pass->execute) {
-            return Err(ErrorCode::ValidationNullValue, "Executable graph pass requires a callback");
+        if (pass == nullptr || (pass->kind == GraphPassKind::Render && !pass->execute) ||
+            (pass->kind == GraphPassKind::Compute && !pass->compute_execute)) {
+            return Err(ErrorCode::ValidationNullValue,
+                "Executable graph pass requires a callback matching its kind");
         }
         auto native_pass = builder.AddPass(pass->label);
         for (const auto& color : pass->colors) {
@@ -174,10 +176,17 @@ Result<ExecutableRenderGraph> CompileRhiRenderGraph(const RenderGraph& graph,
                 native_pass.Buffer(native_resources[buffer.resource.Index()]);
             }
         }
-        const auto callback = pass->execute;
-        native_pass.Execute([callback](rhi::RenderPassContext& context) -> Result<void> {
-            return callback(context);
-        });
+        if (pass->kind == GraphPassKind::Compute) {
+            const auto callback = pass->compute_execute;
+            native_pass.Execute([callback](rhi::ComputePassContext& context) -> Result<void> {
+                return callback(context);
+            });
+        } else {
+            const auto callback = pass->execute;
+            native_pass.Execute([callback](rhi::RenderPassContext& context) -> Result<void> {
+                return callback(context);
+            });
+        }
     }
 
     auto native = builder.Compile(width, height);

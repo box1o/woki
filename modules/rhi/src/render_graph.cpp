@@ -1,6 +1,7 @@
 #include <woki/rhi/render_graph.hpp>
 
 #include <woki/rhi/command_encoder.hpp>
+#include <woki/rhi/compute_pass_encoder.hpp>
 #include <woki/rhi/device.hpp>
 #include <woki/rhi/objects.hpp>
 #include <woki/rhi/queue.hpp>
@@ -261,6 +262,25 @@ Result<void> CopyPassContext::CopyAll() {
     return Ok();
 }
 
+// --- ComputePassContext ---
+
+ComputePassEncoder& ComputePassContext::encoder() {
+    WOKI_ASSERT(pass_ != nullptr);
+    return *pass_;
+}
+
+Device& ComputePassContext::device() noexcept {
+    WOKI_ASSERT(device_ != nullptr);
+    return *device_;
+}
+
+Buffer& ComputePassContext::buffer(const u32 slot) {
+    WOKI_ASSERT(slot < buffers_.size() && buffers_[slot] != nullptr);
+    return *buffers_[slot];
+}
+
+u32 ComputePassContext::buffer_count() const noexcept { return static_cast<u32>(buffers_.size()); }
+
 // --- PassBuilder ---
 
 PassBuilder::PassBuilder(RenderGraphBuilder& owner, const u32 pass_index)
@@ -498,6 +518,14 @@ Result<scope<RenderGraph>> RenderGraphBuilder::Compile(const u32 width, const u3
                 return Err(ErrorCode::ValidationInvalidState,
                     "RenderGraph pass '" + pass.debug_name + "' references an invalid buffer");
             }
+        }
+        if (pass.kind == PassKind::Compute) {
+            if (!pass.compute_execute || !pass.colors.empty() || pass.depth ||
+                pass.framebuffer_id || !pass.samples.empty() || !pass.copies.empty()) {
+                return Err(ErrorCode::ValidationInvalidState,
+                    "RenderGraph compute pass '" + pass.debug_name + "' has an invalid contract");
+            }
+            continue;
         }
         if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             if (pass.copies.empty()) {
@@ -957,6 +985,33 @@ Result<void> RenderGraph::ExecuteCopyPass(
     return pass.copy_execute(context);
 }
 
+Result<void> RenderGraph::ExecuteComputePass(const u32 pass_index, CommandEncoder& encoder) {
+    const PassRecord& pass = blueprint_.passes[pass_index];
+    auto pass_encoder = encoder.BeginComputePass({.label = pass.debug_name});
+    if (!pass_encoder) {
+        return Err(pass_encoder.error());
+    }
+
+    ComputePassContext context{};
+    context.pass_ = pass_encoder->get();
+    context.device_ = device_;
+    context.user_data_ = pass.user_data;
+    context.buffers_.reserve(pass.buffers.size());
+    for (const auto& input : pass.buffers) {
+        Buffer* buffer = ResolveBuffer(input.resource_id);
+        if (buffer == nullptr) {
+            pass_encoder->get()->End();
+            return Err(ErrorCode::GraphicsResourceCreationFailed,
+                "RenderGraph compute pass '" + pass.debug_name + "' missing buffer");
+        }
+        context.buffers_.push_back(buffer);
+    }
+
+    auto executed = pass.compute_execute(context);
+    pass_encoder->get()->End();
+    return executed;
+}
+
 RenderGraphFrame RenderGraph::BeginFrame(Device& device, const u32 width, const u32 height) {
     if (width != width_ || height != height_) {
         (void)RebuildForResize(width, height);
@@ -1038,7 +1093,9 @@ Result<void> RenderGraphFrame::Execute() {
     for (size_t pass_index = 0; pass_index < graph_->blueprint_.passes.size(); ++pass_index) {
         const PassRecord& pass = graph_->blueprint_.passes[pass_index];
         Result<void> result = Ok();
-        if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
+        if (pass.kind == PassKind::Compute) {
+            result = graph_->ExecuteComputePass(static_cast<u32>(pass_index), *encoder_);
+        } else if (pass.kind == PassKind::Copy || !pass.copies.empty()) {
             result =
                 graph_->ExecuteCopyPass(static_cast<u32>(pass_index), *encoder_, width_, height_);
         } else {

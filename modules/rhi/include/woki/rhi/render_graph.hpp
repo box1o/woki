@@ -81,6 +81,7 @@ private:
         u32 height, const std::unordered_map<u32, TextureView*>& per_frame_views);
     [[nodiscard]] Result<void> ExecuteCopyPass(
         u32 pass_index, CommandEncoder& encoder, u32 width, u32 height);
+    [[nodiscard]] Result<void> ExecuteComputePass(u32 pass_index, CommandEncoder& encoder);
 
     Device* device_{nullptr};
     render_graph::detail::GraphBlueprint blueprint_{};

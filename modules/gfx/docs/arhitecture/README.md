@@ -120,6 +120,12 @@ allocated and reused by the RHI graph; per-frame buffers are bound by the caller
 future GPU-driven visibility, indirect draws, compute-produced data, and external UI geometry without
 bypassing graph scheduling.
 
+`GraphPassKind::Compute` records a native compute pass with a typed `ComputePassContext`. Compute
+callbacks receive their declared buffers by stable index and use the normal compute encoder for
+pipeline binding and dispatch. Writes automatically order later render or compute readers through the
+same resource dependency compiler. Compute passes cannot declare render attachments or render-sample
+inputs; storage-texture integration remains a future extension.
+
 ## Pipeline and diagnostics API
 
 `BuildStandardMaterialPipeline` derives consistent raster, blend, depth, attachment, and resolver-key

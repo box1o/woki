@@ -13,6 +13,7 @@
 namespace woki::rhi {
 
 class CommandEncoder;
+class ComputePassEncoder;
 class Device;
 class RenderPassEncoder;
 
@@ -87,6 +88,28 @@ private:
 
     std::vector<Texture*> sources_{};
     std::vector<Texture*> destinations_{};
+};
+
+class ComputePassContext final {
+public:
+    [[nodiscard]] ComputePassEncoder& encoder();
+    [[nodiscard]] Device& device() noexcept;
+    [[nodiscard]] Buffer& buffer(u32 slot);
+    [[nodiscard]] u32 buffer_count() const noexcept;
+
+    template <typename T> [[nodiscard]] T& data() {
+        WOKI_ASSERT(user_data_ != nullptr);
+        return *static_cast<T*>(user_data_);
+    }
+
+private:
+    friend class RenderGraph;
+    friend class RenderGraphFrame;
+
+    ComputePassEncoder* pass_{nullptr};
+    Device* device_{nullptr};
+    void* user_data_{nullptr};
+    std::vector<Buffer*> buffers_{};
 };
 
 } // namespace woki::rhi

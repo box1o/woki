@@ -188,3 +188,44 @@ TEST_CASE("Render graph permits per-frame and imported buffers to be read first"
 
     REQUIRE(graph.Compile());
 }
+
+TEST_CASE("Render graph schedules compute-produced buffers before render consumers") {
+    woki::gfx::RenderGraph graph{};
+    const auto buffer = graph.AddTransientBuffer({
+        .label = "Indirect commands",
+        .size = 1024,
+        .usage = woki::rhi::BufferUsage::Storage | woki::rhi::BufferUsage::Indirect,
+    });
+    REQUIRE(buffer);
+    const auto compute = graph.AddPass({
+        .label = "Build commands",
+        .kind = woki::gfx::GraphPassKind::Compute,
+        .resources = {{.resource = *buffer, .access = woki::gfx::GraphAccess::Write}},
+        .buffers = {{.resource = *buffer}},
+        .compute_execute = [](woki::rhi::ComputePassContext&) { return woki::Ok(); },
+    });
+    const auto render = graph.AddPass({
+        .label = "Draw commands",
+        .resources = {{.resource = *buffer, .access = woki::gfx::GraphAccess::Read}},
+        .buffers = {{.resource = *buffer}},
+    });
+    REQUIRE(compute);
+    REQUIRE(render);
+
+    const auto compiled = graph.Compile();
+    REQUIRE(compiled);
+    REQUIRE(compiled->passes.back().dependencies == std::vector{*compute});
+}
+
+TEST_CASE("Render graph rejects render attachments on compute passes") {
+    woki::gfx::RenderGraph graph{};
+    const auto output = graph.AddPerFrameTexture("Output");
+    REQUIRE(output);
+    REQUIRE(graph.AddPass({
+        .label = "Invalid compute",
+        .kind = woki::gfx::GraphPassKind::Compute,
+        .resources = {{.resource = *output, .access = woki::gfx::GraphAccess::Write}},
+        .colors = {{.resource = *output}},
+    }));
+    REQUIRE_FALSE(graph.Compile());
+}

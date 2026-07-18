@@ -19,6 +19,7 @@ namespace woki::rhi {
 class RenderGraph;
 
 class CopyPassContext;
+class ComputePassContext;
 class RenderPassContext;
 
 class PassBuilder final {
@@ -96,8 +97,21 @@ template <typename Fn> PassBuilder& PassBuilder::Execute(Fn&& callback) {
     WOKI_ASSERT(owner_ != nullptr);
     render_graph::detail::PassRecord& pass = owner_->blueprint_.passes[pass_index_];
 
-    if constexpr (std::is_invocable_v<Fn, CopyPassContext&> &&
-                  !std::is_invocable_v<Fn, RenderPassContext&>) {
+    if constexpr (std::is_invocable_v<Fn, ComputePassContext&> &&
+                  !std::is_invocable_v<Fn, RenderPassContext&> &&
+                  !std::is_invocable_v<Fn, CopyPassContext&>) {
+        pass.kind = render_graph::detail::PassKind::Compute;
+        pass.compute_execute = [fn = std::forward<Fn>(callback)](ComputePassContext& ctx) mutable {
+            if constexpr (std::same_as<std::invoke_result_t<Fn&, ComputePassContext&>,
+                              Result<void>>) {
+                return fn(ctx);
+            } else {
+                fn(ctx);
+                return Ok();
+            }
+        };
+    } else if constexpr (std::is_invocable_v<Fn, CopyPassContext&> &&
+                         !std::is_invocable_v<Fn, RenderPassContext&>) {
         pass.copy_execute = [fn = std::forward<Fn>(callback)](CopyPassContext& ctx) mutable {
             if constexpr (std::same_as<std::invoke_result_t<Fn&, CopyPassContext&>, Result<void>>) {
                 return fn(ctx);
@@ -117,8 +131,8 @@ template <typename Fn> PassBuilder& PassBuilder::Execute(Fn&& callback) {
             }
         };
     } else {
-        static_assert(
-            sizeof(Fn) == 0, "Pass callback must accept RenderPassContext& or CopyPassContext&");
+        static_assert(sizeof(Fn) == 0, "Pass callback must accept RenderPassContext&, "
+                                       "ComputePassContext&, or CopyPassContext&");
     }
     return *this;
 }

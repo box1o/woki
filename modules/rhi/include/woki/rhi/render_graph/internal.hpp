@@ -60,6 +60,7 @@ struct BufferInput final {
 
 enum class PassKind : u8 {
     Render,
+    Compute,
     Copy,
 };
 
@@ -79,6 +80,7 @@ struct PassRecord final {
     std::vector<BufferInput> buffers{};
     std::vector<CopyOperation> copies{};
     std::function<Result<void>(RenderPassContext&)> render_execute{};
+    std::function<Result<void>(ComputePassContext&)> compute_execute{};
     std::function<Result<void>(CopyPassContext&)> copy_execute{};
     void* user_data{nullptr};
 };

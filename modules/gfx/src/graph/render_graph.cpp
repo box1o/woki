@@ -160,6 +160,11 @@ Result<CompiledRenderGraph> RenderGraph::Compile() const {
 
     for (u32 pass_index = 0; pass_index < passes_.size(); ++pass_index) {
         const auto& pass = passes_[pass_index];
+        if (pass.kind == GraphPassKind::Compute &&
+            (!pass.colors.empty() || pass.depth || !pass.samples.empty())) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Compute graph passes cannot declare render attachments or sampled render inputs");
+        }
         std::vector<u32> used_resources{};
         used_resources.reserve(pass.resources.size());
 
