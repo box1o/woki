@@ -5,7 +5,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$DawnPrefix = [System.IO.Path]::GetFullPath($DawnPrefix)
 if (Test-Path $DawnPrefix) {
     Remove-Item -Recurse -Force $DawnPrefix
 }
@@ -15,21 +14,7 @@ $archive = Join-Path $env:RUNNER_TEMP 'dawn-prebuilt.tar.gz'
 $repo = if ($env:DAWN_RELEASE_REPO) { $env:DAWN_RELEASE_REPO } else { 'google/dawn' }
 
 gh release download -R $repo --pattern "*$AssetSuffix" --output $archive
-
-$archiveInfo = Get-Item $archive
-if ($archiveInfo.Length -lt 1MB) {
-    throw "Dawn archive is missing or too small ($($archiveInfo.Length) bytes): $archive"
-}
-
-$tar = Join-Path $env:SystemRoot 'System32/tar.exe'
-if (-not (Test-Path $tar)) {
-    throw "Windows tar.exe was not found at $tar"
-}
-
-& $tar -xzf $archive -C $DawnPrefix --strip-components=1
-if ($LASTEXITCODE -ne 0) {
-    throw "tar.exe failed to extract Dawn archive (exit $LASTEXITCODE)"
-}
+tar -xzf $archive -C $DawnPrefix --strip-components=1
 
 $dawnConfig = Get-ChildItem -Path $DawnPrefix -Recurse -Filter DawnConfig.cmake | Select-Object -First 1
 if ($null -eq $dawnConfig) {

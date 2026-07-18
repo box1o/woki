@@ -61,17 +61,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Cache vcpkg
-        if: matrix.id == 'windows'
-        uses: actions/cache@v5
-        with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\packages
-            .vcpkg\bincache
-          key: vcpkg-${{ matrix.id }}-${{ hashFiles('scripts/ci/native-deps-windows.ps1') }}
-          restore-keys: vcpkg-${{ matrix.id }}-
-
       - name: Install dependencies
         shell: bash
         run: |
@@ -86,11 +75,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-
-      - name: Restore vcpkg root
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: '"VCPKG_ROOT=$env:WOKI_VCPKG_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8'
 
       - name: Cache ccache
         if: matrix.use_ccache

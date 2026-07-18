@@ -5,20 +5,14 @@ if ($env:VCPKG_INSTALLATION_ROOT) {
 } elseif (Test-Path 'C:\vcpkg\vcpkg.exe') {
     $vcpkgRoot = 'C:\vcpkg'
 } else {
-    throw 'vcpkg was not found on this runner (expected C:\vcpkg or VCPKG_INSTALLATION_ROOT)'
+  throw 'vcpkg was not found on this runner (expected C:\vcpkg or VCPKG_INSTALLATION_ROOT)'
 }
 
-$env:VCPKG_BUILD_TYPE = 'release'
-
-$bincache = Join-Path $env:GITHUB_WORKSPACE '.vcpkg\bincache'
-New-Item -ItemType Directory -Force -Path $bincache | Out-Null
-$env:VCPKG_BINARY_SOURCES = "clear;files,$bincache,readwrite"
-
-& (Join-Path $vcpkgRoot 'vcpkg.exe') install libarchive:x64-windows
+& (Join-Path $vcpkgRoot 'vcpkg.exe') install `
+  freetype:x64-windows `
+  libarchive:x64-windows
 
 "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-"WOKI_VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-"VCPKG_DEFAULT_BINARY_CACHE=$bincache" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
 choco install llvm -y --no-progress
 

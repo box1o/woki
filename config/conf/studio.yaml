@@ -3,8 +3,8 @@ app:
 
 window:
   title: woki studio
-  width: 1280
-  height: 720
+  width: 720
+  height: 480
   fullscreen: false
   floating: true
   resizable: true
