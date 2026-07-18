@@ -25,8 +25,10 @@ Shared resources are cached by content or normalized descriptors. Replaced GPU v
 
 Shader files and recursive includes are tracked by dependency. At the beginning of a frame, changed
 shaders are synchronously recompiled and their dependent pipelines are rebuilt. A failed shader
-compile preserves the previous shader modules; diagnostics report reload and pipeline-rebuild
-failures. Transactional replacement of an entire multi-shader set is not implemented yet.
+compile preserves the previous shader modules. A failed dependent pipeline rebuild remains queued
+and is retried on later frames; a newer source edit supersedes the retry with the latest shader.
+Diagnostics report reloads, retries, pending sets, and failures. Transactional replacement of an
+entire multi-shader set is not implemented yet.
 
 ## Frame lifecycle
 

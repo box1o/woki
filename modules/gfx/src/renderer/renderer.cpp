@@ -4,6 +4,8 @@
 
 #include "gpu_frame_profiler.hpp"
 
+#include <algorithm>
+
 namespace woki::gfx {
 
 Renderer::Renderer(rhi::Device& device, GpuResourceManager& resources, ShaderManager& shaders,
@@ -31,6 +33,24 @@ ShaderHotReloadReport Renderer::ProcessHotReload() {
     ShaderReloadBatch changes = shaders_->PollHotReload();
     report.changed_files = static_cast<u32>(changes.changes.size());
     report.affected_shaders = static_cast<u32>(changes.shaders.size());
+
+    const auto changed = [&changes](const ShaderHandle shader) {
+        return std::ranges::find(changes.shaders, shader) != changes.shaders.end();
+    };
+    const auto retries = pending_pipeline_rebuilds_;
+    for (const ShaderHandle shader : retries) {
+        if (changed(shader)) {
+            continue;
+        }
+        ++report.retried_pipeline_sets;
+        if (auto rebuilt = pipelines_->RebuildForShader(shader, last_submission_); !rebuilt) {
+            report.failures.push_back(rebuilt.error());
+            continue;
+        }
+        RemovePipelineRebuild(shader);
+        ++report.rebuilt_shader_sets;
+    }
+
     for (const ShaderHandle shader : changes.shaders) {
         if (auto reloaded = shaders_->Reload(shader, last_submission_); !reloaded) {
             report.failures.push_back(reloaded.error());
@@ -38,13 +58,26 @@ ShaderHotReloadReport Renderer::ProcessHotReload() {
         }
         ++report.reloaded_shaders;
         if (auto rebuilt = pipelines_->RebuildForShader(shader, last_submission_); !rebuilt) {
+            QueuePipelineRebuild(shader);
             report.failures.push_back(rebuilt.error());
             continue;
         }
+        RemovePipelineRebuild(shader);
         ++report.rebuilt_shader_sets;
     }
+    report.pending_pipeline_sets = static_cast<u32>(pending_pipeline_rebuilds_.size());
     diagnostics_.last_hot_reload = report;
     return report;
+}
+
+void Renderer::QueuePipelineRebuild(const ShaderHandle shader) {
+    if (std::ranges::find(pending_pipeline_rebuilds_, shader) == pending_pipeline_rebuilds_.end()) {
+        pending_pipeline_rebuilds_.push_back(shader);
+    }
+}
+
+void Renderer::RemovePipelineRebuild(const ShaderHandle shader) {
+    std::erase(pending_pipeline_rebuilds_, shader);
 }
 
 Result<RenderFrameResult> Renderer::Render(const RenderFrameDesc& desc) {

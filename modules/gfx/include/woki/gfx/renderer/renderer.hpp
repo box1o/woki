@@ -44,6 +44,8 @@ struct ShaderHotReloadReport final {
     u32 affected_shaders{0};
     u32 reloaded_shaders{0};
     u32 rebuilt_shader_sets{0};
+    u32 retried_pipeline_sets{0};
+    u32 pending_pipeline_sets{0};
     std::vector<Error> failures{};
 };
 
@@ -99,6 +101,8 @@ public:
 
 private:
     void Collect(u64 completed_submission);
+    void QueuePipelineRebuild(ShaderHandle shader);
+    void RemovePipelineRebuild(ShaderHandle shader);
 
     rhi::Device* device_{nullptr};
     GpuResourceManager* resources_{nullptr};
@@ -113,6 +117,7 @@ private:
     u64 last_submission_{0};
     RendererDiagnostics diagnostics_{};
     std::unique_ptr<detail::GpuFrameProfiler> gpu_profiler_{};
+    std::vector<ShaderHandle> pending_pipeline_rebuilds_{};
 };
 
 } // namespace woki::gfx
