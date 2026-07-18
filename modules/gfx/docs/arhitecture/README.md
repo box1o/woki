@@ -68,8 +68,10 @@ inputs with directional, point, and spot lights. Missing material maps bind dete
 fallback textures. A shadow feature renders a selected shadow-casting light into graph-owned depth.
 `PbrFull` combines material textures, alpha masking, direct lights, selected-light shadows, split-sum
 image-based lighting, ambient occlusion, and emissive output in the primary production path. The
-smaller variants remain useful for constrained passes and debugging. Cascaded and atlas shadows
-remain future extensions.
+`PbrFullSkinned` uses the same shared surface implementation after GPU joint deformation, so animated
+geometry retains the complete material and lighting path. Its vertex contract is position at location
+0, normal at 1, UV at 2, four joint indices at 3, and four weights at 4. The smaller variants remain
+useful for constrained passes and debugging. Cascaded and atlas shadows remain future extensions.
 
 ## Animation and skinning
 

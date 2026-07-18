@@ -111,3 +111,18 @@ TEST_CASE("Standard shader library describes full textured PBR frame bindings") 
     REQUIRE(shader.interface.environment_group == shader.interface.lighting_group);
     REQUIRE(woki::gfx::Validate(shader));
 }
+
+TEST_CASE("Standard shader library describes full skinned PBR bindings") {
+    const woki::gfx::StandardShaderLibrary library{"shaders"};
+    const auto shader = library.Describe(woki::gfx::StandardShader::PbrFullSkinned);
+
+    REQUIRE(shader.asset_id == woki::gfx::AssetId{"woki/shaders/pbr_full_skinned"});
+    REQUIRE(shader.sources.front().source_path == "shaders/pbr_full_skinned_forward.wgsl");
+    REQUIRE(shader.interface.uses_skinning);
+    REQUIRE(shader.interface.uses_lighting);
+    REQUIRE(shader.interface.uses_shadows);
+    REQUIRE(shader.interface.uses_environment);
+    REQUIRE(shader.interface.parameters.size() == 7);
+    REQUIRE(shader.interface.resources.size() == 6);
+    REQUIRE(woki::gfx::Validate(shader));
+}

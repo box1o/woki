@@ -104,6 +104,9 @@ struct SurfaceShaderInfo final {
     case StandardShader::PbrFull:
         return {"pbr_full_forward", "woki/shaders/pbr_full", "Woki PBR Full", true, false, true,
             true, true};
+    case StandardShader::PbrFullSkinned:
+        return {"pbr_full_skinned_forward", "woki/shaders/pbr_full_skinned",
+            "Woki PBR Full Skinned", true, true, true, true, true};
     default:
         return {"unlit", "woki/shaders/unlit", "Woki Unlit"};
     }

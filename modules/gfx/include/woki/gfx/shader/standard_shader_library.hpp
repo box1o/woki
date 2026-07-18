@@ -18,6 +18,7 @@ enum class StandardShader : u8 {
     ToneMap,
     DepthMasked,
     PbrFull,
+    PbrFullSkinned,
 };
 
 class StandardShaderLibrary final {
