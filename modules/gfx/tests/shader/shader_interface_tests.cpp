@@ -44,3 +44,29 @@ TEST_CASE("Shader lighting cannot overlap material bindings") {
 
     REQUIRE_FALSE(woki::gfx::Validate(interface));
 }
+
+TEST_CASE("Shader object transforms cannot overlap material bindings") {
+    const woki::gfx::ShaderInterfaceDesc interface{
+        .uses_object_transform = true,
+        .object_group = 1,
+        .object_binding = 0,
+        .parameter_group = 1,
+        .parameter_binding = 0,
+        .parameters = {{.name = woki::StringId{"roughness"}}},
+    };
+
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}
+
+TEST_CASE("Shader object transforms use a dedicated bind group") {
+    const woki::gfx::ShaderInterfaceDesc interface{
+        .uses_object_transform = true,
+        .object_group = 1,
+        .object_binding = 0,
+        .parameter_group = 1,
+        .parameter_binding = 1,
+        .parameters = {{.name = woki::StringId{"roughness"}}},
+    };
+
+    REQUIRE_FALSE(woki::gfx::Validate(interface));
+}

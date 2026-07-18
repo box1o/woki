@@ -8,4 +8,5 @@
 #include "shader/shader_interface.hpp"
 #include "shader/shader_manager.hpp"
 #include "shader/shader_preprocessor.hpp"
+#include "shader/standard_shader_library.hpp"
 // IWYU pragma: end_exports

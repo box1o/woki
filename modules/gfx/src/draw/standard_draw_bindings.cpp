@@ -22,6 +22,9 @@ namespace {
         }
     }
     std::ranges::sort(groups);
+    if (interface.uses_object_transform) {
+        std::erase(groups, interface.object_group);
+    }
     return groups;
 }
 
@@ -161,15 +164,63 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         }
         materials_.push_back(std::move(*binding));
     }
+    objects_.reserve(draws.draws.size());
+    for (const auto& draw : draws.draws) {
+        const ShaderDesc* shader = shaders_->Description(draw.material.shader);
+        if (shader == nullptr) {
+            Clear();
+            return Err(
+                ErrorCode::FailedToAcquireResource, "Draw binding shader is no longer active");
+        }
+        if (!shader->interface.uses_object_transform) {
+            objects_.push_back(std::nullopt);
+            continue;
+        }
+        auto allocation = uniforms_->Write(std::as_bytes(std::span{&draw.transform, 1}));
+        if (!allocation) {
+            Clear();
+            return Err(allocation.error());
+        }
+        rhi::Buffer* buffer = resources_->Resolve(allocation->buffer);
+        auto native_layout = draw.pipeline->GetBindGroupLayout(shader->interface.object_group);
+        if (buffer == nullptr || !native_layout) {
+            Clear();
+            return Err(ErrorCode::FailedToAcquireResource,
+                "Object transform binding resources are unavailable");
+        }
+        const rhi::BindGroupEntryDesc entry{
+            .binding = shader->interface.object_binding,
+            .buffer = buffer,
+            .offset = allocation->offset,
+            .size = allocation->size,
+        };
+        auto bind_group = device_->CreateBindGroup({
+            .layout = native_layout.get(),
+            .entries = std::span{&entry, 1},
+            .label = draw.material.label + ".Object",
+        });
+        if (!bind_group) {
+            Clear();
+            return Err(bind_group.error());
+        }
+        objects_.push_back(ObjectBinding{
+            .group = shader->interface.object_group,
+            .binding = std::move(*bind_group),
+        });
+    }
     return Ok();
 }
 
 void StandardDrawBindings::Encode(
-    rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, const u32) {
+    rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, const u32 draw_index) {
     MaterialBinding* binding = Find(draw.pipeline, draw.packet.material);
     WOKI_ASSERT(binding != nullptr);
     for (const auto& group : binding->groups) {
         pass.SetBindGroup(group.group, group.binding.get());
+    }
+    WOKI_ASSERT(draw_index < objects_.size());
+    if (const auto& object = objects_[draw_index]) {
+        pass.SetBindGroup(object->group, object->binding.get());
     }
     if (desc_.transform_immediate_offset) {
         pass.SetImmediates(
@@ -192,6 +243,9 @@ Result<void> StandardDrawBindings::SetLighting(const std::span<const std::byte> 
 
 void StandardDrawBindings::ClearLighting() noexcept { lighting_.reset(); }
 
-void StandardDrawBindings::Clear() noexcept { materials_.clear(); }
+void StandardDrawBindings::Clear() noexcept {
+    materials_.clear();
+    objects_.clear();
+}
 
 } // namespace woki::gfx

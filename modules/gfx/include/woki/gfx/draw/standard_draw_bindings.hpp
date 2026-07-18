@@ -45,6 +45,11 @@ private:
         std::vector<GroupBinding> groups{};
     };
 
+    struct ObjectBinding final {
+        u32 group{0};
+        scope<rhi::BindGroup> binding{};
+    };
+
     [[nodiscard]] Result<MaterialBinding> BuildBinding(const ResolvedDraw& draw);
     [[nodiscard]] MaterialBinding* Find(
         const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
@@ -55,6 +60,7 @@ private:
     FrameUniformBuffer* uniforms_{nullptr};
     StandardDrawBindingsDesc desc_{};
     std::vector<MaterialBinding> materials_{};
+    std::vector<std::optional<ObjectBinding>> objects_{};
     std::optional<UniformBufferSlice> lighting_{};
 };
 
