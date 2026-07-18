@@ -45,3 +45,25 @@ TEST_CASE("Translucent PBR materials disable depth writes by default") {
     REQUIRE(material.blend_mode == woki::gfx::MaterialBlendMode::Translucent);
     REQUIRE_FALSE(material.depth_write);
 }
+
+TEST_CASE("Material descriptions require shaders and valid physical ranges") {
+    woki::gfx::MaterialDesc material{};
+    REQUIRE_FALSE(woki::gfx::Validate(material).has_value());
+
+    material.shader = woki::gfx::ShaderHandle::FromParts(1, 1);
+    material.parameters.Set(woki::gfx::material_parameters::kRoughness, 0.5F);
+    REQUIRE(woki::gfx::Validate(material).has_value());
+
+    material.parameters.Set(woki::gfx::material_parameters::kRoughness, 1.5F);
+    REQUIRE_FALSE(woki::gfx::Validate(material).has_value());
+}
+
+TEST_CASE("Masked materials require an alpha cutoff") {
+    woki::gfx::MaterialDesc material{};
+    material.shader = woki::gfx::ShaderHandle::FromParts(1, 1);
+    material.blend_mode = woki::gfx::MaterialBlendMode::Masked;
+    REQUIRE_FALSE(woki::gfx::Validate(material).has_value());
+
+    material.parameters.Set(woki::gfx::material_parameters::kAlphaCutoff, 0.5F);
+    REQUIRE(woki::gfx::Validate(material).has_value());
+}

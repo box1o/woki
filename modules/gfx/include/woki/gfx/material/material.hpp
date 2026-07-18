@@ -110,5 +110,6 @@ inline const StringId kSampler{"sampler"};
 
 [[nodiscard]] MaterialDesc MakePbrMaterial(
     const PbrMaterialDesc& desc, ShaderHandle standard_shader = {});
+[[nodiscard]] Result<void> Validate(const MaterialDesc& desc);
 
 } // namespace woki::gfx

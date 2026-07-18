@@ -43,4 +43,34 @@ MaterialDesc MakePbrMaterial(const PbrMaterialDesc& desc, const ShaderHandle sta
     return material;
 }
 
+Result<void> Validate(const MaterialDesc& desc) {
+    if (!desc.shader) {
+        return Err(ErrorCode::ValidationNullValue, "Material requires a shader");
+    }
+    if (desc.blend_mode == MaterialBlendMode::Masked &&
+        !desc.parameters.Contains(material_parameters::kAlphaCutoff)) {
+        return Err(ErrorCode::ValidationNullValue, "Masked material requires an alpha cutoff");
+    }
+
+    const auto validate_unit = [&](const StringId name, const char* label) -> Result<void> {
+        const f32* value = desc.parameters.TryGet<f32>(name);
+        if (value != nullptr && (*value < 0.0F || *value > 1.0F)) {
+            return Err(ErrorCode::ValidationOutOfRange,
+                std::string(label) + " must be in the [0, 1] range");
+        }
+        return Ok();
+    };
+    if (auto result = validate_unit(material_parameters::kMetallic, "Metallic"); !result) {
+        return result;
+    }
+    if (auto result = validate_unit(material_parameters::kRoughness, "Roughness"); !result) {
+        return result;
+    }
+    if (auto result = validate_unit(material_parameters::kOcclusionStrength, "Occlusion strength");
+        !result) {
+        return result;
+    }
+    return validate_unit(material_parameters::kAlphaCutoff, "Alpha cutoff");
+}
+
 } // namespace woki::gfx
