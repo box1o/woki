@@ -31,6 +31,11 @@ namespace {
             return Err(ErrorCode::FailedToAcquireResource, "Render object material is not active");
         }
     }
+    if (desc.bounds) {
+        if (auto validation = Validate(*desc.bounds); !validation) {
+            return validation;
+        }
+    }
     return Ok();
 }
 
@@ -140,6 +145,7 @@ Result<RenderSnapshot> RenderScene::Extract(const u64 layer_mask) {
             .materials = object.materials,
             .transform = object.transform,
             .skin_matrices = object.skin_matrices,
+            .bounds = object.bounds,
             .layer_mask = object.layer_mask,
             .sort_depth = object.sort_depth,
             .casts_shadows = object.casts_shadows,

@@ -83,3 +83,23 @@ TEST_CASE("Frame planner rejects an inconsistent snapshot before invoking featur
     REQUIRE_FALSE(plan);
     REQUIRE(observer->observed_sequence == 0);
 }
+
+TEST_CASE("Frame planner culls bounded objects outside the supplied frustum") {
+    woki::gfx::RenderFeatureRegistry features{};
+    auto feature = std::make_unique<QueueFeature>();
+    auto* observer = feature.get();
+    REQUIRE(features.Add(std::move(feature)));
+    auto snapshot = MakeSnapshot();
+    snapshot.objects.front().bounds =
+        woki::gfx::BoundingSphere{.center = {4.0F, 0.0F, 0.0F}, .radius = 0.25F};
+    const auto frustum = woki::gfx::ExtractFrustum(woki::math::mat4f::identity());
+    REQUIRE(frustum);
+
+    auto plan =
+        woki::gfx::BuildRenderFramePlan(std::move(snapshot), features, {.frustum = *frustum});
+
+    REQUIRE(plan);
+    REQUIRE(plan->snapshot.objects.empty());
+    REQUIRE(observer->opaque_draws == 0);
+    REQUIRE(observer->transparent_draws == 0);
+}

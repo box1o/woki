@@ -1,9 +1,11 @@
 #pragma once
 
 #include "../scene/render_queue.hpp"
+#include "../visibility/frustum.hpp"
 #include "render_graph.hpp"
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -13,6 +15,7 @@ namespace woki::gfx {
 struct RenderView final {
     math::mat4f view_projection{math::mat4f::identity()};
     math::vec3f world_position{};
+    std::optional<Frustum> frustum{};
 };
 
 class RenderGraphBlackboard final {

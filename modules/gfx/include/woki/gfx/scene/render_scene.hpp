@@ -2,8 +2,10 @@
 
 #include "../lighting/light.hpp"
 #include "../resource/resource_types.hpp"
+#include "../visibility/frustum.hpp"
 
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -24,6 +26,7 @@ struct RenderObjectDesc final {
     std::vector<MaterialHandle> materials{};
     math::mat4f transform{math::mat4f::identity()};
     std::vector<math::mat4f> skin_matrices{};
+    std::optional<BoundingSphere> bounds{};
     u64 layer_mask{~0ULL};
     f32 sort_depth{0.0F};
     bool visible{true};
@@ -36,6 +39,7 @@ struct ExtractedObject final {
     std::vector<MaterialHandle> materials{};
     math::mat4f transform{math::mat4f::identity()};
     std::vector<math::mat4f> skin_matrices{};
+    std::optional<BoundingSphere> bounds{};
     u64 layer_mask{~0ULL};
     f32 sort_depth{0.0F};
     bool casts_shadows{true};

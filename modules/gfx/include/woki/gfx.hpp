@@ -11,9 +11,10 @@
 #include "gfx/materials.hpp"
 #include "gfx/meshes.hpp"
 #include "gfx/pipelines.hpp"
-#include "gfx/resources.hpp"
 #include "gfx/renderers.hpp"
+#include "gfx/resources.hpp"
 #include "gfx/scenes.hpp"
 #include "gfx/shaders.hpp"
+#include "gfx/visibility.hpp"
 #include "window/window.hpp"
 // IWYU pragma: end_exports
