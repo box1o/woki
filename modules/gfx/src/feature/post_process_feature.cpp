@@ -5,6 +5,9 @@
 namespace woki::gfx {
 
 Result<void> Validate(const PostProcessFeatureDesc& desc) {
+    if (desc.label.empty()) {
+        return Err(ErrorCode::ValidationNullValue, "Post-process feature requires a label");
+    }
     if (!desc.pipeline || !desc.sampler) {
         return Err(
             ErrorCode::ValidationNullValue, "Post-process feature requires a pipeline and sampler");
@@ -22,7 +25,7 @@ PostProcessFeature::PostProcessFeature(
 
 PostProcessFeature::~PostProcessFeature() = default;
 
-std::string_view PostProcessFeature::Name() const noexcept { return "Post process"; }
+std::string_view PostProcessFeature::Name() const noexcept { return desc_.label; }
 
 Result<void> PostProcessFeature::AddPasses(
     RenderGraph& graph, RenderGraphBlackboard& blackboard, const RenderFeatureContext&) {
@@ -39,7 +42,26 @@ Result<void> PostProcessFeature::AddPasses(
         return Err(ErrorCode::ValidationInvalidState,
             "Post-process input must be an offscreen graph texture");
     }
-    auto output = graph.AddPerFrameTexture("Post-process output");
+    if (input_desc->kind != GraphResourceKind::Texture) {
+        return Err(ErrorCode::ValidationInvalidState, "Post-process input must be a graph texture");
+    }
+
+    const auto create_output = [&]() -> Result<GraphResource> {
+        if (desc_.output == PostProcessOutput::Final) {
+            return graph.AddPerFrameTexture(desc_.label + " output");
+        }
+        if (input_desc->origin != GraphResourceOrigin::Transient) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Intermediate post-process output requires a transient input");
+        }
+        return graph.AddTransientTexture({
+            .label = desc_.label + " output",
+            .format = input_desc->transient.format,
+            .usage = rhi::TextureUsage::RenderAttachment | rhi::TextureUsage::TextureBinding,
+            .extent = input_desc->transient.extent,
+        });
+    };
+    auto output = create_output();
     if (!output) {
         return Err(output.error());
     }
@@ -47,7 +69,7 @@ Result<void> PostProcessFeature::AddPasses(
         return replaced;
     }
     auto pass = graph.AddPass({
-        .label = "Post process",
+        .label = desc_.label,
         .resources = {{.resource = input, .access = GraphAccess::Read},
             {.resource = *output, .access = GraphAccess::Write}},
         .colors = {{.resource = *output,
@@ -73,7 +95,7 @@ Result<void> PostProcessFeature::AddPasses(
             auto group = context.device().CreateBindGroup({
                 .layout = layout.get(),
                 .entries = entries,
-                .label = "Post-process inputs",
+                .label = desc_.label + " inputs",
             });
             if (!group) {
                 return Err(group.error());

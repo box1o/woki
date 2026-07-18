@@ -5,14 +5,23 @@
 #include "../pipeline/pipeline_manager.hpp"
 #include "../resource/gpu_resource_manager.hpp"
 
+#include <string>
+
 namespace woki::gfx {
 
+enum class PostProcessOutput : u8 {
+    Intermediate = 0,
+    Final,
+};
+
 struct PostProcessFeatureDesc final {
+    std::string label{"Post process"};
     PipelineHandle pipeline{};
     SamplerHandle sampler{};
     u32 bind_group{0};
     u32 texture_binding{0};
     u32 sampler_binding{1};
+    PostProcessOutput output{PostProcessOutput::Final};
 };
 
 [[nodiscard]] Result<void> Validate(const PostProcessFeatureDesc& desc);

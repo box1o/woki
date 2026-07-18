@@ -11,4 +11,8 @@ TEST_CASE("Post-process feature validates bindings") {
 
     desc.sampler_binding = desc.texture_binding;
     REQUIRE_FALSE(woki::gfx::Validate(desc));
+
+    desc.sampler_binding = 1;
+    desc.label.clear();
+    REQUIRE_FALSE(woki::gfx::Validate(desc));
 }

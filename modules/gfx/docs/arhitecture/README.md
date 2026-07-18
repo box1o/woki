@@ -83,9 +83,11 @@ formats into these runtime-neutral clip and skeleton structures.
   offscreen HDR texture.
 - `ShadowRenderFeature` filters shadow casters and publishes fixed-resolution depth plus typed light
   metadata through the graph blackboard.
-- `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline,
-  then republishes its per-frame output as the renderer result. The built-in tone-map shader is one
-  ready-to-use pipeline source.
+- `PostProcessFeature` consumes an offscreen graph color with a caller-selected fullscreen pipeline.
+  Each instance has a unique label and chooses either an intermediate transient output or the final
+  per-frame output, allowing ordered chains such as bloom, color grading, and tone mapping. The
+  built-in tone-map shader is one ready-to-use pipeline source. Only the last effect in a chain may
+  target `PostProcessOutput::Final`.
 
 Feature metadata uses typed blackboard values, while textures remain declared graph resources. This
 keeps transient texture lifetimes inside the graph and creates dependent bind groups only when pass
