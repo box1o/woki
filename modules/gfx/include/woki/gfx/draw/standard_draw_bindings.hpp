@@ -46,6 +46,8 @@ private:
     };
 
     struct ObjectBinding final {
+        const rhi::RenderPipeline* pipeline{nullptr};
+        RenderObjectHandle object{};
         u32 group{0};
         scope<rhi::BindGroup> binding{};
     };
@@ -53,6 +55,8 @@ private:
     [[nodiscard]] Result<MaterialBinding> BuildBinding(const ResolvedDraw& draw);
     [[nodiscard]] MaterialBinding* Find(
         const rhi::RenderPipeline* pipeline, MaterialHandle material) noexcept;
+    [[nodiscard]] ObjectBinding* Find(std::vector<ObjectBinding>& bindings,
+        const rhi::RenderPipeline* pipeline, RenderObjectHandle object) noexcept;
 
     rhi::Device* device_{nullptr};
     GpuResourceManager* resources_{nullptr};
@@ -60,9 +64,10 @@ private:
     FrameUniformBuffer* uniforms_{nullptr};
     StandardDrawBindingsDesc desc_{};
     std::vector<MaterialBinding> materials_{};
-    std::vector<std::optional<ObjectBinding>> objects_{};
-    std::vector<std::optional<ObjectBinding>> skins_{};
+    std::vector<ObjectBinding> objects_{};
+    std::vector<ObjectBinding> skins_{};
     std::optional<UniformBufferSlice> lighting_{};
+    u64 snapshot_sequence_{0};
 };
 
 } // namespace woki::gfx

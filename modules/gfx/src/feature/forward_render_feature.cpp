@@ -80,7 +80,6 @@ Result<void> ForwardRenderFeature::AddPasses(
         .transparent = std::move(*transparent),
         .bindings = bindings_,
     });
-    bindings_->Clear();
     bindings_->ClearLighting();
     auto lighting =
         PackLighting(context.snapshot.lights, desc_.ambient_light, desc_.maximum_lights);

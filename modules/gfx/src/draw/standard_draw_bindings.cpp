@@ -45,6 +45,15 @@ StandardDrawBindings::MaterialBinding* StandardDrawBindings::Find(
     return iterator != materials_.end() ? &*iterator : nullptr;
 }
 
+StandardDrawBindings::ObjectBinding* StandardDrawBindings::Find(
+    std::vector<ObjectBinding>& bindings, const rhi::RenderPipeline* pipeline,
+    const RenderObjectHandle object) noexcept {
+    const auto iterator = std::ranges::find_if(bindings, [pipeline, object](const auto& entry) {
+        return entry.pipeline == pipeline && entry.object == object;
+    });
+    return iterator != bindings.end() ? &*iterator : nullptr;
+}
+
 Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding(
     const ResolvedDraw& draw) {
     const ShaderDesc* shader = shaders_->Description(draw.material.shader);
@@ -152,7 +161,10 @@ Result<StandardDrawBindings::MaterialBinding> StandardDrawBindings::BuildBinding
 }
 
 Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
-    Clear();
+    if (snapshot_sequence_ != draws.snapshot_sequence) {
+        Clear();
+        snapshot_sequence_ = draws.snapshot_sequence;
+    }
     for (const auto& draw : draws.draws) {
         if (Find(draw.pipeline, draw.packet.material) != nullptr) {
             continue;
@@ -164,8 +176,8 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
         }
         materials_.push_back(std::move(*binding));
     }
-    objects_.reserve(draws.draws.size());
-    skins_.reserve(draws.draws.size());
+    objects_.reserve(objects_.size() + draws.draws.size());
+    skins_.reserve(skins_.size() + draws.draws.size());
     for (const auto& draw : draws.draws) {
         const ShaderDesc* shader = shaders_->Description(draw.material.shader);
         if (shader == nullptr) {
@@ -174,43 +186,47 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
                 ErrorCode::FailedToAcquireResource, "Draw binding shader is no longer active");
         }
         if (!shader->interface.uses_object_transform) {
-            objects_.push_back(std::nullopt);
-            skins_.push_back(std::nullopt);
             continue;
         }
-        auto allocation = uniforms_->Write(std::as_bytes(std::span{&draw.transform, 1}));
-        if (!allocation) {
-            Clear();
-            return Err(allocation.error());
+        if (Find(objects_, draw.pipeline, draw.packet.object) == nullptr) {
+            auto allocation = uniforms_->Write(std::as_bytes(std::span{&draw.transform, 1}));
+            if (!allocation) {
+                Clear();
+                return Err(allocation.error());
+            }
+            rhi::Buffer* buffer = resources_->Resolve(allocation->buffer);
+            auto native_layout = draw.pipeline->GetBindGroupLayout(shader->interface.object_group);
+            if (buffer == nullptr || !native_layout) {
+                Clear();
+                return Err(ErrorCode::FailedToAcquireResource,
+                    "Object transform binding resources are unavailable");
+            }
+            const rhi::BindGroupEntryDesc entry{
+                .binding = shader->interface.object_binding,
+                .buffer = buffer,
+                .offset = allocation->offset,
+                .size = allocation->size,
+            };
+            auto bind_group = device_->CreateBindGroup({
+                .layout = native_layout.get(),
+                .entries = std::span{&entry, 1},
+                .label = draw.material.label + ".Object",
+            });
+            if (!bind_group) {
+                Clear();
+                return Err(bind_group.error());
+            }
+            objects_.push_back(ObjectBinding{
+                .pipeline = draw.pipeline,
+                .object = draw.packet.object,
+                .group = shader->interface.object_group,
+                .binding = std::move(*bind_group),
+            });
         }
-        rhi::Buffer* buffer = resources_->Resolve(allocation->buffer);
-        auto native_layout = draw.pipeline->GetBindGroupLayout(shader->interface.object_group);
-        if (buffer == nullptr || !native_layout) {
-            Clear();
-            return Err(ErrorCode::FailedToAcquireResource,
-                "Object transform binding resources are unavailable");
-        }
-        const rhi::BindGroupEntryDesc entry{
-            .binding = shader->interface.object_binding,
-            .buffer = buffer,
-            .offset = allocation->offset,
-            .size = allocation->size,
-        };
-        auto bind_group = device_->CreateBindGroup({
-            .layout = native_layout.get(),
-            .entries = std::span{&entry, 1},
-            .label = draw.material.label + ".Object",
-        });
-        if (!bind_group) {
-            Clear();
-            return Err(bind_group.error());
-        }
-        objects_.push_back(ObjectBinding{
-            .group = shader->interface.object_group,
-            .binding = std::move(*bind_group),
-        });
         if (!shader->interface.uses_skinning) {
-            skins_.push_back(std::nullopt);
+            continue;
+        }
+        if (Find(skins_, draw.pipeline, draw.packet.object) != nullptr) {
             continue;
         }
         if (draw.skin_matrices.empty()) {
@@ -246,6 +262,8 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
             return Err(skin_group.error());
         }
         skins_.push_back(ObjectBinding{
+            .pipeline = draw.pipeline,
+            .object = draw.packet.object,
             .group = shader->interface.skin_group,
             .binding = std::move(*skin_group),
         });
@@ -254,18 +272,16 @@ Result<void> StandardDrawBindings::Prepare(const ResolvedDrawList& draws) {
 }
 
 void StandardDrawBindings::Encode(
-    rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, const u32 draw_index) {
+    rhi::RenderPassEncoder& pass, const ResolvedDraw& draw, const u32) {
     MaterialBinding* binding = Find(draw.pipeline, draw.packet.material);
     WOKI_ASSERT(binding != nullptr);
     for (const auto& group : binding->groups) {
         pass.SetBindGroup(group.group, group.binding.get());
     }
-    WOKI_ASSERT(draw_index < objects_.size());
-    if (const auto& object = objects_[draw_index]) {
+    if (const auto* object = Find(objects_, draw.pipeline, draw.packet.object)) {
         pass.SetBindGroup(object->group, object->binding.get());
     }
-    WOKI_ASSERT(draw_index < skins_.size());
-    if (const auto& skin = skins_[draw_index]) {
+    if (const auto* skin = Find(skins_, draw.pipeline, draw.packet.object)) {
         pass.SetBindGroup(skin->group, skin->binding.get());
     }
     if (desc_.transform_immediate_offset) {
@@ -293,6 +309,7 @@ void StandardDrawBindings::Clear() noexcept {
     materials_.clear();
     objects_.clear();
     skins_.clear();
+    snapshot_sequence_ = 0;
 }
 
 } // namespace woki::gfx
