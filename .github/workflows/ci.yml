@@ -210,6 +210,8 @@ jobs:
 
   web-build:
     name: web-build
+    # The RHI currently depends on native Dawn extensions that emdawnwebgpu does not expose.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

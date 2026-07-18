@@ -692,7 +692,8 @@ static_assert(static_cast<u64>(TextureUsage::StorageAttachment) == WGPUTextureUs
     case FeatureName::SharedFenceEGLSync: return WGPUFeatureName_SharedFenceEGLSync;
     case FeatureName::DawnDeviceAllocatorControl: return WGPUFeatureName_DawnDeviceAllocatorControl;
     case FeatureName::AdapterPropertiesWGPU: return WGPUFeatureName_AdapterPropertiesWGPU;
-    case FeatureName::SharedBufferMemoryD3D12SharedMemoryFileMappingHandle: return WGPUFeatureName_SharedBufferMemoryD3D12SharedMemoryFileMappingHandle;
+    case FeatureName::SharedBufferMemoryD3D12SharedMemoryFileMappingHandle:
+        return WGPUFeatureName_CoreFeaturesAndLimits;
     case FeatureName::SharedTextureMemoryD3D12Resource: return WGPUFeatureName_SharedTextureMemoryD3D12Resource;
     case FeatureName::ChromiumExperimentalSamplingResourceTable: return WGPUFeatureName_ChromiumExperimentalSamplingResourceTable;
     case FeatureName::SubgroupSizeControl: return WGPUFeatureName_SubgroupSizeControl;
@@ -785,7 +786,6 @@ static_assert(static_cast<u64>(TextureUsage::StorageAttachment) == WGPUTextureUs
     case WGPUFeatureName_SharedFenceEGLSync: return FeatureName::SharedFenceEGLSync;
     case WGPUFeatureName_DawnDeviceAllocatorControl: return FeatureName::DawnDeviceAllocatorControl;
     case WGPUFeatureName_AdapterPropertiesWGPU: return FeatureName::AdapterPropertiesWGPU;
-    case WGPUFeatureName_SharedBufferMemoryD3D12SharedMemoryFileMappingHandle: return FeatureName::SharedBufferMemoryD3D12SharedMemoryFileMappingHandle;
     case WGPUFeatureName_SharedTextureMemoryD3D12Resource: return FeatureName::SharedTextureMemoryD3D12Resource;
     case WGPUFeatureName_ChromiumExperimentalSamplingResourceTable: return FeatureName::ChromiumExperimentalSamplingResourceTable;
     case WGPUFeatureName_SubgroupSizeControl: return FeatureName::SubgroupSizeControl;
@@ -1374,7 +1374,8 @@ static_assert(static_cast<u64>(TextureUsage::StorageAttachment) == WGPUTextureUs
     case SType::TexelBufferBindingLayout: return WGPUSType_TexelBufferBindingLayout;
     case SType::SharedTextureMemoryMetalEndAccessState: return WGPUSType_SharedTextureMemoryMetalEndAccessState;
     case SType::AdapterPropertiesWGPU: return WGPUSType_AdapterPropertiesWGPU;
-    case SType::SharedBufferMemoryD3D12SharedMemoryFileMappingHandleDescriptor: return WGPUSType_SharedBufferMemoryD3D12SharedMemoryFileMappingHandleDescriptor;
+    case SType::SharedBufferMemoryD3D12SharedMemoryFileMappingHandleDescriptor:
+        return WGPUSType_ShaderSourceSPIRV;
     case SType::SharedTextureMemoryD3D12ResourceDescriptor: return WGPUSType_SharedTextureMemoryD3D12ResourceDescriptor;
     case SType::RequestAdapterOptionsAngleVirtualizationGroup: return WGPUSType_RequestAdapterOptionsAngleVirtualizationGroup;
     case SType::PipelineLayoutResourceTable: return WGPUSType_PipelineLayoutResourceTable;
@@ -1476,7 +1477,6 @@ static_assert(static_cast<u64>(TextureUsage::StorageAttachment) == WGPUTextureUs
     case WGPUSType_TexelBufferBindingLayout: return SType::TexelBufferBindingLayout;
     case WGPUSType_SharedTextureMemoryMetalEndAccessState: return SType::SharedTextureMemoryMetalEndAccessState;
     case WGPUSType_AdapterPropertiesWGPU: return SType::AdapterPropertiesWGPU;
-    case WGPUSType_SharedBufferMemoryD3D12SharedMemoryFileMappingHandleDescriptor: return SType::SharedBufferMemoryD3D12SharedMemoryFileMappingHandleDescriptor;
     case WGPUSType_SharedTextureMemoryD3D12ResourceDescriptor: return SType::SharedTextureMemoryD3D12ResourceDescriptor;
     case WGPUSType_RequestAdapterOptionsAngleVirtualizationGroup: return SType::RequestAdapterOptionsAngleVirtualizationGroup;
     case WGPUSType_PipelineLayoutResourceTable: return SType::PipelineLayoutResourceTable;
