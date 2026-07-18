@@ -5,6 +5,7 @@
 namespace {
 
 const woki::StringId kColor{"frame.color"};
+const woki::StringId kExposure{"frame.exposure"};
 
 class ProducerFeature final : public woki::gfx::RenderFeature {
 public:
@@ -117,4 +118,18 @@ TEST_CASE("Render feature registry revisions track topology changes") {
 
     REQUIRE(features.SetEnabled("Producer", false));
     REQUIRE(features.Revision() == disabled);
+}
+
+TEST_CASE("Render graph blackboard carries typed feature data") {
+    woki::gfx::RenderGraphBlackboard blackboard{};
+    REQUIRE(blackboard.PublishData(kExposure, 1.25F));
+    REQUIRE(blackboard.Contains(kExposure));
+    REQUIRE(blackboard.DataCount() == 1);
+    REQUIRE(blackboard.FindData<float>(kExposure) != nullptr);
+    REQUIRE(*blackboard.FindData<float>(kExposure) == 1.25F);
+    REQUIRE(blackboard.FindData<woki::u32>(kExposure) == nullptr);
+    REQUIRE_FALSE(blackboard.PublishData(kExposure, 2.0F));
+
+    blackboard.Clear();
+    REQUIRE(blackboard.Size() == 0);
 }

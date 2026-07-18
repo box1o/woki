@@ -4,6 +4,7 @@
 #include "../visibility/frustum.hpp"
 #include "render_graph.hpp"
 
+#include <any>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -24,10 +25,31 @@ public:
     [[nodiscard]] GraphResource Find(StringId name) const noexcept;
     [[nodiscard]] bool Contains(StringId name) const noexcept;
     [[nodiscard]] std::size_t Size() const noexcept;
+    [[nodiscard]] std::size_t ResourceCount() const noexcept;
+    [[nodiscard]] std::size_t DataCount() const noexcept;
+
+    template <typename T> [[nodiscard]] Result<void> PublishData(const StringId name, T value) {
+        if (name.Empty()) {
+            return Err(
+                ErrorCode::ValidationNullValue, "Render graph blackboard data requires a name");
+        }
+        if (!data_.emplace(name, std::any(std::move(value))).second) {
+            return Err(ErrorCode::ValidationInvalidState,
+                "Render graph blackboard data name is already published");
+        }
+        return Ok();
+    }
+
+    template <typename T> [[nodiscard]] const T* FindData(const StringId name) const noexcept {
+        const auto iterator = data_.find(name);
+        return iterator == data_.end() ? nullptr : std::any_cast<T>(&iterator->second);
+    }
+
     void Clear() noexcept;
 
 private:
     std::unordered_map<StringId, GraphResource> resources_{};
+    std::unordered_map<StringId, std::any> data_{};
 };
 
 struct RenderFeatureContext final {

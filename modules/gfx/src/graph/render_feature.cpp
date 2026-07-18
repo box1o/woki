@@ -31,11 +31,18 @@ GraphResource RenderGraphBlackboard::Find(const StringId name) const noexcept {
 }
 
 bool RenderGraphBlackboard::Contains(const StringId name) const noexcept {
-    return resources_.contains(name);
+    return resources_.contains(name) || data_.contains(name);
 }
 
-std::size_t RenderGraphBlackboard::Size() const noexcept { return resources_.size(); }
-void RenderGraphBlackboard::Clear() noexcept { resources_.clear(); }
+std::size_t RenderGraphBlackboard::Size() const noexcept {
+    return resources_.size() + data_.size();
+}
+std::size_t RenderGraphBlackboard::ResourceCount() const noexcept { return resources_.size(); }
+std::size_t RenderGraphBlackboard::DataCount() const noexcept { return data_.size(); }
+void RenderGraphBlackboard::Clear() noexcept {
+    resources_.clear();
+    data_.clear();
+}
 
 auto RenderFeatureRegistry::FindEntry(const std::string_view name) noexcept {
     return std::ranges::find_if(
