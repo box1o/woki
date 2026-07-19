@@ -1,0 +1,118 @@
+#pragma once
+
+#include "resources.hpp"
+
+#include <woki/rhi/forward.hpp>
+
+#include <functional>
+#include <string_view>
+#include <unordered_map>
+
+#include <woki/core.hpp>
+
+namespace woki::rhi {
+
+class CommandEncoder;
+class ComputePassEncoder;
+class Device;
+class RenderPassEncoder;
+
+class RenderPassContext final {
+public:
+    [[nodiscard]] RenderPassEncoder& encoder();
+    [[nodiscard]] Device& device() noexcept;
+
+    [[nodiscard]] TextureView& color(u32 slot);
+    [[nodiscard]] TextureView& depth();
+    [[nodiscard]] bool has_depth() const noexcept;
+
+    [[nodiscard]] TextureView& sample(u32 slot);
+    [[nodiscard]] u32 sample_count() const noexcept;
+    [[nodiscard]] Buffer& buffer(u32 slot);
+    [[nodiscard]] u32 buffer_count() const noexcept;
+
+    [[nodiscard]] u32 width() const noexcept { return width_; }
+    [[nodiscard]] u32 height() const noexcept { return height_; }
+
+    template <typename T> [[nodiscard]] T& data() {
+        WOKI_ASSERT(user_data_ != nullptr);
+        return *static_cast<T*>(user_data_);
+    }
+
+    [[nodiscard]] BindGroup* GetOrCreateBindGroup(
+        std::string_view key, std::function<scope<BindGroup>()> factory);
+
+private:
+    friend class RenderGraph;
+    friend class RenderGraphFrame;
+
+    RenderPassEncoder* pass_{nullptr};
+    Device* device_{nullptr};
+    void* user_data_{nullptr};
+    u32 width_{0};
+    u32 height_{0};
+
+    std::vector<TextureView*> colors_{};
+    TextureView* depth_{nullptr};
+    std::vector<TextureView*> samples_{};
+    std::vector<Buffer*> buffers_{};
+
+    std::unordered_map<std::string, scope<BindGroup>> bind_group_cache_{};
+};
+
+class CopyPassContext final {
+public:
+    [[nodiscard]] CommandEncoder& encoder();
+    [[nodiscard]] Device& device() noexcept;
+
+    [[nodiscard]] Texture& src(u32 index);
+    [[nodiscard]] Texture& dst(u32 index);
+    [[nodiscard]] u32 copy_count() const noexcept { return static_cast<u32>(sources_.size()); }
+
+    [[nodiscard]] Result<void> CopyAll();
+
+    template <typename T> [[nodiscard]] T& data() {
+        WOKI_ASSERT(user_data_ != nullptr);
+        return *static_cast<T*>(user_data_);
+    }
+
+private:
+    friend class RenderGraph;
+    friend class RenderGraphFrame;
+
+    CommandEncoder* encoder_{nullptr};
+    Device* device_{nullptr};
+    void* user_data_{nullptr};
+    u32 width_{0};
+    u32 height_{0};
+
+    std::vector<Texture*> sources_{};
+    std::vector<Texture*> destinations_{};
+};
+
+class ComputePassContext final {
+public:
+    [[nodiscard]] ComputePassEncoder& encoder();
+    [[nodiscard]] Device& device() noexcept;
+    [[nodiscard]] Buffer& buffer(u32 slot);
+    [[nodiscard]] u32 buffer_count() const noexcept;
+    [[nodiscard]] TextureView& storage_texture(u32 slot);
+    [[nodiscard]] u32 storage_texture_count() const noexcept;
+
+    template <typename T> [[nodiscard]] T& data() {
+        WOKI_ASSERT(user_data_ != nullptr);
+        return *static_cast<T*>(user_data_);
+    }
+
+private:
+    friend class RenderGraph;
+    friend class RenderGraphFrame;
+
+    ComputePassEncoder* pass_{nullptr};
+    Device* device_{nullptr};
+    void* user_data_{nullptr};
+    std::vector<Buffer*> buffers_{};
+    std::vector<TextureView*> storage_textures_{};
+};
+
+} // namespace woki::rhi
