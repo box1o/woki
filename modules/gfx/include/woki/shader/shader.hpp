@@ -25,33 +25,32 @@ enum class ShaderLanguage : u8 {
 struct ShaderDefine final {
     std::string name{};
     std::string value{};
-
     [[nodiscard]] friend bool operator==(const ShaderDefine&, const ShaderDefine&) = default;
 };
 
 struct ShaderSource final {
-    ShaderStage stage{ShaderStage::Vertex};
-    ShaderLanguage language{ShaderLanguage::Wgsl};
-    std::string entry_point{"main"};
-    std::string source{};
-    std::string source_path{};
-    std::vector<ShaderDefine> defines{};
+    ShaderStage                 stage{ShaderStage::Vertex};
+    ShaderLanguage              language{ShaderLanguage::Wgsl};
+    std::string                 entry_point{"main"};
+    std::string                 source{};
+    std::string                 source_path{};
+    std::vector<ShaderDefine>   defines{};
 
     [[nodiscard]] bool HasInlineSource() const noexcept { return !source.empty(); }
     [[nodiscard]] bool HasFileSource() const noexcept { return !source_path.empty(); }
 };
 
 struct ShaderDesc final {
-    AssetId asset_id{};
-    std::string label{};
-    std::vector<ShaderSource> sources{};
-    bool hot_reload{true};
+    AssetId                     asset_id{};
+    std::string                 label{};
+    std::vector<ShaderSource>   sources{};
+    bool                        hot_reload{true};
 };
 
 struct ShaderReloadEvent final {
-    ShaderHandle shader{};
-    Version previous_version{};
-    Version active_version{};
+    ShaderHandle    shader{};
+    Version         previous_version{};
+    Version         active_version{};
 };
 
 [[nodiscard]] constexpr std::string_view ToString(const ShaderStage stage) noexcept {
