@@ -1,12 +1,12 @@
-#include <print>
-#include <woki/math.hpp>
 #include <woki/core.hpp>
+#include <woki/math.hpp>
 
 int main(int argc, char* argv[]) {
-    std::print("Starting the program...\n");
+    slog::Configure("studio");
+    slog::Info("Starting Woki Studio...");
 
-    auto m = math::mat3f::identity();
-    std::print("Identity matrix:\n{}\n", m);
-
+    slog::Info("Hello {}", 123);
+    slog::Warn("Something is {}", "wrong");
+    slog::Error("Error code {}", 42);
     return 0;
 }

@@ -27,7 +27,18 @@ mark_dependency_system(Catch2)
 mark_dependency_system(Catch2WithMain)
 
 if(EMSCRIPTEN)
-    message(STATUS "Skipping native-only dependencies for Emscripten")
+    add_library(emdawnwebgpu_port INTERFACE)
+    add_library(emdawnwebgpu::emdawnwebgpu ALIAS emdawnwebgpu_port)
+
+    target_compile_options(emdawnwebgpu_port INTERFACE
+        "--use-port=emdawnwebgpu"
+    )
+
+    target_link_options(emdawnwebgpu_port INTERFACE
+        "--use-port=emdawnwebgpu"
+    )
+
+    message(STATUS "Using Emdawnwebgpu for web")
     return()
 endif()
 
