@@ -1,5 +1,6 @@
 #include <print>
-#include <woki/math/math.hpp>
+#include <woki/math.hpp>
+#include <woki/core.hpp>
 
 int main(int argc, char* argv[]) {
     std::print("Starting the program...\n");
