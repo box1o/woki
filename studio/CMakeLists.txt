@@ -22,8 +22,8 @@ set_target_properties(studio PROPERTIES
 )
 
 target_link_libraries(studio PRIVATE
+    wk::math
 #     wk::core
-#     wk::math
 #     wk::platform
 #     wk::rhi
 #     wk::gfx

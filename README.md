@@ -7,7 +7,6 @@ Built on **WebGPU** for truly cross-platform rendering — desktop, web, and may
 ## Build
 ```bash
 make          # build
-make test     # run tests
 make run      # run studio
 ```
 
