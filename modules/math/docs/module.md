@@ -1,6 +1,6 @@
 # Math
 
-Math is a standalone header-only module exposed as `wk::math`. Include
+Math is a standalone header-only module exposed as `woki::math`. Include
 `<woki/math.hpp>` for the canonical facade or include leaf headers such as
 `<woki/math/vec/vec3.hpp>` when a narrower dependency is preferred.
 
