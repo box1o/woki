@@ -6,63 +6,32 @@
 
 namespace slog {
 
-void Configure(
-    std::string,
-    Level,
-    const std::string&,
-    const std::string&,
-    std::size_t,
-    std::size_t
-) {}
+void Configure(std::string, Level, const std::string&, const std::string&, std::size_t, std::size_t) {}
 
 namespace detail {
 
 void LogWebTrace(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_DEBUG,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_DEBUG, "%s", msg);
 }
 
 void LogWebDebug(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_DEBUG,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_DEBUG, "%s", msg);
 }
 
 void LogWebInfo(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_INFO,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_INFO, "%s", msg);
 }
 
 void LogWebWarn(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_WARN,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_WARN, "%s", msg);
 }
 
 void LogWebError(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_ERROR,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_ERROR, "%s", msg);
 }
 
 void LogWebCritical(const char* msg) {
-    emscripten_log(
-        EM_LOG_CONSOLE | EM_LOG_ERROR,
-        "%s",
-        msg
-    );
+    emscripten_log(EM_LOG_CONSOLE | EM_LOG_ERROR, "%s", msg);
 }
 
 } // namespace detail
@@ -99,35 +68,16 @@ std::shared_ptr<spdlog::logger> Logger() noexcept {
 
 } // namespace detail
 
-void Configure(
-    std::string name,
-    Level level,
-    const std::string& pattern,
-    const std::string& logFile,
-    std::size_t maxFileSize,
-    std::size_t maxFiles
-) {
+void Configure(std::string name, Level level, const std::string& pattern, const std::string& logFile, std::size_t maxFileSize, std::size_t maxFiles) {
     std::vector<std::shared_ptr<spdlog::sinks::sink>> sinks;
 
-    sinks.push_back(
-        std::make_shared<spdlog::sinks::stdout_color_sink_mt>()
-    );
+    sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 
     if (!logFile.empty()) {
-        sinks.push_back(
-            std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-                logFile,
-                maxFileSize,
-                maxFiles
-            )
-        );
+        sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, maxFileSize, maxFiles));
     }
 
-    auto logger = std::make_shared<spdlog::logger>(
-        std::move(name),
-        sinks.begin(),
-        sinks.end()
-    );
+    auto logger = std::make_shared<spdlog::logger>(std::move(name), sinks.begin(), sinks.end());
 
     const auto spdlogLevel = [&] {
         using L = Level;
