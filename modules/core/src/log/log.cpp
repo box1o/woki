@@ -40,10 +40,9 @@ void LogWebCritical(const char* msg) {
 
 #else
 
-#include <memory>
 #include <mutex>
+#include <memory>
 #include <vector>
-
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 

@@ -37,4 +37,4 @@ template <typename T, typename... Args>
 constexpr scope<T> createScope(Args&&... args) {
     return std::make_unique<T>(std::forward<Args>(args)...);
 }
-} // namespace woki
+} // namespace wk

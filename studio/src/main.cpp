@@ -8,7 +8,6 @@ Result<void> DoSomething() {
     return Err(ErrorCode::InvalidState, "Something went wrong");
 }
 
-
 int main(int argc, char* argv[]) {
     slog::Configure("studio");
     slog::Info("Starting Woki Studio...");

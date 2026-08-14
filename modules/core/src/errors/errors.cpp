@@ -1,5 +1,5 @@
-#include "../../include/woki/errors/errors.hpp"
 #include "../../include/woki/log/log.hpp"
+#include "../../include/woki/errors/errors.hpp"
 
 namespace wk {
 

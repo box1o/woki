@@ -1,7 +1,5 @@
 #pragma once
 
-// IWYU pragma: private, include "woki/core.hpp"
-
 #include <cstdlib>
 #include <expected>
 
@@ -89,16 +87,16 @@ inline void Unwrap(Result<void>&& result) noexcept {
     do {                                                                                                                                                                           \
         auto _woki_try_result = (expr);                                                                                                                                            \
         if (!_woki_try_result) {                                                                                                                                                   \
-            return ::wk::Err(std::move(_woki_try_result).error());                                                                                                               \
+            return ::wk::Err(std::move(_woki_try_result).error());                                                                                                                 \
         }                                                                                                                                                                          \
-        (lhs) = ::wk::detail::Unwrap(std::move(_woki_try_result));                                                                                                               \
+        (lhs) = ::wk::detail::Unwrap(std::move(_woki_try_result));                                                                                                                 \
     } while (false)
 
 #define TRY_VOID(expr)                                                                                                                                                             \
     do {                                                                                                                                                                           \
         auto _woki_try_result = (expr);                                                                                                                                            \
         if (!_woki_try_result) {                                                                                                                                                   \
-            return ::wk::Err(std::move(_woki_try_result).error());                                                                                                               \
+            return ::wk::Err(std::move(_woki_try_result).error());                                                                                                                 \
         }                                                                                                                                                                          \
     } while (false)
 
@@ -106,7 +104,7 @@ inline void Unwrap(Result<void>&& result) noexcept {
     ([&]() {                                                                                                                                                                       \
         auto _woki_try_result = (expr);                                                                                                                                            \
         if (!_woki_try_result) {                                                                                                                                                   \
-            ::wk::detail::AbortTryFailure(_woki_try_result.error(), #expr, __FILE__, __LINE__);                                                                                  \
+            ::wk::detail::AbortTryFailure(_woki_try_result.error(), #expr, __FILE__, __LINE__);                                                                                    \
         }                                                                                                                                                                          \
-        return ::wk::detail::Unwrap(std::move(_woki_try_result));                                                                                                                \
+        return ::wk::detail::Unwrap(std::move(_woki_try_result));                                                                                                                  \
     }())
