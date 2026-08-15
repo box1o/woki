@@ -22,6 +22,7 @@ apply_compiler_options(studio)
 target_link_libraries(studio PRIVATE
     wk::core
     wk::math
+    wk::rhi
 )
 
 if(EMSCRIPTEN)

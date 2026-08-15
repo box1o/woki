@@ -1,7 +1,6 @@
 #pragma once
 
 // IWYU pragma: private, include "woki/core.hpp"
-
 #include <string>
 #include <string_view>
 #include <source_location>
