@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: woki
+      POSTGRES_PASSWORD: woki
+      POSTGRES_DB: woki
+    ports:
+      - "5432:5432"
+    volumes:
+      - woki-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U woki -d woki"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8.10-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - woki-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      WOKI_ADDR: :8080
+      WOKI_FRONTEND_URL: http://localhost:3000
+      WOKI_ALLOWED_ORIGIN: http://localhost:3000
+      WOKI_STORAGE_BACKEND: postgres
+      WOKI_DB_ENABLED: "true"
+      WOKI_DB_HOST: postgres
+      WOKI_DB_PORT: "5432"
+      WOKI_DB_USER: woki
+      WOKI_DB_PASSWORD: woki
+      WOKI_DB_NAME: woki
+      WOKI_DB_SSLMODE: disable
+      WOKI_DB_MIGRATE: "true"
+      WOKI_REDIS_ENABLED: "true"
+      WOKI_REDIS_HOST: redis
+      WOKI_REDIS_PORT: "6379"
+      WOKI_REDIS_PREFIX: woki
+      WOKI_RATE_LIMIT_ENABLED: "true"
+      WOKI_DEV_AUTH: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  woki-postgres:
+  woki-redis:
