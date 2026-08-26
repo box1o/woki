@@ -60,14 +60,18 @@ type DatabaseConfig struct {
 }
 
 type RedisConfig struct {
-	Enabled     bool
-	Host        string
-	Port        int
-	Username    string
-	Password    string
-	DB          int
-	Prefix      string
-	DialTimeout time.Duration
+	Enabled      bool
+	Host         string
+	Port         int
+	Username     string
+	Password     string
+	DB           int
+	Prefix       string
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	PoolTimeout  time.Duration
+	MaxRetries   int
 }
 
 type AuthConfig struct {

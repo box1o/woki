@@ -26,11 +26,15 @@ return 0
 
 func Open(cfg config.RedisConfig) (*Client, error) {
 	options := &goredis.Options{
-		Addr:        fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Username:    cfg.Username,
-		Password:    cfg.Password,
-		DB:          cfg.DB,
-		DialTimeout: cfg.DialTimeout,
+		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Username:     cfg.Username,
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		DialTimeout:  cfg.DialTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		PoolTimeout:  cfg.PoolTimeout,
+		MaxRetries:   cfg.MaxRetries,
 	}
 	c := goredis.NewClient(options)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.DialTimeout)

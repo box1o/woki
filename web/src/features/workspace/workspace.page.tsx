@@ -7,7 +7,7 @@ import {
   type FormEvent,
 } from "react"
 import { useAuth } from "@/features/auth"
-import { Alert, Badge, Button, Card, Input } from "@/shared/components/ui"
+import { Alert, Badge, Button, Input } from "@/shared/components/ui"
 import { workspaceService } from "@/shared/services"
 import type { Member, User, Workspace } from "@/shared/types"
 
@@ -451,7 +451,7 @@ export function WorkspacePage() {
 
       <section className="workspace-detail" aria-live="polite">
         {selected ? (
-          <Card>
+          <div className="workspace-panel">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">WORKSPACE</span>
@@ -646,13 +646,11 @@ export function WorkspacePage() {
                 </Button>
               </form>
             )}
-          </Card>
+          </div>
         ) : (
-          <Card>
-            <p className="muted">
-              {loading ? "Loading workspaces…" : "Create or select a workspace."}
-            </p>
-          </Card>
+          <p className="muted">
+            {loading ? "Loading workspaces…" : "Create or select a workspace."}
+          </p>
         )}
 
         {error && <Alert variant="error">{error}</Alert>}

@@ -73,8 +73,18 @@ func (c Config) Validate() error {
 		if c.Redis.DB < 0 {
 			return invalid("WOKI_REDIS_DB", "must not be negative")
 		}
-		if err := validatePositiveDuration("WOKI_REDIS_DIAL_TIMEOUT", c.Redis.DialTimeout); err != nil {
-			return err
+		for name, timeout := range map[string]time.Duration{
+			"WOKI_REDIS_DIAL_TIMEOUT":  c.Redis.DialTimeout,
+			"WOKI_REDIS_READ_TIMEOUT":  c.Redis.ReadTimeout,
+			"WOKI_REDIS_WRITE_TIMEOUT": c.Redis.WriteTimeout,
+			"WOKI_REDIS_POOL_TIMEOUT":  c.Redis.PoolTimeout,
+		} {
+			if err := validatePositiveDuration(name, timeout); err != nil {
+				return err
+			}
+		}
+		if c.Redis.MaxRetries < 0 || c.Redis.MaxRetries > 10 {
+			return invalid("WOKI_REDIS_MAX_RETRIES", "must be between 0 and 10")
 		}
 	}
 	if strings.TrimSpace(c.Auth.Cookie.Name) == "" || strings.ContainsAny(c.Auth.Cookie.Name, "\r\n;= \t") {

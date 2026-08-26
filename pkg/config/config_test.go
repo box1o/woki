@@ -79,3 +79,20 @@ func TestValidateRejectsInvalidLogOutput(t *testing.T) {
 		t.Fatalf("Validate()=%v; want ErrLogConfig", err)
 	}
 }
+
+func TestValidateRejectsInvalidRedisTimeout(t *testing.T) {
+	cfg := validConfig()
+	cfg.Redis = RedisConfig{
+		Enabled:      true,
+		Host:         "127.0.0.1",
+		Port:         6379,
+		Prefix:       "woki",
+		DialTimeout:  time.Second,
+		ReadTimeout:  0,
+		WriteTimeout: time.Second,
+		PoolTimeout:  time.Second,
+	}
+	if err := cfg.Validate(); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("Validate()=%v; want ErrInvalid", err)
+	}
+}
