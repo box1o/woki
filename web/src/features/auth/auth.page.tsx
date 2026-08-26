@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react"
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router"
 import { Alert, Button, Card, Input } from "@/shared/components/ui"
 import { authService } from "@/shared/services"
-import { useAuth } from "./auth.context"
+import { useAuth } from "./auth.hook"
 
 export function AuthPage() {
   const { user, devLogin } = useAuth()

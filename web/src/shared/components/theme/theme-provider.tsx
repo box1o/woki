@@ -1,19 +1,10 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
 } from "react"
-
-type Theme = "light" | "dark"
-type ThemeContextValue = {
-  theme: Theme
-  toggle: () => void
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null)
+import { ThemeContext, type Theme } from "./theme.context"
 const storageKey = "woki-theme"
 
 export function ThemeProvider({ children }: PropsWithChildren) {
@@ -37,14 +28,6 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-}
-
-export function useTheme() {
-  const value = useContext(ThemeContext)
-  if (!value) {
-    throw new Error("useTheme must be used inside ThemeProvider")
-  }
-  return value
 }
 
 function initialTheme(): Theme {

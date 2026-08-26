@@ -1,25 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react"
+import { useCallback, useEffect, useMemo, useState, type PropsWithChildren } from "react"
 import { authService, HTTPError } from "@/shared/services"
 import type { User } from "@/shared/types"
-
-type AuthContextValue = {
-  user: User | null
-  loading: boolean
-  error: string | null
-  refresh: () => Promise<void>
-  devLogin: (email: string, name: string) => Promise<void>
-  logout: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext } from "./auth.context-value"
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null)
@@ -74,12 +56,4 @@ export function AuthProvider({ children }: PropsWithChildren) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const value = useContext(AuthContext)
-  if (!value) {
-    throw new Error("useAuth must be used inside AuthProvider")
-  }
-  return value
 }
