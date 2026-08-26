@@ -7,12 +7,11 @@ import {
   type FormEvent,
 } from "react"
 import { useAuth } from "@/features/auth"
-import { Alert, Badge, Button, Input } from "@/shared/components/ui"
+import { Alert, Button, Input } from "@/shared/components/ui"
 import { workspaceService } from "@/shared/services"
 import type { Member, User, Workspace } from "@/shared/types"
+import { type EditableRole, MemberList } from "./member-list"
 import { WorkspaceList } from "./workspace-list"
-
-type EditableRole = Exclude<Member["role"], "owner">
 
 export function WorkspacePage() {
   const { user } = useAuth()
@@ -432,49 +431,14 @@ export function WorkspacePage() {
             </div>
 
             <h3>Members</h3>
-            <div className="member-list">
-              {membersLoading ? (
-                <p className="muted member-empty">Loading members…</p>
-              ) : members.length === 0 ? (
-                <p className="muted member-empty">No members found.</p>
-              ) : (
-                members.map((member) => (
-                  <div className={`member-row ${pendingMemberIDs.has(member.id) ? "pending" : ""}`} key={member.id}>
-                    <div>
-                      <strong>{member.name}</strong>
-                      <span>{member.email}</span>
-                    </div>
-                    <div className="member-actions">
-                      {canManageMembers && member.role !== "owner" ? (
-                        <>
-                          <select
-                            value={member.role}
-                            disabled={pendingMemberIDs.has(member.id)}
-                            aria-label={`Role for ${member.email}`}
-                            onChange={(event) =>
-                              void updateRole(member, event.target.value as EditableRole)
-                            }
-                          >
-                            <option value="member">member</option>
-                            <option value="admin">admin</option>
-                          </select>
-                          <Button
-                            variant="ghost"
-                            type="button"
-                            disabled={pendingMemberIDs.has(member.id)}
-                            onClick={() => void removeMember(member)}
-                          >
-                            Remove
-                          </Button>
-                        </>
-                      ) : (
-                        <Badge>{member.role}</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <MemberList
+              members={members}
+              loading={membersLoading}
+              canManage={canManageMembers}
+              pendingIDs={pendingMemberIDs}
+              onRoleChange={(member, role) => void updateRole(member, role)}
+              onRemove={(member) => void removeMember(member)}
+            />
 
             {canManageMembers && (
               <form className="member-form" onSubmit={addMember}>
