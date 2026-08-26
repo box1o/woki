@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth"
 import { Alert, Badge, Button, Input } from "@/shared/components/ui"
 import { workspaceService } from "@/shared/services"
 import type { Member, User, Workspace } from "@/shared/types"
+import { WorkspaceList } from "./workspace-list"
 
 type EditableRole = Exclude<Member["role"], "owner">
 
@@ -398,56 +399,17 @@ export function WorkspacePage() {
 
   return (
     <main className="workspace-page">
-      <section className="workspace-list" aria-label="Workspaces">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">WORKSPACES</span>
-            <h1>Your spaces</h1>
-          </div>
-        </div>
-
-        <form className="inline-form" onSubmit={create}>
-          <Input
-            aria-label="Workspace name"
-            placeholder="Workspace name"
-            value={name}
-            maxLength={100}
-            onChange={(event) => setName(event.target.value)}
-            required
-          />
-          <Button type="submit" disabled={creating || !name.trim()}>
-            Create
-          </Button>
-        </form>
-
-        <div className="workspace-items">
-          {loading ? (
-            <p className="muted small-text">Loading workspaces…</p>
-          ) : workspaces.length === 0 ? (
-            <p className="muted small-text">No workspaces yet.</p>
-          ) : (
-            workspaces.map((workspace) => (
-              <button
-                type="button"
-                key={workspace.id}
-                className={`workspace-item ${workspace.id === selectedID ? "active" : ""} ${workspace.id.startsWith("optimistic:") ? "pending" : ""}`}
-                disabled={workspace.id.startsWith("optimistic:")}
-                onClick={() => setSelectedID(workspace.id)}
-                aria-pressed={workspace.id === selectedID}
-              >
-                <span>{workspace.name}</span>
-                <small>
-                  {workspace.id.startsWith("optimistic:")
-                    ? "saving…"
-                    : workspace.owner_id === user?.id
-                      ? "owner"
-                      : "member"}
-                </small>
-              </button>
-            ))
-          )}
-        </div>
-      </section>
+      <WorkspaceList
+        workspaces={workspaces}
+        selectedID={selectedID}
+        userID={user?.id}
+        name={name}
+        loading={loading}
+        creating={creating}
+        onNameChange={setName}
+        onCreate={create}
+        onSelect={setSelectedID}
+      />
 
       <section className="workspace-detail" aria-live="polite">
         {selected ? (
