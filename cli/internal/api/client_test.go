@@ -9,7 +9,7 @@ import (
 )
 
 func TestWithTokenDoesNotMutateClient(t *testing.T) {
-	c, err := New("http://localhost:8080")
+	c, err := New("http://localhost:3000")
 	if err != nil {
 		t.Fatal(err)
 	}

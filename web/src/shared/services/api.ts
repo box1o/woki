@@ -1,6 +1,6 @@
 import type { APIError } from "@/shared/types"
 
-const baseURL = (import.meta.env.VITE_WOKI_API_URL ?? "http://localhost:8080").replace(/\/$/, "")
+const baseURL = (import.meta.env.VITE_WOKI_API_URL ?? "http://localhost:3000").replace(/\/$/, "")
 const requestTimeoutMs = 20_000
 
 export class HTTPError extends Error {

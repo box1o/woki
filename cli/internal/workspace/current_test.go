@@ -53,10 +53,10 @@ func TestCurrentStoreDeleteIsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := store.Delete(ctx, "http://localhost:8080"); err != nil {
+	if err := store.Delete(ctx, "http://localhost:3000"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Load(ctx, "http://localhost:8080"); !errors.Is(err, ErrCurrentNotSet) {
+	if _, err := store.Load(ctx, "http://localhost:3000"); !errors.Is(err, ErrCurrentNotSet) {
 		t.Fatalf("Load()=%v; want current-not-set", err)
 	}
 }

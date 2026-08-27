@@ -15,7 +15,7 @@ func validConfig() Config {
 		Environment: Development,
 		Version:     "test",
 		Server: ServerConfig{
-			Addr:              ":8080",
+			Addr:              ":3000",
 			ReadHeaderTimeout: time.Second,
 			ReadTimeout:       time.Second,
 			WriteTimeout:      time.Second,

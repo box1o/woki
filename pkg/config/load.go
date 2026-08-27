@@ -25,7 +25,7 @@ func Load() (Config, error) {
 		Environment: Environment(strings.ToLower(env("WOKI_ENV", string(Development)))),
 		Version:     env("WOKI_VERSION", "dev"),
 		Server: ServerConfig{
-			Addr:              env("WOKI_ADDR", ":8080"),
+			Addr:              env("WOKI_ADDR", ":3000"),
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       15 * time.Second,
 			WriteTimeout:      30 * time.Second,
@@ -59,7 +59,7 @@ func Load() (Config, error) {
 			Google: GoogleConfig{
 				ClientID:     strings.TrimSpace(os.Getenv("WOKI_GOOGLE_CLIENT_ID")),
 				ClientSecret: strings.TrimSpace(os.Getenv("WOKI_GOOGLE_CLIENT_SECRET")),
-				CallbackURL:  trimTrailingSlash(env("WOKI_GOOGLE_CALLBACK_URL", "http://localhost:8080/auth/google/callback")),
+				CallbackURL:  trimTrailingSlash(env("WOKI_GOOGLE_CALLBACK_URL", "http://localhost:3000/auth/google/callback")),
 			},
 			GitHub: GitHubConfig{
 				ClientID:     strings.TrimSpace(os.Getenv("WOKI_GITHUB_CLIENT_ID")),

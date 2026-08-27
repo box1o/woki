@@ -13,7 +13,7 @@ func Load(value string) (Config, error) {
 		value = os.Getenv("WOKI_API_URL")
 	}
 	if strings.TrimSpace(value) == "" {
-		value = "http://localhost:8080"
+		value = "http://localhost:3000"
 	}
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(value), "/"))
 	if err != nil || u.Scheme == "" || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {

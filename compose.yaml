@@ -33,9 +33,9 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      WOKI_ADDR: :8080
-      WOKI_FRONTEND_URL: http://localhost:3000
-      WOKI_ALLOWED_ORIGIN: http://localhost:3000
+      WOKI_ADDR: :3000
+      WOKI_FRONTEND_URL: http://localhost:5173
+      WOKI_ALLOWED_ORIGIN: http://localhost:5173
       WOKI_STORAGE_BACKEND: postgres
       WOKI_DB_ENABLED: "true"
       WOKI_DB_HOST: postgres
@@ -52,7 +52,7 @@ services:
       WOKI_RATE_LIMIT_ENABLED: "true"
       WOKI_DEV_AUTH: "true"
     ports:
-      - "8080:8080"
+      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
   web:
     build: ./web
     ports:
-      - "3000:80"
+      - "5173:80"
     depends_on:
       - api
 

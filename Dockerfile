@@ -10,5 +10,5 @@ WORKDIR /app
 COPY --from=build /out/woki-api /usr/local/bin/woki-api
 RUN mkdir -p /app/data && chown -R woki:woki /app
 USER woki
-EXPOSE 8080
+EXPOSE 3000
 ENTRYPOINT ["woki-api"]

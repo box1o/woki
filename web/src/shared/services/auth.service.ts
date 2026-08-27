@@ -1,7 +1,7 @@
 import { request } from "./api"
 import type { AuthStatus, DeviceRequest } from "@/shared/types"
 
-const apiURL = (import.meta.env.VITE_WOKI_API_URL ?? "http://localhost:8080").replace(/\/$/, "")
+const apiURL = (import.meta.env.VITE_WOKI_API_URL ?? "http://localhost:3000").replace(/\/$/, "")
 
 export const authService = {
   status: () => request<AuthStatus>("/auth/status"),
