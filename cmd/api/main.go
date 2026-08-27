@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -51,7 +53,9 @@ func run() error {
 
 	select {
 	case err := <-serverErr:
-		return err
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown.Timeout)
+		defer cancel()
+		return errors.Join(err, app.Shutdown(shutdownCtx))
 	case err := <-shutdownErr:
 		return err
 	}
