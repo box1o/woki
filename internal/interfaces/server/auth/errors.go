@@ -12,7 +12,4 @@ var (
 	ErrOAuthFailed        = apperrors.NewHTTP(http.StatusBadGateway, "OAUTH_AUTHENTICATION_FAILED", "OAuth authentication failed")
 	ErrAuthentication     = apperrors.NewHTTP(http.StatusInternalServerError, "AUTHENTICATION_FAILED", "Authentication failed")
 	ErrDevAuthDisabled    = apperrors.NewHTTP(http.StatusNotFound, "NOT_FOUND", "Resource not found")
-	// Compatibility aliases for older callers/tests.
-	ErrGitHubNotConfigured = ErrOAuthNotConfigured
-	ErrGitHubAuthFailed    = ErrOAuthFailed
 )

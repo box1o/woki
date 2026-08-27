@@ -61,10 +61,6 @@ func Load() (Config, error) {
 				ClientSecret: strings.TrimSpace(os.Getenv("WOKI_GOOGLE_CLIENT_SECRET")),
 				CallbackURL:  trimTrailingSlash(env("WOKI_GOOGLE_CALLBACK_URL", "http://localhost:3000/auth/google/callback")),
 			},
-			GitHub: GitHubConfig{
-				ClientID:     strings.TrimSpace(os.Getenv("WOKI_GITHUB_CLIENT_ID")),
-				ClientSecret: strings.TrimSpace(os.Getenv("WOKI_GITHUB_CLIENT_SECRET")),
-			},
 			Cookie: CookieConfig{Name: env("WOKI_SESSION_COOKIE", "woki_session"), SameSite: env("WOKI_COOKIE_SAME_SITE", "strict")},
 		},
 		Session:    SessionConfig{RedisPrefix: env("WOKI_SESSION_REDIS_PREFIX", "session")},

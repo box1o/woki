@@ -13,15 +13,17 @@ import (
 	"github.com/box1o/woki/pkg/config"
 )
 
-type fakeGitHub struct{}
+type fakeGoogle struct{}
 
-func (fakeGitHub) Configured() bool            { return true }
-func (fakeGitHub) AuthURL(state string) string { return "https://github.example/auth?state=" + state }
-func (fakeGitHub) Exchange(context.Context, string) (provider.Profile, error) {
+func (fakeGoogle) Configured() bool { return true }
+func (fakeGoogle) AuthURL(state string) string {
+	return "https://accounts.google.example/auth?state=" + state
+}
+func (fakeGoogle) Exchange(context.Context, string) (provider.Profile, error) {
 	return provider.Profile{
 		Email:      "user@example.com",
 		Name:       "User",
-		Provider:   user.ProviderGitHub,
+		Provider:   user.ProviderGoogle,
 		ProviderID: "123",
 	}, nil
 }
@@ -33,7 +35,7 @@ func (fakeService) Login(context.Context, authsvc.Profile) (*user.User, string, 
 		"user@example.com",
 		"User",
 		"",
-		user.ProviderGitHub,
+		user.ProviderGoogle,
 		"123",
 	)
 	return usr, "session-token", err
@@ -61,10 +63,10 @@ func TestSafeReturnPath(t *testing.T) {
 	}
 }
 
-func TestGitHubCallbackPreservesReturnPath(t *testing.T) {
+func TestGoogleCallbackPreservesReturnPath(t *testing.T) {
 	h := New(
 		fakeService{},
-		fakeGitHub{},
+		fakeGoogle{},
 		nil,
 		"http://localhost:5173",
 		false,
@@ -73,14 +75,14 @@ func TestGitHubCallbackPreservesReturnPath(t *testing.T) {
 	)
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/auth/github/callback?state=state&code=code",
+		"/auth/google/callback?state=state&code=code",
 		nil,
 	)
-	req.AddCookie(&http.Cookie{Name: oauthStateCookie("github"), Value: "state"})
-	req.AddCookie(&http.Cookie{Name: oauthReturnCookie("github"), Value: "/device?code=ABCDEFGH"})
+	req.AddCookie(&http.Cookie{Name: oauthStateCookie(), Value: "state"})
+	req.AddCookie(&http.Cookie{Name: oauthReturnCookie(), Value: "/device?code=ABCDEFGH"})
 	w := httptest.NewRecorder()
 
-	h.finishOAuth("github", h.github, w, req)
+	h.finishGoogle(w, req)
 
 	if w.Code != http.StatusFound {
 		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())

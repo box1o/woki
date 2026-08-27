@@ -104,10 +104,7 @@ func (c Config) Validate() error {
 			return invalidCause("WOKI_GOOGLE_CALLBACK_URL", err)
 		}
 	}
-	if (c.Auth.GitHub.ClientID == "") != (c.Auth.GitHub.ClientSecret == "") {
-		return invalid("GitHub OAuth", "client ID and client secret must be configured together")
-	}
-	if !c.Auth.Dev && c.Auth.Google.ClientID == "" && c.Auth.GitHub.ClientID == "" {
+	if !c.Auth.Dev && c.Auth.Google.ClientID == "" {
 		return ErrAuthRequired
 	}
 	if c.Mail.Enabled {

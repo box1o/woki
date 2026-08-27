@@ -17,7 +17,6 @@ const (
 type Provider string
 
 const (
-	ProviderGitHub Provider = "github"
 	ProviderGoogle Provider = "google"
 	ProviderDev    Provider = "dev"
 )
@@ -84,7 +83,7 @@ func (u User) Validate() error {
 		return ErrProviderEmpty
 	}
 	switch u.Provider {
-	case ProviderGitHub, ProviderGoogle, ProviderDev:
+	case ProviderGoogle, ProviderDev:
 	default:
 		return ErrProviderInvalid
 	}

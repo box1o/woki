@@ -33,12 +33,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => window.clearTimeout(task)
   }, [refresh])
 
-  const devLogin = useCallback(async (email: string, name: string) => {
-    const status = await authService.devLogin(email, name)
-    setUser(status.user ?? null)
-    setError(null)
-  }, [])
-
   const logout = useCallback(async () => {
     try {
       await authService.logout()
@@ -51,8 +45,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, loading, error, refresh, devLogin, logout }),
-    [user, loading, error, refresh, devLogin, logout],
+    () => ({ user, loading, error, refresh, logout }),
+    [user, loading, error, refresh, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -76,7 +76,6 @@ type RedisConfig struct {
 
 type AuthConfig struct {
 	Google GoogleConfig
-	GitHub GitHubConfig
 	Dev    bool
 	Cookie CookieConfig
 }
@@ -85,11 +84,6 @@ type GoogleConfig struct {
 	ClientID     string
 	ClientSecret string
 	CallbackURL  string
-}
-
-type GitHubConfig struct {
-	ClientID     string
-	ClientSecret string
 }
 
 type CookieConfig struct {

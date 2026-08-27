@@ -21,8 +21,7 @@ func (a *Application) setupServer() error {
 	}
 	authenticator := middleware.NewAuthenticator(a.authSvc, a.deviceSvc, a.cfg.Auth.Cookie.Name, a.cfg.CORS.AllowedOrigin)
 	google := provider.NewGoogle(a.cfg.Auth.Google)
-	github := provider.NewGitHub(a.cfg.Auth.GitHub)
-	authHandler := authhttp.NewWithProvidersAndLimiter(a.authSvc, google, github, authenticator, a.cfg.Frontend.URL, a.cfg.Auth.Dev, a.cfg.Auth.Cookie, a.cfg.Session.TTL, a.limiter, a.cfg.RateLimit)
+	authHandler := authhttp.NewWithLimiter(a.authSvc, google, authenticator, a.cfg.Frontend.URL, a.cfg.Auth.Dev, a.cfg.Auth.Cookie, a.cfg.Session.TTL, a.limiter, a.cfg.RateLimit)
 	deviceHandler := devicehttp.NewWithLimiter(a.deviceSvc, authenticator, a.limiter, a.cfg.RateLimit)
 	workspaceHandler := workspacehttp.New(a.workspaceSvc, authenticator)
 	mailHandler := mailhttp.NewWithLimiter(a.mailSvc, authenticator, a.limiter, a.cfg.RateLimit)

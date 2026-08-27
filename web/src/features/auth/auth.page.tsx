@@ -1,20 +1,12 @@
-import { useState, type FormEvent } from "react"
-import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router"
-import { Alert, Button, Card, Input } from "@/shared/components/ui"
+import { Navigate, useLocation, useSearchParams } from "react-router"
+import { Alert, Button } from "@/shared/components/ui"
 import { authService } from "@/shared/services"
 import { useAuth } from "./auth.hook"
 
 export function AuthPage() {
-  const { user, devLogin } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const [email, setEmail] = useState("dev@example.com")
-  const [name, setName] = useState("Developer")
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const devEnabled = import.meta.env.VITE_WOKI_DEV_AUTH === "true"
-  const githubEnabled = import.meta.env.VITE_WOKI_GITHUB_AUTH === "true"
   const from = safeLocalPath(
     searchParams.get("return_to") ?? (location.state as { from?: string } | null)?.from,
   )
@@ -24,30 +16,12 @@ export function AuthPage() {
     return <Navigate to={from} replace />
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (busy) {
-      return
-    }
-
-    setBusy(true)
-    setError(null)
-    try {
-      await devLogin(email, name)
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed")
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <main className="center-page">
-      <Card className="auth-card">
+      <section className="auth-panel" aria-labelledby="sign-in-title">
         <div>
           <span className="eyebrow">WOKI</span>
-          <h1>Sign in</h1>
+          <h1 id="sign-in-title">Sign in</h1>
           <p className="muted">
             Authenticate to manage workspaces and authorize CLI sessions.
           </p>
@@ -55,7 +29,6 @@ export function AuthPage() {
 
         <Button
           type="button"
-          disabled={busy}
           onClick={() => {
             window.location.assign(authService.googleURL(from))
           }}
@@ -63,54 +36,8 @@ export function AuthPage() {
           Continue with Google
         </Button>
 
-        {githubEnabled && (
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => {
-              window.location.assign(authService.githubURL(from))
-            }}
-          >
-            Continue with GitHub
-          </Button>
-        )}
-
         {oauthError && <Alert variant="error">{oauthError}</Alert>}
-
-        {devEnabled && (
-          <>
-            <div className="divider">
-              <span>development</span>
-            </div>
-            <form className="stack" onSubmit={submit}>
-              <label>
-                Email
-                <Input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </label>
-              <label>
-                Name
-                <Input
-                  required
-                  autoComplete="name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </label>
-              {error && <Alert variant="error">{error}</Alert>}
-              <Button type="submit" disabled={busy}>
-                {busy ? "Signing in…" : "Development sign in"}
-              </Button>
-            </form>
-          </>
-        )}
-      </Card>
+      </section>
     </main>
   )
 }

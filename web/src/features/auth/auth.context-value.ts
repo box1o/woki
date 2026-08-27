@@ -6,7 +6,6 @@ export type AuthContextValue = {
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
-  devLogin: (email: string, name: string) => Promise<void>
   logout: () => Promise<void>
 }
 

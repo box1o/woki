@@ -57,7 +57,7 @@ func TestLoginUsesStableProviderIdentity(t *testing.T) {
 	first, _, err := svc.Login(ctx, Profile{
 		Email:      "old@example.com",
 		Name:       "User",
-		Provider:   user.ProviderGitHub,
+		Provider:   user.ProviderGoogle,
 		ProviderID: "12345",
 	})
 	if err != nil {
@@ -66,7 +66,7 @@ func TestLoginUsesStableProviderIdentity(t *testing.T) {
 	second, _, err := svc.Login(ctx, Profile{
 		Email:      "new@example.com",
 		Name:       "User",
-		Provider:   user.ProviderGitHub,
+		Provider:   user.ProviderGoogle,
 		ProviderID: "12345",
 	})
 	if err != nil {
@@ -87,16 +87,16 @@ func TestLoginDoesNotLinkDifferentIdentityByEmail(t *testing.T) {
 	if _, _, err := svc.Login(ctx, Profile{
 		Email:      "user@example.com",
 		Name:       "User",
-		Provider:   user.ProviderGitHub,
-		ProviderID: "github-1",
+		Provider:   user.ProviderGoogle,
+		ProviderID: "google-1",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	_, _, err := svc.Login(ctx, Profile{
 		Email:      "user@example.com",
 		Name:       "Other",
-		Provider:   user.ProviderGitHub,
-		ProviderID: "github-2",
+		Provider:   user.ProviderGoogle,
+		ProviderID: "google-2",
 	})
 	if !errors.Is(err, ErrIdentityConflict) {
 		t.Fatalf("Login error=%v; want ErrIdentityConflict", err)

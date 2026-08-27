@@ -49,7 +49,7 @@ file/              deterministic single-process repository fallback
 redis/             namespaced Redis client
 session/           in-memory and Redis browser sessions
 ratelimit/         in-memory and Redis-backed GCRA limiters
-provider/          Google and GitHub OAuth providers
+provider/          Google OAuth provider
 events/            process-local domain event bus
 mail/              SMTP sender
 ```
@@ -131,7 +131,7 @@ Google OAuth is the primary browser flow. The provider adapter:
 7. creates the default personal workspace when needed,
 8. creates a Redis-backed browser session.
 
-GitHub OAuth is an optional second provider. Development authentication is available only when explicitly enabled and is rejected by production validation.
+Development authentication exists only as an explicit non-production fallback and is rejected by production validation. The normal browser authentication provider is Google.
 
 ### CLI
 
@@ -213,6 +213,6 @@ web/src/features   auth, device authorization, home, workspace behavior
 web/src/shared     UI primitives, API services, types, styles
 ```
 
-The visual language stays close to Fuse: compact navigation, rounded surfaces, neutral light/dark palettes, and the green brand accent. Google sign-in is the primary production authentication action; GitHub and direct development login remain optional.
+The visual language stays close to Fuse: compact navigation, rounded surfaces, neutral light/dark palettes, and the green brand accent. The browser offers one production sign-in action: Google.
 
 Workspace member management uses a server-authorized candidate search. The repository searches by name/email, the workspace service filters existing members, and the browser presents a debounced accessible combobox. This keeps directory access behind workspace-management authorization instead of exposing a global unauthenticated user directory.

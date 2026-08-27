@@ -36,7 +36,6 @@ type Service interface {
 type Handler struct {
 	service     Service
 	google      OAuthProvider
-	github      OAuthProvider
 	auth        *middleware.Authenticator
 	frontendURL string
 	devEnabled  bool
@@ -46,17 +45,12 @@ type Handler struct {
 	rate        config.RateLimitConfig
 }
 
-// New preserves the original GitHub-only constructor for tests and lightweight callers.
-func New(service Service, github OAuthProvider, auth *middleware.Authenticator, frontendURL string, devEnabled bool, cookie config.CookieConfig, sessionTTL time.Duration) *Handler {
-	return NewWithProviders(service, nil, github, auth, frontendURL, devEnabled, cookie, sessionTTL)
+func New(service Service, google OAuthProvider, auth *middleware.Authenticator, frontendURL string, devEnabled bool, cookie config.CookieConfig, sessionTTL time.Duration) *Handler {
+	return NewWithLimiter(service, google, auth, frontendURL, devEnabled, cookie, sessionTTL, nil, config.RateLimitConfig{})
 }
 
-func NewWithProviders(service Service, google, github OAuthProvider, auth *middleware.Authenticator, frontendURL string, devEnabled bool, cookie config.CookieConfig, sessionTTL time.Duration) *Handler {
-	return NewWithProvidersAndLimiter(service, google, github, auth, frontendURL, devEnabled, cookie, sessionTTL, nil, config.RateLimitConfig{})
-}
-
-func NewWithProvidersAndLimiter(service Service, google, github OAuthProvider, auth *middleware.Authenticator, frontendURL string, devEnabled bool, cookie config.CookieConfig, sessionTTL time.Duration, limiter contract.Limiter, rate config.RateLimitConfig) *Handler {
-	return &Handler{service: service, google: google, github: github, auth: auth, frontendURL: strings.TrimRight(frontendURL, "/"), devEnabled: devEnabled, cookie: cookie, sessionTTL: sessionTTL, limiter: limiter, rate: rate}
+func NewWithLimiter(service Service, google OAuthProvider, auth *middleware.Authenticator, frontendURL string, devEnabled bool, cookie config.CookieConfig, sessionTTL time.Duration, limiter contract.Limiter, rate config.RateLimitConfig) *Handler {
+	return &Handler{service: service, google: google, auth: auth, frontendURL: strings.TrimRight(frontendURL, "/"), devEnabled: devEnabled, cookie: cookie, sessionTTL: sessionTTL, limiter: limiter, rate: rate}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
@@ -66,53 +60,50 @@ func (h *Handler) Register(mux *http.ServeMux) {
 		}
 		return middleware.RateLimit(h.limiter, h.rate.Prefix+":auth:"+name, contract.Policy{Rate: h.rate.AuthLimit, Burst: h.rate.AuthBurst, Period: h.rate.AuthWindow}, true)(handler)
 	}
-	mux.Handle("GET /auth/google", limit("google-start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.startOAuth("google", h.google, w, r) })))
-	mux.Handle("GET /auth/google/callback", limit("google-callback", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.finishOAuth("google", h.google, w, r) })))
-	mux.Handle("GET /auth/github", limit("github-start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.startOAuth("github", h.github, w, r) })))
-	mux.Handle("GET /auth/github/callback", limit("github-callback", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.finishOAuth("github", h.github, w, r) })))
+	mux.Handle("GET /auth/google", limit("google-start", http.HandlerFunc(h.startGoogle)))
+	mux.Handle("GET /auth/google/callback", limit("google-callback", http.HandlerFunc(h.finishGoogle)))
 	mux.Handle("POST /auth/dev", limit("dev", http.HandlerFunc(h.devLogin)))
 	mux.Handle("GET /auth/status", h.auth.RequireWeb(http.HandlerFunc(h.status)))
 	mux.Handle("POST /auth/logout", h.auth.RequireWeb(http.HandlerFunc(h.logout)))
 }
 
-func (h *Handler) startOAuth(name string, oauth OAuthProvider, w http.ResponseWriter, r *http.Request) {
-	if oauth == nil || !oauth.Configured() {
-		apperrors.WriteError(w, ErrOAuthNotConfigured.WithMessage(providerDisplayName(name)+" authentication is not configured"))
+func (h *Handler) startGoogle(w http.ResponseWriter, r *http.Request) {
+	if h.google == nil || !h.google.Configured() {
+		apperrors.WriteError(w, ErrOAuthNotConfigured.WithMessage("Google authentication is not configured"))
 		return
 	}
 	state, err := randomState()
 	if err != nil {
-		log.Error("generate %s OAuth state: %v", name, err)
+		log.Error("generate Google OAuth state: %v", err)
 		apperrors.WriteError(w, apperrors.ErrInternalServer)
 		return
 	}
 	returnTo := safeReturnPath(r.URL.Query().Get("return_to"))
 	expires := time.Now().Add(10 * time.Minute)
-	callbackPath := "/auth/" + name + "/callback"
-	setOAuthCookie(w, oauthStateCookie(name), state, callbackPath, h.cookie.Secure, expires)
-	setOAuthCookie(w, oauthReturnCookie(name), returnTo, callbackPath, h.cookie.Secure, expires)
-	http.Redirect(w, r, oauth.AuthURL(state), http.StatusFound)
+	setOAuthCookie(w, oauthStateCookie(), state, "/auth/google/callback", h.cookie.Secure, expires)
+	setOAuthCookie(w, oauthReturnCookie(), returnTo, "/auth/google/callback", h.cookie.Secure, expires)
+	http.Redirect(w, r, h.google.AuthURL(state), http.StatusFound)
 }
 
-func (h *Handler) finishOAuth(name string, oauth OAuthProvider, w http.ResponseWriter, r *http.Request) {
-	if oauth == nil || !oauth.Configured() {
+func (h *Handler) finishGoogle(w http.ResponseWriter, r *http.Request) {
+	if h.google == nil || !h.google.Configured() {
 		apperrors.WriteError(w, ErrOAuthNotConfigured)
 		return
 	}
-	stateCookie, err := r.Cookie(oauthStateCookie(name))
+	stateCookie, err := r.Cookie(oauthStateCookie())
 	queryState := r.URL.Query().Get("state")
 	if err != nil || !equalState(stateCookie.Value, queryState) {
-		h.clearOAuthCookies(w, name)
+		h.clearOAuthCookies(w)
 		h.redirectOAuthError(w, r, "/", "state")
 		return
 	}
 	returnTo := "/"
-	if returnCookie, cookieErr := r.Cookie(oauthReturnCookie(name)); cookieErr == nil {
+	if returnCookie, cookieErr := r.Cookie(oauthReturnCookie()); cookieErr == nil {
 		returnTo = safeReturnPath(returnCookie.Value)
 	}
-	h.clearOAuthCookies(w, name)
+	h.clearOAuthCookies(w)
 	if denied := strings.TrimSpace(r.URL.Query().Get("error")); denied != "" {
-		log.Warn("%s OAuth denied: %s", name, denied)
+		log.Warn("Google OAuth denied: %s", denied)
 		h.redirectOAuthError(w, r, returnTo, "denied")
 		return
 	}
@@ -121,15 +112,15 @@ func (h *Handler) finishOAuth(name string, oauth OAuthProvider, w http.ResponseW
 		h.redirectOAuthError(w, r, returnTo, "invalid_response")
 		return
 	}
-	profile, err := oauth.Exchange(r.Context(), code)
+	profile, err := h.google.Exchange(r.Context(), code)
 	if err != nil {
-		log.Warn("%s OAuth exchange failed: %v", name, err)
+		log.Warn("Google OAuth exchange failed: %v", err)
 		h.redirectOAuthError(w, r, returnTo, "provider")
 		return
 	}
 	usr, token, err := h.service.Login(r.Context(), authsvc.Profile{Email: profile.Email, Name: profile.Name, AvatarURL: profile.AvatarURL, Provider: profile.Provider, ProviderID: profile.ProviderID})
 	if err != nil {
-		log.Error("complete %s login: %v", name, err)
+		log.Error("complete Google login: %v", err)
 		if apperrors.IsCode(err, authsvc.ErrIdentityConflict.Code) {
 			h.redirectOAuthError(w, r, returnTo, "identity_conflict")
 		} else {
@@ -138,7 +129,7 @@ func (h *Handler) finishOAuth(name string, oauth OAuthProvider, w http.ResponseW
 		return
 	}
 	if usr == nil || token == "" {
-		log.Error("complete %s login returned an empty identity or session", name)
+		log.Error("complete Google login returned an empty identity or session")
 		h.redirectOAuthError(w, r, returnTo, "unavailable")
 		return
 	}
@@ -212,13 +203,12 @@ func setOAuthCookie(w http.ResponseWriter, name, value, path string, secure bool
 func clearCookie(w http.ResponseWriter, name, path string, secure bool, sameSite http.SameSite) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: path, HttpOnly: true, Secure: secure, SameSite: sameSite, MaxAge: -1, Expires: time.Unix(1, 0)})
 }
-func (h *Handler) clearOAuthCookies(w http.ResponseWriter, name string) {
-	path := "/auth/" + name + "/callback"
-	clearCookie(w, oauthStateCookie(name), path, h.cookie.Secure, http.SameSiteLaxMode)
-	clearCookie(w, oauthReturnCookie(name), path, h.cookie.Secure, http.SameSiteLaxMode)
+func (h *Handler) clearOAuthCookies(w http.ResponseWriter) {
+	clearCookie(w, oauthStateCookie(), "/auth/google/callback", h.cookie.Secure, http.SameSiteLaxMode)
+	clearCookie(w, oauthReturnCookie(), "/auth/google/callback", h.cookie.Secure, http.SameSiteLaxMode)
 }
-func oauthStateCookie(name string) string  { return "woki_oauth_state_" + name }
-func oauthReturnCookie(name string) string { return "woki_oauth_return_to_" + name }
+func oauthStateCookie() string  { return "woki_oauth_state_google" }
+func oauthReturnCookie() string { return "woki_oauth_return_to_google" }
 func equalState(cookieState, queryState string) bool {
 	if cookieState == "" || len(cookieState) != len(queryState) {
 		return false
@@ -252,12 +242,4 @@ func toAPIUser(u *user.User) *api.User {
 		return nil
 	}
 	return &api.User{ID: u.ID.String(), Email: u.Email, Name: u.Name, AvatarURL: u.AvatarURL}
-}
-
-func providerDisplayName(name string) string {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "OAuth"
-	}
-	return strings.ToUpper(name[:1]) + name[1:]
 }
