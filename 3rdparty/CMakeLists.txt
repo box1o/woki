@@ -15,3 +15,7 @@ find_or_add(spdlog
     CMAKE_CACHE_VARS
         "SPDLOG_FMT_EXTERNAL=ON"
 )
+
+find_or_add(glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+)

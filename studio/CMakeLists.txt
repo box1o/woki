@@ -10,10 +10,12 @@ add_executable(
 )
 
 
-
+find_package(OpenGL REQUIRED)
 
 set(_DEPS
     wk::core
+    glfw
+    OpenGL::GL
 )
 
 
