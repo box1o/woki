@@ -10,15 +10,16 @@ add_executable(
 )
 
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${_DEPS})
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
-target_compile_definitions(${PROJECT_NAME}
-    PRIVATE
-        _VERSION="0.0.1"
-)
 
 
 set(_DEPS
     wk::core
 )
 
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${_DEPS})
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        _VERSION="0.0.1"
+)

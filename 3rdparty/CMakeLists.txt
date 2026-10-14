@@ -7,7 +7,6 @@ find_or_add(fmt
     GIT_TAG main
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
 )
-target_compile_definitions(fmt PUBLIC FMT_CONSTEVAL=)
 
 find_or_add(spdlog
     NO_SYSTEM
