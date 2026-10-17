@@ -2,6 +2,10 @@
 
 #include <cstdlib>
 
+#ifdef __EMSCRIPTEN__
+#include <GLFW/emscripten_glfw3.h>
+#endif
+
 namespace wk::studio {
 
 application::application() {
@@ -18,6 +22,10 @@ application::application() {
         std::abort();
     }
 
+#ifdef __EMSCRIPTEN__
+    emscripten::glfw3::MakeCanvasResizable(window_.get(), "window");
+#endif
+
     glfwMakeContextCurrent(window_.get());
     glfwSwapInterval(1);
 
@@ -30,6 +38,12 @@ application::application() {
 
     slog::info("position: {}, direction: {}", position, direction);
     slog::info("model matrix:\n{}", model);
+
+    slog::debug("Debug message");
+    slog::info("Application started");
+    slog::warn("Example warning");
+    slog::error("Example error");
+    slog::critical("Example critical error");
 }
 
 application::~application() {

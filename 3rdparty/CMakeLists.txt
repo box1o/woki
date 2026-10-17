@@ -4,7 +4,7 @@
 
 find_or_add(fmt
     NO_SYSTEM
-    GIT_TAG 12.2.1
+    GIT_TAG 12.2.0
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
 )
 
@@ -16,6 +16,8 @@ find_or_add(spdlog
         "SPDLOG_FMT_EXTERNAL=ON"
 )
 
-find_or_add(glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-)
+if(NOT EMSCRIPTEN)
+    find_or_add(glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+    )
+endif()
