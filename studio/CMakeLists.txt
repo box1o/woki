@@ -15,6 +15,7 @@ find_package(OpenGL REQUIRED)
 set(_DEPS
     wk::core
     wk::math
+    wk::platform
     glfw
     OpenGL::GL
 )
