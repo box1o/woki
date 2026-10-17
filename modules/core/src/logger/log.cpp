@@ -47,15 +47,7 @@ void configure(
 
     auto logger = createRef<spdlog::logger>(std::move(name), sinks.begin(), sinks.end());
 
-    constexpr spdlog::level::level_enum levels[] = {spdlog::level::trace,
-        spdlog::level::debug,
-        spdlog::level::info,
-        spdlog::level::warn,
-        spdlog::level::err,
-        spdlog::level::critical,
-        spdlog::level::off};
-
-    logger->set_level(levels[static_cast<std::size_t>(level)]);
+    logger->set_level(detail::to_spdlog_level(level));
     logger->set_pattern(pattern);
     logger->flush_on(spdlog::level::warn);
 

@@ -2,7 +2,7 @@
 # Iterator over modules
 # ================================================================================
 
-set(entries core)
+set(entries core math)
 
 foreach(entry IN LISTS entries)
     message(STATUS "Module: ${entry}")

@@ -23,7 +23,7 @@ list(APPEND _DEPS
 list(APPEND _PDEPS
 )
 
-add_module(core
+add_module(${PROJECT_NAME}
     SOURCES ${SOURCES}
     HEADERS ${HEADERS}
     PUBLIC_DEPENDENCIES ${_DEPS}
@@ -32,7 +32,7 @@ add_module(core
 
 install(
     DIRECTORY docs/
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/wk/docs/core
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/wk/docs/${PROJECT_NAME}
     FILES_MATCHING PATTERN "*.md"
 )
 

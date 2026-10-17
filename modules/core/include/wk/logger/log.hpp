@@ -7,7 +7,7 @@
 
 #include <spdlog/logger.h>
 
-#include <wk/types.hpp>
+#include <wk/core/types.hpp>
 
 namespace wk::slog {
 
@@ -25,11 +25,35 @@ void configure(
 namespace detail {
 ref<spdlog::logger> logger() noexcept;
 
+[[nodiscard]] constexpr spdlog::level::level_enum to_spdlog_level(Level level) noexcept {
+    switch (level) {
+        case Level::Trace:
+            return spdlog::level::trace;
+        case Level::Debug:
+            return spdlog::level::debug;
+        case Level::Info:
+            return spdlog::level::info;
+        case Level::Warn:
+            return spdlog::level::warn;
+        case Level::Error:
+            return spdlog::level::err;
+        case Level::Critical:
+            return spdlog::level::critical;
+        case Level::Off:
+            return spdlog::level::off;
+    }
+    return spdlog::level::off;
+}
+
 template <typename... Args>
 inline void log(spdlog::level::level_enum level, std::string_view format, Args&&... args) {
     if (auto l = logger(); l && l->should_log(level)) {
-        auto message = fmt::vformat(format, fmt::make_format_args(args...));
-        l->log(level, spdlog::string_view_t(message.data(), message.size()));
+        try {
+            const auto message = fmt::vformat(format, fmt::make_format_args(args...));
+            l->log(level, spdlog::string_view_t(message.data(), message.size()));
+        } catch (const fmt::format_error&) {
+            l->log(level, spdlog::string_view_t(format.data(), format.size()));
+        }
     }
 }
 } // namespace detail
@@ -40,32 +64,32 @@ inline void log(spdlog::level::level_enum level, std::string_view format, Args&&
 
 template <typename... Args>
 inline void trace(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::trace, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Trace), format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 inline void debug(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::debug, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Debug), format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 inline void info(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::info, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Info), format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 inline void warn(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::warn, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Warn), format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 inline void error(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::err, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Error), format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 inline void critical(std::string_view format, Args&&... args) {
-    detail::log(spdlog::level::critical, format, std::forward<Args>(args)...);
+    detail::log(detail::to_spdlog_level(Level::Critical), format, std::forward<Args>(args)...);
 }
 
 } // namespace wk::slog

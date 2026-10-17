@@ -4,7 +4,7 @@
 
 find_or_add(fmt
     NO_SYSTEM
-    GIT_TAG main
+    GIT_TAG 12.2.1
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
 )
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wk/core.hpp>
+#include <wk/math.hpp>
 
 #include <GLFW/glfw3.h>
 
